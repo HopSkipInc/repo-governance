@@ -19,8 +19,13 @@
 ## Agent routing
 
 Every issue carries an `impl:` label — `standard`, `frontier`, or `human` — declaring the
-minimum capability class required, and an `## Impl tier` line giving the kind (`spec` or
-`inherent`) and the reason.
+minimum capability class required, and an `## Impl tier` line giving the kind and the reason.
+
+Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
+failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
+dangerous — rewrite the spec, the tier stays). `both` is the commonest state on a real
+boundary and the easiest to mislabel: `inherent` is the flattering call, so a triager forced
+to choose drifts toward it.
 
 Before implementing an issue:
 

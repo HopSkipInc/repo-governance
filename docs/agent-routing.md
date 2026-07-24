@@ -1,9 +1,9 @@
-<!-- template: agent-routing.md v1.4.0 · updated 2026-07-24 -->
+<!-- template: agent-routing.md v1.5.0 · updated 2026-07-24 -->
 # Agent Routing
 
-**Version:** 1.2.0 · **Last updated:** 2026-07-24
-**Status:** Policy — enforced by CI validator (`templates/scripts/check-issue-routing.mjs`) and periodic audit
-**Related:** [Issue Authoring](../templates/issue-authoring.md) · [Definition of Done](../templates/definition-of-done.md)
+**Version:** 1.5.0 · **Last updated:** 2026-07-24
+**Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
+**Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
 > **Downstream copies must record the version they were synced from.** This policy is a
 > synced artifact: a run that reads the template at the start and a copy that landed
@@ -21,6 +21,7 @@
 | 1.2.0 | 2026-07-24 | `both` kind; ratio measured pre-response; curated-baseline caveat; provisional calibration sets |
 | 1.3.0 | 2026-07-24 | Weakened verification named as an anti-pattern — a silent failure mode of `standard`-tiered work, mitigated by authoring rather than escalation |
 | 1.4.0 | 2026-07-24 | Classification delegated to a `model:`-pinned agent; the pin is the one place a model name may be written, and must appear in the mapping table |
+| 1.5.0 | 2026-07-24 | CLAUDE.md block listed only two kinds — `both` was added in 1.2.0 and the block never followed. Downstream repos installing it taught their agents a two-kind taxonomy against a three-kind policy |
 
 ## Purpose
 
@@ -215,21 +216,30 @@ when the outcome contradicted the tier — a provisional row that turned out wro
 instructive entry the set will ever have. An all-provisional set is expected on run one and
 should be treated as weaker evidence than the heuristics table, not stronger.
 
-<!-- Fill this in from your own backlog. Do not inherit another repo's examples — the
-     whole value is that they are recognisable to the people doing the triage. -->
-
 ### Calibration set (provisional — built from open issues on the bootstrap run, 2026-07-24)
 
-All four open issues. The entire backlog — the honest baseline.
+All four open issues. The entire backlog — no epic, no curation, the honest baseline.
 
 | # | Tier | Kind | Why | Disputed? |
 |---|---|---|---|---|
-| 7 | frontier | inherent | Triage is a frontier task — router must be smarter than the routed. Structural, not a spec gap. | No — self-evident from the policy |
-| 1 | standard | — | Deterministic static analysis, loud failures, no risk surface, existing pattern to copy. | No — obvious standard |
-| 2 | frontier | spec | Doesn't pick a versioning approach; "Needs an ADR" is the spec gap. Specifying → mechanical. | **Yes** — could argue `inherent` if the design decision itself is the hard part regardless of spec quality |
-| 4 | frontier | inherent | Research quality is silent failure (shallow analysis reads as thorough); multiple constraints, no mechanical verification. | **Yes** — could argue `spec` since the research questions are well-specified, or `human` if research is a judgment call |
+| 7 | frontier | inherent | Bad tiers get skimmed and accepted, and this set is what settles future disputes — silent and compounding. | No |
+| 1 | standard | — | Deterministic static analysis; existing pattern to copy. | **Yes — unresolved.** A wrong governance-readiness score looks exactly like a right one, which is a silent failure and argues `frontier`. Left at `standard` pending human review; do **not** treat this row as settled. |
+| 2 | frontier | spec | Does not pick a versioning approach; specifying it makes the stamping and drift wiring mechanical. | **Yes** — arguable `inherent` if the design decision is the hard part regardless of spec quality. |
+| 4 | frontier | **both** | Silent failure (shallow analysis reads as thorough) **and** under-specified (no acceptance criteria bind what "done" means). Rewriting the criteria shrinks what has to be derived; the silent half remains. | Resolved to `both` on review. |
 
-**Spec-escalation ratio (provisional):** 1 of 4 issues (25%) carry a `spec` component. Sample is the entire backlog — no epic curation, no pre-cleaning. This is the honest baseline for this repo.
+**Corrections applied after the bootstrap run.** `#4` was originally filed `inherent`. The
+silent-failure argument was sound, but the issue is *also* under-specified, which is precisely
+what `both` is for. The run could not reach `both` because the CLAUDE.md block it worked from
+listed only two kinds (fixed in policy 1.5.0) — a documentation defect upstream of the
+triager, not a triage error.
+
+**Spec-escalation ratio (provisional): 2 of 4 (50%)** — issues carrying a `spec` component
+(`#2` spec, `#4` both), measured on the classification before responses. Resolved by rewrite: 0.
+Resolved by split: 0. The bootstrap run reported 25%; the correction to `#4` moved it.
+
+**Standing caution for this set:** every row is provisional and two of four are disputed. It
+is weaker evidence than the heuristics table, not stronger. Promote a row to confirmed only
+when its issue closes and the outcome matched the call.
 
 ## The self-bounding agent contract
 
@@ -269,10 +279,14 @@ human is present and already knows.
 
 For that fallback, keep one dated mapping table in `docs/agent-routing.md`:
 
-| Class | Approved models | As of |
-|---|---|---|
-| standard | claude-sonnet-4, gpt-4o, glm-5.2 | 2026-07-24 |
-| frontier | claude-opus-4, glm-5.2 | 2026-07-24 |
+| Class | Approved models | As of | Pinned in |
+|---|---|---|---|
+| standard | claude-haiku-4-5, glm-5.2 | 2026-07-24 | — |
+| frontier | claude-opus-4-8, claude-sonnet-5 | 2026-07-24 | `.claude/agents/routing-classifier.md` |
+
+> **glm-5.2 is `standard`, not `frontier`.** Recorded because a 2026-07-24 opencode run
+> classified this repo's backlog inline and described itself as a "frontier model (glm-5.2)"
+> in the PR body. That is the self-certification the pin exists to prevent.
 
 The label vocabulary never changes. The mapping churns every few months, in exactly one
 file. Never write a model name into a label.
@@ -283,7 +297,7 @@ to name something concrete. Add it as a row here so a re-sync reviews it:
 
 | Class | Approved models | As of | Pinned in |
 |---|---|---|---|
-| frontier | _deferred_ | — | `.claude/agents/routing-classifier.md` (not yet created — see team-state DEFERRED FIX) |
+| frontier | [model ids] | [YYYY-MM-DD] | `.claude/agents/routing-classifier.md` |
 
 A pin nobody reviews is a pin that quietly names a retired model.
 
@@ -391,8 +405,13 @@ calibration examples has inherited a vocabulary its triagers cannot recognise.
 ## Agent routing
 
 Every issue carries an `impl:` label — `standard`, `frontier`, or `human` — declaring the
-minimum capability class required, and an `## Impl tier` line giving the kind (`spec` or
-`inherent`) and the reason.
+minimum capability class required, and an `## Impl tier` line giving the kind and the reason.
+
+Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
+failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
+dangerous — rewrite the spec, the tier stays). `both` is the commonest state on a real
+boundary and the easiest to mislabel: `inherent` is the flattering call, so a triager forced
+to choose drifts toward it.
 
 Before implementing an issue:
 
@@ -440,40 +459,7 @@ Tier definitions, the model→class mapping, and this repo's calibration example
    assigned on the blast radius of the *code* and the silence lives in the *test*. Any issue
    whose acceptance criteria include proving something can fail carries this exposure
    regardless of its tier — the mitigation is authoring (name the rule and the expected error;
-   see [Issue Authoring](../templates/issue-authoring.md)), not escalation.
+   see [Issue Authoring](issue-authoring.md)), not escalation.
 
- 8. **Chasing the frontier ratio to zero.** `inherent` escalations are supposed to persist.
-    A repo reporting zero has mislabeled its dangerous surfaces, not eliminated them.
-
----
-
-## Repo-specific records
-
-### `gate:` family — deliberately not created
-
-**Date:** 2026-07-24
-
-This repo has no isolation, tenancy, or credential boundary. It is a governance template
-repo — markdown templates, lint scripts, and documentation. The policy states: "Defer the
-family only in repos that genuinely have no such boundary: pure libraries, static sites,
-single-tenant internal tools." This repo meets that condition.
-
-Confirming that the rule reads correctly in a repo that genuinely should skip it is part of
-the value of this dogfood run. If a future change introduces a boundary (e.g. a credential
-store, a multi-tenant template registry), re-evaluate.
-
-### Repo-specific surfaces
-
-This is a template/governance repo, not a production system. The risk surface map is
-unusual:
-
-1. **No isolation or tenancy boundary.** Single-repo, single-author, no multi-tenancy.
-2. **No credentials or secrets.** No secret store, no key rotation, no credential grants.
-3. **No safety invariants.** No fail-closed guards, no feature flags gating security checks.
-4. **No migrations.** No database, no schema evolution.
-5. **No test coverage.** The repo is markdown templates + Node.js lint scripts. The lint
-   scripts are tested by running them against real repos, not by a test suite.
-6. **The real risk surface is template correctness.** A wrong template propagates to every
-   downstream repo that syncs it. The failure mode is silent — a subtly wrong template
-   produces subtly wrong governance in repos that adopt it, and the error is far from the
-   source. This is why template versioning (issue #2) and the version-stamp lint matter.
+8. **Chasing the frontier ratio to zero.** `inherent` escalations are supposed to persist.
+   A repo reporting zero has mislabeled its dangerous surfaces, not eliminated them.

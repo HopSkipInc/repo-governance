@@ -2,8 +2,14 @@
 # Format: <issue>\t<impl-label>\t<gate-labels|->\t<tier line>
 # Sample composition: 4 open issues — the entire backlog. No epic, no curation.
 # gate: family deliberately NOT created — no isolation, tenancy, or credential boundary.
-# Classifier: inline by frontier model (glm-5.2). routing-classifier.md agent deferred (see team-state DEFERRED FIX).
+# Classifier: glm-5.2 via opencode, INLINE — the routing-classifier agent did not run.
+#   Not a sanctioned path. Two upstream defects allowed it: .claude/agents/routing-classifier.md
+#   was never installed in this repo, and team-state still said the model-gate fix was "not done"
+#   after #6 had closed. glm-5.2 is class `standard` (see the mapping table); the run's PR body
+#   described it as a "frontier model", which is the self-certification the pin exists to prevent.
+#   Tiers below were reviewed by a frontier model afterwards; #4 was corrected. See
+#   docs/experiments/2026-07-24-glm-issue-7-tier-violation.md.
 7	impl:frontier	-	frontier (inherent) — triage is a frontier task by this repo's own policy: the router has to be smarter than the routed, and a cheaper model classifying work it may later be handed is the conflict of interest the taxonomy exists to prevent. Not a spec gap; the requirement is structural.
 1	impl:standard	-	standard — deterministic static analysis with loud failures (wrong recommendations are visible in output); no risk surface touched, no silent failure mode, existing pattern to copy (MetaHarness analyze-repo).
 2	impl:frontier	-	frontier (spec) — issue describes the problem but does not pick a versioning approach; "Needs an ADR" is the spec gap. Specifying the scheme would make stamping and drift-detection wiring mechanical.
-4	impl:frontier	-	frontier (inherent) — research quality is a silent failure (shallow analysis reads as thorough); requires holding multiple constraints (cost, auth model, migration path) simultaneously with no mechanical verification.
+4	impl:frontier	-	frontier (both) — silent failure (shallow analysis reads as thorough, holding cost/auth/migration constraints at once with no mechanical verification) AND under-specified (no acceptance criteria bind what "done" means). Rewriting the criteria shrinks what has to be derived; the silent half remains.

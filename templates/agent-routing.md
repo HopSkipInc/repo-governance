@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.4.0 · updated 2026-07-24 -->
+<!-- template: agent-routing.md v1.5.0 · updated 2026-07-24 -->
 # Agent Routing
 
-**Version:** 1.2.0 · **Last updated:** 2026-07-24
+**Version:** 1.5.0 · **Last updated:** 2026-07-24
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -21,6 +21,7 @@
 | 1.2.0 | 2026-07-24 | `both` kind; ratio measured pre-response; curated-baseline caveat; provisional calibration sets |
 | 1.3.0 | 2026-07-24 | Weakened verification named as an anti-pattern — a silent failure mode of `standard`-tiered work, mitigated by authoring rather than escalation |
 | 1.4.0 | 2026-07-24 | Classification delegated to a `model:`-pinned agent; the pin is the one place a model name may be written, and must appear in the mapping table |
+| 1.5.0 | 2026-07-24 | CLAUDE.md block listed only two kinds — `both` was added in 1.2.0 and the block never followed. Downstream repos installing it taught their agents a two-kind taxonomy against a three-kind policy |
 
 ## Purpose
 
@@ -378,8 +379,13 @@ calibration examples has inherited a vocabulary its triagers cannot recognise.
 ## Agent routing
 
 Every issue carries an `impl:` label — `standard`, `frontier`, or `human` — declaring the
-minimum capability class required, and an `## Impl tier` line giving the kind (`spec` or
-`inherent`) and the reason.
+minimum capability class required, and an `## Impl tier` line giving the kind and the reason.
+
+Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
+failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
+dangerous — rewrite the spec, the tier stays). `both` is the commonest state on a real
+boundary and the easiest to mislabel: `inherent` is the flattering call, so a triager forced
+to choose drifts toward it.
 
 Before implementing an issue:
 
