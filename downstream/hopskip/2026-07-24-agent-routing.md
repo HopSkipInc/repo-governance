@@ -1,7 +1,10 @@
 # Governance update: agent routing tiers (2026-07-24)
 
 **Applies to:** all governed repos with a GitHub backlog worked by agents
-**Policy version to install:** `agent-routing.md` **1.2.0** — check the header before you start
+**Policy version to install:** whatever `templates/agent-routing.md` currently stamps — read it,
+do not assume. This prompt deliberately does not name a version: a prompt that hardcodes one
+goes stale the moment the policy moves, which is the same drift the version stamps exist to
+prevent, one level up.
 **Templates:** `templates/agent-routing.md`, `templates/skills/routing-triage/SKILL.md`,
 `templates/routing-calibration-protocol.md`, `templates/issue-authoring.md` (updated)
 **Status of this policy:** candidate, revised twice on its first day from two live runs. Report
@@ -30,11 +33,17 @@ about to be handed.
 ls docs/agent-routing.md 2>/dev/null && grep -m1 '^\*\*Version:' docs/agent-routing.md
 ```
 
+Compare it against the template's stamp:
+
+```bash
+head -1 ~/repos/greg/repo-governance/templates/agent-routing.md
+```
+
 - **No file** → you are **bootstrapping**. Do steps 1–8.
-- **File present, version < 1.2.0** → you are **re-syncing**. Do steps 1, 2, then jump to
-  *Re-sync backfill* at the bottom. The policy changed under the first two runs; some of your
-  existing tiers were made against rules that no longer exist.
-- **File present at 1.2.0** → nothing to do here.
+- **Installed version behind the template** → you are **re-syncing**. Do steps 1, 2, then jump
+  to *Re-sync backfill* at the bottom. The policy changed under the first two runs; some of
+  your existing tiers were made against rules that no longer exist.
+- **Installed version equals the template** → nothing to do here.
 
 ---
 
@@ -154,8 +163,8 @@ Your existing tiers were assigned under rules that have since changed. Three pas
 ## Verifiable outcomes
 
 ```bash
-# Policy is present, readable from inside the repo, and current
-test -f docs/agent-routing.md && grep -q 'Version:\*\* 1\.2\.0' docs/agent-routing.md && echo OK
+# Policy is present, readable from inside the repo, and matches the template exactly
+diff -q docs/agent-routing.md ~/repos/greg/repo-governance/templates/agent-routing.md && echo OK
 
 # Labels exist
 gh label list --limit 200 | grep -c '^impl:'                       # → 3
