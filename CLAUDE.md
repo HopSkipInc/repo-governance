@@ -15,3 +15,26 @@
 4. If significant new cross-repo context was created (patterns, strategies, decisions), create or update a file in `~/.claude/memory/` and add it to the Memory Files manifest in global-state.md
 
 **Do NOT use ruvector/claude-flow memory CLI for state storage.** Use plain markdown files only.
+
+## Agent routing
+
+Every issue carries an `impl:` label — `standard`, `frontier`, or `human` — declaring the
+minimum capability class required, and an `## Impl tier` line giving the kind (`spec` or
+`inherent`) and the reason.
+
+Before implementing an issue:
+
+1. Read the `impl:` label and the `## Impl tier` line.
+2. If the tier exceeds your capability class, do not implement. Comment with what you
+   would need, and stop.
+3. If the label or the kind is missing, do not implement. Comment and stop.
+4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
+   same failing test; creating a file type with no precedent here; touching a migration
+   that drops or renames; no existing test covers the surface you are changing; the diff
+   exceeds [N] files.
+
+You may escalate an issue's tier at any time. You may never downgrade one — least of all
+on an issue you are about to implement.
+
+Tier definitions, the model→class mapping, and this repo's calibration examples are in
+`docs/agent-routing.md`.

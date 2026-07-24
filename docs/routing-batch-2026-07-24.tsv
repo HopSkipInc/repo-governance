@@ -1,0 +1,9 @@
+# batch.tsv — repo-governance routing triage, bootstrap run 2026-07-24
+# Format: <issue>\t<impl-label>\t<gate-labels|->\t<tier line>
+# Sample composition: 4 open issues — the entire backlog. No epic, no curation.
+# gate: family deliberately NOT created — no isolation, tenancy, or credential boundary.
+# Classifier: inline by frontier model (glm-5.2). routing-classifier.md agent deferred (see team-state DEFERRED FIX).
+7	impl:frontier	-	frontier (inherent) — triage is a frontier task by this repo's own policy: the router has to be smarter than the routed, and a cheaper model classifying work it may later be handed is the conflict of interest the taxonomy exists to prevent. Not a spec gap; the requirement is structural.
+1	impl:standard	-	standard — deterministic static analysis with loud failures (wrong recommendations are visible in output); no risk surface touched, no silent failure mode, existing pattern to copy (MetaHarness analyze-repo).
+2	impl:frontier	-	frontier (spec) — issue describes the problem but does not pick a versioning approach; "Needs an ADR" is the spec gap. Specifying the scheme would make stamping and drift-detection wiring mechanical.
+4	impl:frontier	-	frontier (inherent) — research quality is a silent failure (shallow analysis reads as thorough); requires holding multiple constraints (cost, auth model, migration path) simultaneously with no mechanical verification.
