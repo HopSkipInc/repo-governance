@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.5.0 · updated 2026-07-24 -->
+<!-- template: agent-routing.md v1.6.0 · updated 2026-07-24 -->
 # Agent Routing
 
-**Version:** 1.5.0 · **Last updated:** 2026-07-24
+**Version:** 1.6.0 · **Last updated:** 2026-07-24
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -21,6 +21,7 @@
 | 1.2.0 | 2026-07-24 | `both` kind; ratio measured pre-response; curated-baseline caveat; provisional calibration sets |
 | 1.3.0 | 2026-07-24 | Weakened verification named as an anti-pattern — a silent failure mode of `standard`-tiered work, mitigated by authoring rather than escalation |
 | 1.4.0 | 2026-07-24 | Classification delegated to a `model:`-pinned agent; the pin is the one place a model name may be written, and must appear in the mapping table |
+| 1.6.0 | 2026-07-24 | What the kind means over time — fixing the spec on a `both` issue leaves `inherent`; the classification stays frozen in the calibration set. Without this `both` blocks `status:ready` forever |
 | 1.5.0 | 2026-07-24 | CLAUDE.md block listed only two kinds — `both` was added in 1.2.0 and the block never followed. Downstream repos installing it taught their agents a two-kind taxonomy against a three-kind policy |
 
 ## Purpose
@@ -77,6 +78,21 @@ particular.
 
 It also settles the anti-gaming problem (see *Downgrades*): an `inherent` tier cannot be
 talked down, and a `spec` tier can only be talked down by an edit that removes the reason.
+
+### What the kind means over time
+
+The kind describes the issue's **current** state, not its history. Fixing the spec on a `both`
+issue retires the spec component and leaves `inherent` — the tier does not move, but the kind
+does. Without this, `both` is a trap: the issue can never carry `status:ready` because the
+`status:ready` + spec-component rule reads it as permanently "ready to be rewritten".
+
+The **classification** is what the ratio and the calibration set record, and that is frozen at
+triage time. So a rewritten `both` issue appears as `both — resolved by rewrite` in the
+calibration set and as `inherent` on the issue itself. Those are not in conflict; they answer
+different questions.
+
+*(Found 2026-07-24 by `check-issue-routing.mjs` R4 firing on a `both` issue whose spec had just
+been fixed — the lint was right and the policy was silent.)*
 
 ## Responses to an escalation
 

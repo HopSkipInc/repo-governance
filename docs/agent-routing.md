@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.5.0 · updated 2026-07-24 -->
+<!-- template: agent-routing.md v1.6.0 · updated 2026-07-24 -->
 # Agent Routing
 
-**Version:** 1.5.0 · **Last updated:** 2026-07-24
+**Version:** 1.6.0 · **Last updated:** 2026-07-24
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -77,6 +77,21 @@ particular.
 
 It also settles the anti-gaming problem (see *Downgrades*): an `inherent` tier cannot be
 talked down, and a `spec` tier can only be talked down by an edit that removes the reason.
+
+### What the kind means over time
+
+The kind describes the issue's **current** state, not its history. Fixing the spec on a `both`
+issue retires the spec component and leaves `inherent` — the tier does not move, but the kind
+does. Without this, `both` is a trap: the issue can never carry `status:ready` because the
+`status:ready` + spec-component rule reads it as permanently "ready to be rewritten".
+
+The **classification** is what the ratio and the calibration set record, and that is frozen at
+triage time. So a rewritten `both` issue appears as `both — resolved by rewrite` in the
+calibration set and as `inherent` on the issue itself. Those are not in conflict; they answer
+different questions.
+
+*(Found 2026-07-24 by `check-issue-routing.mjs` R4 firing on a `both` issue whose spec had just
+been fixed — the lint was right and the policy was silent.)*
 
 ## Responses to an escalation
 
@@ -223,7 +238,7 @@ All four open issues. The entire backlog — no epic, no curation, the honest ba
 | # | Tier | Kind | Why | Disputed? |
 |---|---|---|---|---|
 | 7 | frontier | inherent | Bad tiers get skimmed and accepted, and this set is what settles future disputes — silent and compounding. | No |
-| 1 | standard | — | Deterministic static analysis; existing pattern to copy. | **Yes — unresolved.** A wrong governance-readiness score looks exactly like a right one, which is a silent failure and argues `frontier`. Left at `standard` pending human review; do **not** treat this row as settled. |
+| 1 | **frontier** | **both** | The analyze-repo template matrix is hand-maintained and named 18 of 36 templates — a bootstrapped repo silently receives roughly the session-8 practice while the analysis still prints a score and reads as a success. Also carried no acceptance criteria. | **Resolved to `frontier (both)`** by human decision, escalated from `standard`. |
 | 2 | frontier | spec | Does not pick a versioning approach; specifying it makes the stamping and drift wiring mechanical. | **Yes** — arguable `inherent` if the design decision is the hard part regardless of spec quality. |
 | 4 | frontier | **both** | Silent failure (shallow analysis reads as thorough) **and** under-specified (no acceptance criteria bind what "done" means). Rewriting the criteria shrinks what has to be derived; the silent half remains. | Resolved to `both` on review. |
 
@@ -233,11 +248,18 @@ what `both` is for. The run could not reach `both` because the CLAUDE.md block i
 listed only two kinds (fixed in policy 1.5.0) — a documentation defect upstream of the
 triager, not a triage error.
 
-**Spec-escalation ratio (provisional): 2 of 4 (50%)** — issues carrying a `spec` component
-(`#2` spec, `#4` both), measured on the classification before responses. Resolved by rewrite: 0.
-Resolved by split: 0. The bootstrap run reported 25%; the correction to `#4` moved it.
+**Spec-escalation ratio (provisional): 3 of 4 (75%)** — issues carrying a `spec` component
+(`#2` spec, `#4` both, `#1` both), measured on the classification before responses.
+**Resolved by rewrite: 1** (`#1` — acceptance criteria written, which is what moved it off
+`spec` alone). Resolved by split: 0.
 
-**Standing caution for this set:** every row is provisional and two of four are disputed. It
+The bootstrap run reported 25%. Review moved it to 75%. Both corrections went the same
+direction, and the reason is structural rather than incidental: the run could not reach `both`
+at all, so every issue that was *also* under-specified got recorded as purely `inherent` — the
+flattering call. **A two-kind taxonomy systematically under-reports spec debt**, which is the
+metric the whole practice is supposed to drive down.
+
+**Standing caution for this set:** every row is provisional and one of four remains disputed. It
 is weaker evidence than the heuristics table, not stronger. Promote a row to confirmed only
 when its issue closes and the outcome matched the call.
 
