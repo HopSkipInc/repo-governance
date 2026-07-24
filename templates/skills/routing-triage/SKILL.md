@@ -20,10 +20,25 @@ Governed by **`docs/agent-routing.md` in this repo**. Read it before running thi
 tier definitions, the two load-bearing rules, the escalation responses, and the downgrade
 rules are there, not here. This file is only the procedure.
 
-**If `docs/agent-routing.md` does not exist, the install is incomplete — stop and say so.**
-The policy must be materialized into the repo before the skill runs, because the skill is
-useless to anyone who cannot read the policy, and not everyone running it has access to the
-governance repo. Do not silently fall back to a path outside this repository.
+**If `docs/agent-routing.md` does not exist, you are on a bootstrap run.** Do not stop, and
+do not proceed without the policy either — materialize it first:
+
+```bash
+# Bootstrap: copy the current policy into this repo, then read it from here
+mkdir -p docs
+cp <governance-repo>/templates/agent-routing.md docs/agent-routing.md
+grep -m2 -E '^\*\*Version:|^\*\*Last updated' docs/agent-routing.md   # record this in the run notes
+```
+
+If you cannot reach the governance repo, stop and say so — the skill is useless to anyone who
+cannot read the policy, and a triager working from memory of a previous version will produce
+calls that silently disagree with the current rules.
+
+**Always copy the policy at run start; never trust a local copy that is already there.** The
+policy is a synced artifact and has changed mid-adoption before. Compare the `Version:` line
+in `docs/agent-routing.md` against the template. If the local copy is behind, re-sync before
+triaging and note both versions — the kinds and the escalation responses have changed between
+versions, and a run split across two versions is not internally consistent.
 
 **This skill must be run by a frontier-class model or a human.** Triage is itself a
 frontier task: the router has to be smarter than the routed. A standard-class model
@@ -53,6 +68,30 @@ gh issue list --state open --label "status:ready" --limit 200 \
 gh issue list --state open --label "impl:standard" --limit 1 --json number
 ls docs/agent-routing.md 2>/dev/null
 ```
+
+### Sample composition check — do this before classifying anything
+
+**A bounded set drawn mostly from one recently-authored or recently-reviewed epic will produce
+a flattering spec ratio and a worthless baseline.** Design or pre-implementation review is
+exactly the process that removes spec debt, so measuring there tells you the review worked. On
+the first run of this skill anywhere, this trap has already fired once.
+
+```bash
+# What fraction of the candidate set belongs to a single epic or parent?
+gh issue list --state open --label "status:ready" --limit 200 --json number,title,body \
+  | grep -oE 'child-of #[0-9]+|part of #[0-9]+' | sort | uniq -c | sort -rn
+```
+
+Rules:
+
+- If **more than half** the candidate set traces to one epic, the set is not a baseline. Either
+  widen it to the general backlog, or run it anyway and **refuse to report a spec ratio**,
+  stating plainly that the sample was curated.
+- Prefer a set spanning several areas and at least two `theme:`/`area:` families.
+- Deliberately include issues carrying the repo's under-structure marker (`needs-structure` or
+  equivalent). Excluding them guarantees a low spec ratio and hides the population the metric
+  exists to measure.
+- Record the sample's composition in the run notes. A ratio without its sample is not a number.
 
 Then map the repo's **risk surfaces**, because the heuristics table is unusable without
 them. You are looking for the paths where a wrong change fails silently:
@@ -178,6 +217,20 @@ gh label create "impl:frontier" --color D93F0B --description "Frontier model may
 gh label create "impl:human"    --color B60205 --description "Needs a human in the loop regardless of model capability"
 ```
 
+**If Step 0 found an isolation, tenancy, or credential surface, create the `gate:` family too**
+— the policy calls for it from day one in those repos, and the trivial-diff-on-a-boundary case
+arrives in the first pass, not eventually:
+
+```bash
+gh label create "gate:human-approval" --color 5319E7 --description "Agent may prepare; a human owns the irreversible step"
+gh label create "gate:human-review"   --color 5319E7 --description "Judgment call no test settles"
+gh label create "gate:credentials"    --color 5319E7 --description "Agent structurally cannot hold the keys"
+gh label create "gate:decision"       --color 5319E7 --description "Outcome should be recorded as a PDR/ADR by a person first"
+```
+
+Do not skip this because the labels happen to already exist — verify, because a repo that
+inherited them from an earlier run masks the gap for the next repo that does not.
+
 Then, per issue: apply the label, and **append the tier line to the body**. The label routes;
 the line explains. An issue with a label and no line is malformed — the next agent sees a
 constraint with no reason and cannot tell whether it still applies.
@@ -188,9 +241,27 @@ frontier (inherent) — touches the [boundary]; a wrong scope returns plausible-
 rows and no test covers cross-tenant reads.
 ```
 
-Edit bodies with `gh issue edit <n> --body-file <tmp>`; read the current body first and
-append, never overwrite. If the repo has an issue-body schema, the block goes where the
-schema says.
+**Apply from a reviewed batch file, not an ad-hoc loop.** Write every intended change to a
+single file first — issue number, label, and the exact tier line — have the human read it, then
+execute it. A shell loop over 24 issues that mangles a label or double-writes a heading is easy
+to produce and quiet to miss, and the damage is spread across two dozen live issues before
+anything looks wrong. This is the observed failure mode from the first two runs, and both times
+it was the scripting, not the policy.
+
+```bash
+# batch.tsv — one line per issue, reviewed before anything executes
+# <issue>\t<impl-label>\t<gate-labels|->\t<tier line>
+while IFS=$'\t' read -r n impl gates line; do
+  gh issue view "$n" --json body -q .body > /tmp/body-$n.md
+  printf '\n## Impl tier\n%s\n' "$line" >> /tmp/body-$n.md
+  gh issue edit "$n" --add-label "$impl" --body-file /tmp/body-$n.md
+  [ "$gates" != "-" ] && gh issue edit "$n" --add-label "$gates"
+done < batch.tsv
+```
+
+Read the current body first and append, never overwrite. If the repo has an issue-body schema,
+the block goes where the schema says. Spot-check three issues after the batch before declaring
+it done.
 
 **Rewrite before you label** any issue the human chose to answer in Step 2.2 — fix the body,
 *then* apply the lower tier. The downgrade and the spec fix land in the same edit. That
@@ -209,6 +280,12 @@ above them. Three sections:
 2. **The calibration set** — 5–8 of the issues you just triaged, with tier, kind, and the
    one-line reason. Pick the ones that were *disputed*, not the obvious ones: the value of a
    calibration set is settling future arguments, and the obvious cases never generate any.
+
+   On a bootstrap run every example will be an **open, just-triaged** issue, because the tiers
+   did not exist when anything closed. That is expected — head the section
+   `Calibration set (provisional — built from open issues on the bootstrap run, YYYY-MM-DD)`
+   and treat it as weaker evidence than the heuristics table until the issues close and the
+   outcomes either confirm or contradict the calls.
 3. **Repo-specific surfaces** — the map from Step 0, so the next run does not rediscover it.
 
 Do not copy another repo's calibration set. The examples only work if the people triaging

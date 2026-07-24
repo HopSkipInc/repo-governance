@@ -1,7 +1,23 @@
 # Agent Routing
 
+**Version:** 1.2.0 · **Last updated:** 2026-07-24
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
+
+> **Downstream copies must record the version they were synced from.** This policy is a
+> synced artifact: a run that reads the template at the start and a copy that landed
+> mid-run can differ, and a triager cannot tell. When installing, keep the header above
+> intact, and record the version in the run's notes. If the header version is behind the
+> template, re-sync before triaging — the kinds and the escalation responses have changed
+> before and will again.
+
+**Changelog**
+
+| Version | Date | Change |
+|---|---|---|
+| 1.0.0 | 2026-07-24 | Initial — three `impl:` tiers, `spec`/`inherent` kinds, `gate:` family |
+| 1.1.0 | 2026-07-24 | `gate:` from day one on boundary repos; "Responses to an escalation" (accept / rewrite / **split**) |
+| 1.2.0 | 2026-07-24 | `both` kind; ratio measured pre-response; curated-baseline caveat; provisional calibration sets |
 
 ## Purpose
 
@@ -178,11 +194,23 @@ mechanical work cheaply and hold the boundary work back.
 | #NNN | frontier | inherent | silent failure on [boundary] |
 | #NNN | human | inherent | removes a safety invariant |
 
-**4. Calibration set.** Keep 5–8 real, closed issues from this repo labeled as worked
-examples, in `docs/agent-routing.md`. Triage disputes get settled by nearest neighbour
-against the set, not by re-arguing the heuristics table. A taxonomy without calibration
-examples drifts within two months, because every triager reads "contained blast radius"
-differently.
+**4. Calibration set.** Keep 5–8 real issues from this repo labeled as worked examples, in
+`docs/agent-routing.md`. Triage disputes get settled by nearest neighbour against the set,
+not by re-arguing the heuristics table. A taxonomy without calibration examples drifts
+within two months, because every triager reads "contained blast radius" differently.
+
+**Closed issues are better, but a bootstrap run has none.** A new repo or a new area cannot
+produce a set of closed, tiered examples — the tiers did not exist when those issues closed.
+On a first run, build the set from **open, just-triaged issues and mark it `provisional`**:
+
+```markdown
+### Calibration set (provisional — built from open issues on the bootstrap run, 2026-07-24)
+```
+
+Promote a row to confirmed when its issue closes and the outcome matched the tier; correct it
+when the outcome contradicted the tier — a provisional row that turned out wrong is the most
+instructive entry the set will ever have. An all-provisional set is expected on run one and
+should be treated as weaker evidence than the heuristics table, not stronger.
 
 <!-- Fill this in from your own backlog. Do not inherit another repo's examples — the
      whole value is that they are recognisable to the people doing the triage. -->

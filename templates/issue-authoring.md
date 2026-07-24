@@ -71,12 +71,45 @@ Labels are not decoration — they route, prioritize, and let a periodic audit r
 
 > GitHub issue **forms** cannot auto-apply prefixed labels from a dropdown selection — forms must ask the author to pick the dropdown **and** apply the matching label. A CI validator can enforce that the labels are actually present.
 
+## Split at authoring, not at triage
+
+An issue that is 80% mechanical and 20% dangerous is two issues. Splitting it is the best
+response available — it routes the cheap half cheaply and shrinks the risky half — but it is
+**far cheaper at creation than at triage.** Splitting later means a new issue, renumbering,
+cross-references, and edits to every epic table that referenced the original.
+
+Two tells, both visible while writing:
+
+1. **"and" in the title.** *"Add the cost cap and the admission logic."* Two units of work with
+   different failure modes wearing one number.
+2. **The acceptance criteria change character partway down.** The first three items are
+   plumbing, config, or scaffolding; the fourth is the entire risk. Cut between them.
+
+If either tell fires, file two issues. The mechanical one is `impl:standard` and can be worked
+immediately by anything; the residue carries the boundary and waits for what it needs. See
+[Agent Routing](agent-routing.md) → *Responses to an escalation*.
+
 ## The layered enforcement model
 
 GitHub cannot restrict who creates an issue through the UI or the API, so enforcement is layered, defense-in-depth. The posture is **label + comment, never auto-close**:
 
 1. **Layer 1 — sanctioned creation path (proactive).** If agents or tooling file issues, the creation tool validates the structure *before* hitting GitHub and refuses to file a malformed issue.
 2. **Layer 2 — CI validator (backstop).** A workflow on `issues: [opened, edited]` applies the same rules; on failure it adds a `needs-structure` label and posts a structure-check comment listing exactly what is missing. It never closes or blocks.
+
+   **Routing rules the validator must carry.** These are mechanical, and if they are not in the
+   validator they degrade into a manual audit check nobody runs:
+
+   | Rule | Failure |
+   |---|---|
+   | Exactly one `impl:` label | missing or multiple |
+   | Body has an `## Impl tier` line | missing |
+   | Tier above `standard` declares a kind (`spec`, `inherent`, `both`) | tier present, no kind |
+   | `status:ready` + a `spec`-component kind | contradiction — ready to be *rewritten*, not worked |
+   | Carries `needs-structure` + tiered without a `spec` component | contradiction — validator says under-specified, triage says spec wouldn't help; the usual correct answer is `both` |
+   | `impl:` label changed with no body edit in the same window | ungrounded downgrade — see Agent Routing → *Downgrades* |
+
+   The last two are the ones worth wiring first: they catch the two ways the taxonomy quietly
+   stops meaning anything.
 3. **Layer 3 — periodic audit (sweep).** The staleness audit flags every open issue carrying `needs-structure` or failing the rules, as P2-style findings.
 
 Start with Layer 3 (it's free — add it to the audit prompt). Add Layers 1–2 when creation volume justifies them.
