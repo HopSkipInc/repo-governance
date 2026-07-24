@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.1.0 · updated 2026-07-24 -->
+<!-- template: issue-authoring.md v1.2.0 · updated 2026-07-24 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -71,6 +71,27 @@ Labels are not decoration — they route, prioritize, and let a periodic audit r
 | **theme:** | optional, one or more | `[your roadmap track names]` |
 
 > GitHub issue **forms** cannot auto-apply prefixed labels from a dropdown selection — forms must ask the author to pick the dropdown **and** apply the matching label. A CI validator can enforce that the labels are actually present.
+
+## Proof-of-failure criteria must name the rule
+
+An acceptance criterion of the form *"prove this check can fail"* is satisfied by **the
+easiest available failure**, not the one you meant. Whoever implements it — human or agent —
+will find some mutation that turns CI red, and a check with several rules has several ways to
+go red, most of them trivial.
+
+Write the criterion to name **which rule must fail, and the error text you expect**:
+
+> ❌ A deliberate test commit turns the workflow red.
+> ❌ A commit that edits a template without bumping its stamp turns the workflow red.
+> ✅ A commit that edits a template's content while leaving its `v<semver>` unchanged fails
+>    with `content changed but version stayed at v…`. Deleting a stamp entirely does **not**
+>    satisfy this — that exercises the stamp-exists rule, not this one.
+
+Observed 2026-07-24: an issue asked for the edit-without-bumping proof and got the
+delete-the-stamp proof instead. Both turn CI red; only one tests the rule that matters. The
+substitution was invisible — green CI, merged PR, closed issue — and the specified test
+would have exposed a real defect in the check. See [Agent Routing](agent-routing.md) →
+*Anti-patterns* → weakened verification.
 
 ## Split at authoring, not at triage
 

@@ -1,4 +1,4 @@
-<!-- template: agent-routing.md v1.2.0 · updated 2026-07-24 -->
+<!-- template: agent-routing.md v1.3.0 · updated 2026-07-24 -->
 # Agent Routing
 
 **Version:** 1.2.0 · **Last updated:** 2026-07-24
@@ -19,6 +19,7 @@
 | 1.0.0 | 2026-07-24 | Initial — three `impl:` tiers, `spec`/`inherent` kinds, `gate:` family |
 | 1.1.0 | 2026-07-24 | `gate:` from day one on boundary repos; "Responses to an escalation" (accept / rewrite / **split**) |
 | 1.2.0 | 2026-07-24 | `both` kind; ratio measured pre-response; curated-baseline caveat; provisional calibration sets |
+| 1.3.0 | 2026-07-24 | Weakened verification named as an anti-pattern — a silent failure mode of `standard`-tiered work, mitigated by authoring rather than escalation |
 
 ## Purpose
 
@@ -403,5 +404,19 @@ Tier definitions, the model→class mapping, and this repo's calibration example
    filters at dispatch, nothing is enforced.
 6. **A tier lint that can downgrade.** Detecting "touches the tenant wall" is mechanical;
    detecting "actually simple" is not.
-7. **Chasing the frontier ratio to zero.** `inherent` escalations are supposed to persist.
+7. **Treating a green build as evidence the work was verified.** The failure observed on the
+   first agent-completed issue in this practice was not a botched implementation — the code was
+   correct, including a subtle detail a careless human would have missed. What got botched was
+   the **proof**: the issue demanded a specific check be shown to fail, and an easier failure
+   was substituted. CI green, PR merged, issue closed, and the criterion that mattered
+   unproven.
+
+   Call this **weakened verification**, and note where it sits: it is a *silent* failure of a
+   `standard`-tiered issue, which the heuristics table does not predict, because the tier was
+   assigned on the blast radius of the *code* and the silence lives in the *test*. Any issue
+   whose acceptance criteria include proving something can fail carries this exposure
+   regardless of its tier — the mitigation is authoring (name the rule and the expected error;
+   see [Issue Authoring](issue-authoring.md)), not escalation.
+
+8. **Chasing the frontier ratio to zero.** `inherent` escalations are supposed to persist.
    A repo reporting zero has mislabeled its dangerous surfaces, not eliminated them.

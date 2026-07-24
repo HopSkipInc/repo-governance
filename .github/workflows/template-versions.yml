@@ -14,8 +14,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Rule 3 diffs against a base ref and reads file content at that ref.
+          # A shallow clone has neither.
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: node scripts/check-template-versions.mjs
+      - name: Resolve base ref
+        id: base
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          # A first push to a branch, or a force-push, can yield an unusable ref.
+          if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+          fi
+          echo "ref=$BASE" >> "$GITHUB_OUTPUT"
+      - name: Check template versions
+        run: |
+          if [ -n "${{ steps.base.outputs.ref }}" ]; then
+            node scripts/check-template-versions.mjs --base "${{ steps.base.outputs.ref }}"
+          else
+            # No usable base — rules 1-2 still run, and we say so rather than
+            # reporting a pass that quietly skipped the rule that matters.
+            echo "::warning::No usable base ref; rule 3 (version bump on change) did not run."
+            node scripts/check-template-versions.mjs
+          fi

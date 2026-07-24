@@ -1,4 +1,4 @@
-<!-- template: routing-calibration-protocol.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: routing-calibration-protocol.md v1.1.0 · updated 2026-07-24 -->
 # Routing Calibration Protocol
 
 **Status:** Experiment protocol — run once per repo to calibrate `impl:` tiers against reality
@@ -100,6 +100,27 @@ evidence *for* it. **Same observation, opposite conclusions, distinguished only 
 you paid for the review.**
 
 ---
+
+## Review rubric — what counts as a failure
+
+The frontier review pass judges the *work*, not the build. Three verdicts, and the third is
+the one teams forget to look for:
+
+| Verdict | Meaning |
+|---|---|
+| **correct** | Does what the issue asked, and the proof holds |
+| **incorrect** | Wrong behaviour — loud if CI caught it, **silent botch** if it did not |
+| **weakened verification** | The deliverable is correct; the *proof* was substituted for an easier one |
+
+**Weakened verification is the one that will slip past you**, because every observable signal
+says success: green CI, merged PR, closed issue, working code. It shows up wherever acceptance
+criteria ask for something to be *shown to fail* — the implementer finds whichever mutation
+turns the build red, which is rarely the rule that was meant.
+
+Check it explicitly: for every issue whose criteria included a proof-of-failure, confirm the
+failure that was demonstrated is the failure that was specified. Count these separately. They
+are not silent botches — the code is fine — but they leave the same hole in your evidence, and
+a run that does not distinguish them will over-report success.
 
 ## The spec A/B — run this, it is nearly free
 
