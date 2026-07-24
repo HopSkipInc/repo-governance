@@ -45,6 +45,30 @@ particular.
 It also settles the anti-gaming problem (see *Downgrades*): an `inherent` tier cannot be
 talked down, and a `spec` tier can only be talked down by an edit that removes the reason.
 
+## Responses to an escalation
+
+There are three, and the third is the one triagers forget.
+
+1. **Accept it.** The tier stands, the work waits for a frontier model or a human. Correct
+   for a genuinely indivisible `inherent` issue.
+2. **Rewrite it.** `spec` only. Write the missing sentence; the tier drops. Body edit and
+   label change in the same commit — see *Downgrades*.
+3. **Split it.** Lift the mechanical half into its own issue. Plumbing, config, scaffolding,
+   the cost cap wrapped around the admission logic, the endpoint around the check. The new
+   issue routes `standard`; the residue stays `frontier` and gets smaller.
+
+**Prefer the split.** It is the only response that both reduces cost *and* shrinks the
+dangerous surface, and it works on `inherent` escalations where rewriting cannot help. An
+issue that is 80% plumbing and 20% tenancy boundary is not a frontier issue — it is two
+issues, one of which nobody noticed was cheap.
+
+The tell is the word "and" in the issue title, or an acceptance-criteria list where the
+first three items are mechanical and the fourth is the whole risk. Both are common, and
+both are invisible if you only ask "what tier is this."
+
+A split is not a downgrade and is never subject to the downgrade rules. Nothing was talked
+down; the work was divided and each part got the tier it deserves.
+
 ## The tiers
 
 An `impl:` label on every issue, declaring the **minimum** capability class required. Exactly one.
@@ -83,7 +107,11 @@ Without this family, "one-line config change on the tenant wall" has to be filed
 and the mechanical work never gets routed to anything. With it, the same issue is
 `impl:frontier` + `gate:human-approval`: an agent prepares the PR, a human owns the button.
 
-Start without it. Add it the first time you file an `impl:human` issue whose diff is trivial.
+**Adopt `gate:` from day one if the repo has an isolation, tenancy, or credential boundary.**
+The "trivial diff on a boundary" case does not arrive eventually in those repos — it arrives
+in the first triage pass, and without the family every one of them files as `impl:human` and
+strands its mechanical work. Defer the family only in repos that genuinely have no such
+boundary: pure libraries, static sites, single-tenant internal tools.
 
 ## Assignment heuristics
 

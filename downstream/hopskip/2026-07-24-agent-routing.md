@@ -27,7 +27,17 @@ is about to be handed.
 load-bearing rules are *tier by the failure mode, not the difficulty* and *a spec-limited
 escalation is a bug report against the spec*. Everything else follows from those.
 
-**2. Copy the triage skill** into this repo's skills directory (wherever the repo's existing
+**2. Install the policy into this repo — do this before anything else.** The skill is
+governed by `docs/agent-routing.md` *in this repo* and refuses to run without it. Anyone
+running the skill must be able to read the policy, and not everyone has access to the
+governance repo:
+
+```bash
+mkdir -p docs
+cp ~/repos/greg/repo-governance/templates/agent-routing.md docs/agent-routing.md
+```
+
+Then copy the triage skill into this repo's skills directory (wherever the repo's existing
 skills live — `.claude/skills/` or equivalent):
 
 ```bash
@@ -44,8 +54,16 @@ gh label create "impl:frontier" --color D93F0B --description "Frontier model may
 gh label create "impl:human"    --color B60205 --description "Needs a human in the loop regardless of model capability"
 ```
 
-The `gate:` family is **optional** — add it the first time you file an `impl:human` issue
-whose diff is trivial. Definitions are in the policy.
+**If this repo has an isolation, tenancy, or credential boundary, create the `gate:` family
+now** — the "trivial diff on a boundary" case will arrive in your first triage pass, and
+without it those issues file as `impl:human` and strand their mechanical work:
+
+```bash
+gh label create "gate:human-approval" --color 5319E7 --description "Agent may prepare; a human owns the irreversible step"
+gh label create "gate:human-review"   --color 5319E7 --description "Judgment call no test settles"
+gh label create "gate:credentials"    --color 5319E7 --description "Agent structurally cannot hold the keys"
+gh label create "gate:decision"       --color 5319E7 --description "Outcome should be recorded as a PDR/ADR by a person first"
+```
 
 **4. Run `/routing-triage`** on a **bounded set** — 15–30 issues, `status:ready` first. Do
 not attempt the whole backlog. The first run's job is to produce a calibration set and find
@@ -69,6 +87,9 @@ Do not modify files in repo-governance.
 ## Verifiable outcomes
 
 ```bash
+# The policy is readable from inside this repo (the skill refuses to run otherwise)
+test -f docs/agent-routing.md && echo OK
+
 # Labels exist
 gh label list --limit 200 | grep -c '^impl:'                       # → 3
 
@@ -99,8 +120,13 @@ grep -q 'impl:' CLAUDE.md && echo OK
 
 These go to repo-governance as first-run calibration signal:
 
-- **Tier distribution** across the triaged set.
+- **Tier distribution** across the triaged set, **broken down by kind.** `9 frontier` is not
+  a reportable number; `9 frontier — 3 spec, 6 inherent` is. The kind split is the whole
+  metric.
 - **Spec-escalation ratio** — the baseline number. It should trend down in later cycles.
+- **Splits performed** — escalated issues you divided into a mechanical half and a residue.
+  This is the response most likely to be under-used; if you did none, say whether that is
+  because none were divisible or because nobody asked.
 - **How many `spec` escalations you fixed-and-downgraded on the spot.** If it was most of
   them, the kind split is earning its keep. If it was none, say so — that is a finding
   against the policy, not against the backlog.

@@ -16,9 +16,14 @@ triggers:
 
 # Agent Routing Triage
 
-Governed by [agent-routing.md](../../agent-routing.md). Read it before running this skill —
-the tier definitions, the two load-bearing rules, and the downgrade rules are there, not
-here. This file is the procedure.
+Governed by **`docs/agent-routing.md` in this repo**. Read it before running this skill — the
+tier definitions, the two load-bearing rules, the escalation responses, and the downgrade
+rules are there, not here. This file is only the procedure.
+
+**If `docs/agent-routing.md` does not exist, the install is incomplete — stop and say so.**
+The policy must be materialized into the repo before the skill runs, because the skill is
+useless to anyone who cannot read the policy, and not everyone running it has access to the
+governance repo. Do not silently fall back to a path outside this repository.
 
 **This skill must be run by a frontier-class model or a human.** Triage is itself a
 frontier task: the router has to be smarter than the routed. A standard-class model
@@ -89,12 +94,16 @@ not to decide — it produces proposals a human will dispute.
 
 One row per issue. Every row cites evidence — a path, a test file's absence, an ADR.
 
+**The rows below are illustrative shapes, not classifications to copy.** Do not anchor on
+them: the same-looking issue in your repo may sort differently, and a seeded example that
+disagrees with the merits will drag every triager toward the wrong call.
+
 | # | Proposed | Kind | Failure mode if botched | Evidence |
 |---|---|---|---|---|
-| 1328 | standard | — | loud — type error at build | no risk surface touched; `config/` covered by [test] |
-| 1344 | frontier | inherent | silent — wrong scope returns plausible rows | touches [isolation path]; no cross-tenant test exists |
-| 1255 | frontier | spec | loud, but "correct" is undefined | no false-positive tolerance stated in AC |
-| 1341 | human | inherent | silent — removes a fail-open guard | [safety invariant path] |
+| NNN | standard | — | loud — type error at build | no risk surface touched; `[dir]/` covered by [test] |
+| NNN | frontier | inherent | silent — wrong scope returns plausible rows | touches [isolation path]; no cross-tenant test exists |
+| NNN | frontier | spec | loud, but "correct" is undefined | no tolerance threshold stated in the AC |
+| NNN | human | inherent | silent — removes a fail-open guard | [safety invariant path] |
 
 **The "failure mode" column is the load-bearing one.** If the agent cannot state what a
 botched implementation would look like and whether anyone would notice, it has not done the
@@ -140,8 +149,12 @@ Ask, in this order:
    say [X]. Do you want to answer that now and drop it to standard, or leave it?" Many will
    be answerable in a sentence — that is the whole point of the kind split, and the fastest
    demonstration of why it exists.
-3. **The surfaces you could not classify.** Verbatim.
-4. **Nothing else.** Do not ask the human to confirm the obvious rows.
+3. **Split candidates.** For every escalated issue, ask whether a mechanical half can be
+   lifted out: plumbing, config, scaffolding, the cost cap around the admission logic. If
+   yes, propose the split — it is usually the highest-value response available, and it is
+   the one triagers forget. See *Responses to an escalation* in the policy.
+4. **The surfaces you could not classify.** Verbatim.
+5. **Nothing else.** Do not ask the human to confirm the obvious rows.
 
 If the human disagrees with a call, ask what signal you missed, then check whether that
 signal applies to other rows too. One correction usually moves several.
@@ -180,9 +193,11 @@ ordering is the anti-gaming rule, and this is the run where you establish it.
 
 ---
 
-## Step 4: Write docs/agent-routing.md
+## Step 4: Extend docs/agent-routing.md
 
-The repo's own routing record. Three sections:
+The policy was installed here before the run (Step 0 refused to start otherwise). You are
+appending this repo's own records to it — not creating it, and not editing the policy text
+above them. Three sections:
 
 1. **The model→class mapping**, dated. Which model IDs count as standard and frontier
    *today*. This is the file that churns; the labels never do.
