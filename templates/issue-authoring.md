@@ -1,7 +1,7 @@
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
-**Related:** [Definition of Done](definition-of-done.md)
+**Related:** [Definition of Done](definition-of-done.md) · [Agent Routing](agent-routing.md)
 
 ## Purpose
 
@@ -17,6 +17,10 @@ Every issue body uses this structure:
 
 ## Serves
 <PDR-NNN — or "none — <one-line reason>". Features and epics only; omit for bugs and chores.>
+
+## Impl tier
+<standard | frontier (spec|inherent) | human (spec|inherent) — plus one sentence naming
+ what a botched implementation would look like and whether the failure is loud or silent.>
 
 ## Verifiable outcomes (binary, observable)
 - [ ] <outcome 1 — binary, observable>
@@ -41,6 +45,10 @@ Rules:
 - The body must contain a **Verifiable outcomes** (or **Acceptance Criteria**) section with **at least one** checkbox line (`- [ ]`).
 - The body must contain a **Verification** section.
 - The body must contain a **Work type** line, **or** carry a type label.
+- The body must contain an **Impl tier** line, and any tier above `standard` must declare
+  its kind — `spec` or `inherent`. See [Agent Routing](agent-routing.md). An escalation with
+  no kind is malformed: without it the tier is permanent, and the whole taxonomy stops
+  being self-correcting.
 
 For **epics**: "Verifiable outcomes" = "epic closes when all child issues close" **plus** 2–3 epic-level acceptance gates; list known child issue numbers under Dependencies.
 
@@ -56,6 +64,8 @@ Labels are not decoration — they route, prioritize, and let a periodic audit r
 | **priority** | exactly one | `P0`, `P1`, `P2` |
 | **status** | exactly one | `status:ready`, `status:needs-decision`, `status:blocked`, `status:deferred` |
 | **type** | one (or a Work-type line) | `enhancement`, `feature`, `bug`, `epic`, `chore`, `documentation` |
+| **impl:** | exactly one | `impl:standard`, `impl:frontier`, `impl:human` |
+| **gate:** | optional, one or more | `gate:human-approval`, `gate:human-review`, `gate:credentials`, `gate:decision` |
 | **area:** | optional, one or more | `[your subsystem names]` |
 | **theme:** | optional, one or more | `[your roadmap track names]` |
 
