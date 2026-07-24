@@ -103,12 +103,25 @@ three issues.
 
 **6. Add the routing block to CLAUDE.md.** Template is at the end of `agent-routing.md`.
 
-**7. Wire the validator rules.** Your issue-structure workflow can mechanically catch what is
-currently manual — see the Layer 2 table in `templates/issue-authoring.md`. Wire these two
-first, because they catch the two ways the taxonomy quietly stops meaning anything:
+**7. Install the routing validator.** The six Layer 2 rules now have a reference
+implementation. It queries the GitHub API rather than parsing source, so it drops into this
+repo unchanged regardless of language:
 
-- `needs-structure` present **and** tiered without a `spec` component → contradiction.
-- `impl:` label changed with no body edit in the same window → ungrounded downgrade.
+```bash
+cp ~/repos/greg/repo-governance/templates/scripts/check-issue-routing.mjs scripts/
+node scripts/check-issue-routing.mjs
+```
+
+Structural rules (one `impl:` label, a tier line, a declared kind) fail the build.
+Contradiction rules (`status:ready` + spec-component, `needs-structure` + no spec component,
+tier lowered with no body edit) warn — promote them to error once your backlog is clean, per
+the WARN→FAIL convention. Wire it on a schedule, not per-PR: it is a backlog sweep, not a
+diff check.
+
+**7b. Record what you installed.** Add the `### Synced templates` table from
+`templates/governance-sync-claude-section.md` to your CLAUDE.md and fill in the version of
+every governance template this repo now carries. Without it neither side can tell when a
+local copy has fallen behind — which is exactly what bit both runs on 2026-07-24.
 
 **8. Record the application** in this repo's CLAUDE.md under `### Applied governance updates`,
 including the policy version. Do not modify files in repo-governance.

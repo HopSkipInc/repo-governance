@@ -1,4 +1,4 @@
-<!-- template: governance-sync-claude-section.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: governance-sync-claude-section.md v1.1.0 · updated 2026-07-24 -->
 # Governance sync — CLAUDE.md section
 
 When a downstream repo's CLAUDE.md includes this section, the agent can reliably find
@@ -55,6 +55,28 @@ To check for stale governance layers (run during governance sync, skip if nothin
 | Clean code | — | — |
 | Test coverage | — | — |
 | Agent instructions | — | — |
+
+### Synced templates
+
+Every governance template carries a version stamp. Record what this repo installed, so
+both sides can tell when a local copy has fallen behind — without this, a repo is running
+some unknown vintage and neither it nor repo-governance can detect the drift.
+
+| Template | Installed version | Synced on |
+|---|---|---|
+| — | — | — |
+
+Read a template's current version from its stamp:
+
+```bash
+# markdown templates carry an HTML comment on line 1; skills use frontmatter
+head -1 ~/repos/greg/repo-governance/templates/<name>.md
+grep -m2 -E '^version:|^updated:' ~/repos/greg/repo-governance/templates/skills/<name>/SKILL.md
+```
+
+Before running any skill that reads a policy doc, compare the installed version against
+the template. **A run split across two versions of a policy is not internally consistent,
+and the person running it cannot tell from the inside.**
 
 Governance templates live in `~/repos/greg/repo-governance/templates/` and are
 the source of truth for ADR format, DoD, issue authoring, audit structure, PR

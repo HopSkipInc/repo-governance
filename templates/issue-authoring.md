@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: issue-authoring.md v1.1.0 · updated 2026-07-24 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -111,6 +111,12 @@ GitHub cannot restrict who creates an issue through the UI or the API, so enforc
 
    The last two are the ones worth wiring first: they catch the two ways the taxonomy quietly
    stops meaning anything.
+
+   Reference implementation: `templates/scripts/check-issue-routing.mjs`. It queries the
+   GitHub API rather than parsing source, so it drops into a repo of any language unchanged.
+   Structural rules default to error; the contradiction rules default to warn, on the
+   WARN→FAIL promotion convention — a first sweep over an untriaged backlog is noisy, and a
+   lint that cries wolf on day one gets disabled on day two.
 3. **Layer 3 — periodic audit (sweep).** The staleness audit flags every open issue carrying `needs-structure` or failing the rules, as P2-style findings.
 
 Start with Layer 3 (it's free — add it to the audit prompt). Add Layers 1–2 when creation volume justifies them.
