@@ -35,6 +35,19 @@ must declare which one it is:
 |---|---|---|
 | **`spec`** | The issue doesn't say enough. The work would be mechanical if it were specified. | Rewrite the issue. The tier drops. |
 | **`inherent`** | The failure is silent, or the invariants are many, or the boundary is load-bearing. A perfect spec doesn't help. | Nothing. This is where your risk actually lives. |
+| **`both`** | Under-specified **and** dangerous. The commonest state on a real boundary, and the easiest to mislabel. | Rewrite the spec; the tier stays. Fixing the spec is still worth it — it shrinks what the frontier model has to derive. |
+
+**`both` exists because the two conditions are not mutually exclusive, and forcing a single
+choice biases the answer.** `inherent` is the flattering call: it cannot be challenged by
+rewriting, cannot be downgraded, and reads as "we found real risk" rather than "we wrote a
+bad issue." A triager forced to pick one will drift toward it, and the spec debt disappears
+from the metric rather than from the backlog.
+
+**Cross-check, mechanical:** any issue carrying the repo's own under-structure marker
+(`needs-structure`, or whatever your CI validator applies) that is tiered *without* a `spec`
+component is a contradiction — your validator says the issue is under-specified and your
+triage says specification wouldn't help. Both can't be right. This is checkable in one query
+and belongs in the audit sweep.
 
 This distinction is what makes the taxonomy self-correcting rather than a permanent excuse.
 A backlog full of `spec` escalations isn't careful — it's unauthored, and the fix is
@@ -267,8 +280,20 @@ the frontier ratio is a metric people want to improve, and relabeling is free.
 
 Four numbers, reported as findings, not as a compliance score:
 
-1. **Spec-escalation ratio** — `spec`-kind escalations as a share of open issues.
-   *Should trend down.* This is the number that says whether your authoring is improving.
+1. **Spec-escalation ratio** — escalations with a `spec` component (`spec` or `both`) as a
+   share of the triaged set. *Should trend down.* This is the number that says whether your
+   authoring is improving.
+
+   **Measure it on the classification, not on the surviving labels.** An escalation resolved
+   by rewriting or by splitting is still an escalation that happened — if you count only what
+   is labeled after the response, every well-handled `spec` case vanishes and the ratio reads
+   0% for a backlog that had plenty. Report three numbers: classified `spec`, of which
+   resolved by rewrite, of which resolved by split.
+
+   **Draw the baseline from the general backlog, not from a curated epic.** An epic that has
+   just been through design or pre-implementation review has had its spec debt removed by
+   that review — measuring there tells you the review worked, not what your authoring is
+   like. A first-run 0% almost always means the sample was pre-cleaned.
 2. **Inherent-escalation population** — count and location of `inherent` escalations.
    *Should not trend.* If it moves, either the system's risk surface moved or someone is
    mislabeling `spec` as `inherent` to avoid the rewrite.

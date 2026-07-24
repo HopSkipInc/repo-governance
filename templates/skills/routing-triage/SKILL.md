@@ -111,8 +111,13 @@ classification — it has guessed at difficulty. Reject those rows and make it r
 
 #### 2. Kind splits that matter
 
-List every issue proposed above `standard` where the kind is **`spec`**, with the specific
-sentence that is missing. These are not routing decisions — they are authoring bugs, and
+List every issue proposed above `standard` carrying a `spec` component (`spec` or `both`),
+with the specific sentence that is missing.
+
+Before finalizing, run the **under-structure cross-check**: any issue carrying the repo's own
+under-structure marker (`needs-structure` or equivalent) that you tiered without a `spec`
+component is a contradiction — the validator says it is under-specified, you said
+specification wouldn't help. Re-examine every one; the usual correct answer is `both`. These are not routing decisions — they are authoring bugs, and
 each one is a candidate for rewrite-then-downgrade. This list is the skill's highest-value
 output.
 
@@ -233,8 +238,15 @@ how many were fixed-and-downgraded in this pass, and the lint candidates from St
 Report to the human:
 
 - Tier distribution across the triaged set.
-- **Spec-escalation ratio** — `spec` escalations as a share of the set. This is the number
-  that trends down over time; today's run is the baseline, so state it plainly.
+- **Spec-escalation ratio** — escalations with a `spec` component (`spec` or `both`) as a
+  share of the set, measured on the *classification*, before responses were applied. Report
+  three numbers: classified `spec`, resolved by rewrite, resolved by split. Counting only
+  the surviving labels makes every well-handled case vanish and reads 0% for a backlog that
+  had plenty.
+- **Whether the sample was pre-cleaned.** If the triaged set came from an epic that had just
+  been through design or pre-implementation review, say so — that review already removed the
+  spec debt, and the ratio measures the review rather than the repo. A first-run 0% is much
+  more often a biased sample than a well-authored backlog.
 - Issues rewritten-and-downgraded in this pass.
 - Lint candidates for Layer 5.
 - Which surfaces from Step 0 had no coverage — hand this to `test-coverage-interview`,
