@@ -8,7 +8,7 @@ description: >
   (`spec` or `inherent`) with a one-line reason for each, surfaces the disputed calls for
   a human, applies the labels and tier lines, and writes the repo's calibration set to
   docs/agent-routing.md.
-version: 1.0.0
+version: 1.1.0
 updated: 2026-07-24
 triggers:
   - /routing-triage
@@ -41,11 +41,19 @@ in `docs/agent-routing.md` against the template. If the local copy is behind, re
 triaging and note both versions — the kinds and the escalation responses have changed between
 versions, and a run split across two versions is not internally consistent.
 
-**This skill must be run by a frontier-class model or a human.** Triage is itself a
-frontier task: the router has to be smarter than the routed. A standard-class model
-running this skill will systematically under-call the tiers it is about to be handed,
-which is the exact conflict of interest the policy exists to prevent. If you are not
-frontier-class, stop and say so.
+**Classification is delegated to the `routing-classifier` agent, which pins its own model.**
+Triage is a frontier task — the router has to be smarter than the routed — but asking a model
+to certify its own class does not work: the instruction is read by the thing it is meant to
+bind. The pin lives in `.claude/agents/routing-classifier.md` frontmatter and is resolved by
+the harness at spawn, so the classifier never gets a vote.
+
+**You may run this skill at any model class.** The parts you own — `gh` calls, the interview,
+applying the batch, writing records, opening the PR — are not the frontier task. The
+classification is, and you do not do it.
+
+**If `.claude/agents/routing-classifier.md` is missing, stop.** Do not classify inline as a
+fallback. An inline fallback is exactly the ungated path this split exists to remove, and it
+would be invisible in the output — the tiers would look identical.
 
 **Bounded by default.** Do not attempt a whole backlog on the first run. Triage 15–30
 issues, confirm the calls, build the calibration set, then widen. A 200-issue pass
@@ -94,8 +102,10 @@ Rules:
   exists to measure.
 - Record the sample's composition in the run notes. A ratio without its sample is not a number.
 
-Then map the repo's **risk surfaces**, because the heuristics table is unusable without
-them. You are looking for the paths where a wrong change fails silently:
+The **risk-surface map** is built by the `routing-classifier` agent in Step 1, not here —
+deciding which paths fail silently is a judgement call and belongs on the pinned side of the
+split. What follows is what the classifier probes for, kept here so you can tell whether its
+map is plausible before you act on it:
 
 1. **Isolation and tenancy.** Grep the source and the ADRs for the repo's own vocabulary —
    `tenant`, `workspace`, `org`, `RLS`, `row.level`, `scope`, `isolation`. Read any ADR that
@@ -111,14 +121,19 @@ them. You are looking for the paths where a wrong change fails silently:
 6. **Existing patterns.** Which abstractions already exist? Work that copies an existing
    pattern is `standard`; work that invents one is `frontier`.
 
-Write the surface map down before classifying anything. Every tier call you make will cite it.
+You do not have to produce this map — the classifier does, and cites it in every row.
 
 ---
 
-## Step 1: Spawn the evidence agent
+## Step 1: Delegate to the routing-classifier agent
 
-Give it the surface map from Step 0 and the candidate issue set. Its job is to classify,
-not to decide — it produces proposals a human will dispute.
+Spawn `routing-classifier` with the candidate issue set and the sample-composition notes from
+Step 0. It maps the risk surfaces itself and returns the proposal tables — its job is to
+classify, not to decide, and it is read-only by construction: it proposes, you apply.
+
+Do not paraphrase its output into your own judgement. If a row looks wrong, that is a
+**dispute** and belongs in the interview (Step 2), not a silent correction. A skill that
+edits the classifier's calls has reintroduced the unpinned path through the back door.
 
 ### What to read
 

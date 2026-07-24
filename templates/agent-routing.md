@@ -1,4 +1,4 @@
-<!-- template: agent-routing.md v1.3.0 · updated 2026-07-24 -->
+<!-- template: agent-routing.md v1.4.0 · updated 2026-07-24 -->
 # Agent Routing
 
 **Version:** 1.2.0 · **Last updated:** 2026-07-24
@@ -20,6 +20,7 @@
 | 1.1.0 | 2026-07-24 | `gate:` from day one on boundary repos; "Responses to an escalation" (accept / rewrite / **split**) |
 | 1.2.0 | 2026-07-24 | `both` kind; ratio measured pre-response; curated-baseline caveat; provisional calibration sets |
 | 1.3.0 | 2026-07-24 | Weakened verification named as an anti-pattern — a silent failure mode of `standard`-tiered work, mitigated by authoring rather than escalation |
+| 1.4.0 | 2026-07-24 | Classification delegated to a `model:`-pinned agent; the pin is the one place a model name may be written, and must appear in the mapping table |
 
 ## Purpose
 
@@ -262,6 +263,16 @@ For that fallback, keep one dated mapping table in `docs/agent-routing.md`:
 
 The label vocabulary never changes. The mapping churns every few months, in exactly one
 file. Never write a model name into a label.
+
+**One exception, and it is the enforcement point.** The `routing-classifier` agent definition
+pins its model in frontmatter — that pin is what makes triage un-self-certifiable, so it has
+to name something concrete. Add it as a row here so a re-sync reviews it:
+
+| Class | Approved models | As of | Pinned in |
+|---|---|---|---|
+| frontier | [model ids] | [YYYY-MM-DD] | `.claude/agents/routing-classifier.md` |
+
+A pin nobody reviews is a pin that quietly names a retired model.
 
 ## The layered enforcement model
 

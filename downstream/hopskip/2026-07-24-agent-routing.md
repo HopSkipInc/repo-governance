@@ -61,13 +61,25 @@ grep -m2 -E '^\*\*Version:|^\*\*Last updated' docs/agent-routing.md
 Record that version wherever you write up the run. A run split across two policy versions is
 not internally consistent, and a triager cannot tell from the inside.
 
-**2. Install the triage skill:**
+**2. Install the triage skill and its classifier agent.** Both, or neither works:
 
 ```bash
-mkdir -p .claude/skills/routing-triage
+mkdir -p .claude/skills/routing-triage .claude/agents
 cp ~/repos/greg/repo-governance/templates/skills/routing-triage/SKILL.md \
    .claude/skills/routing-triage/SKILL.md
+cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.md \
+   .claude/agents/routing-classifier.md
 ```
+
+The skill runs at any model class; the **classification** is delegated to
+`routing-classifier`, which pins its model in frontmatter so the harness resolves it at spawn.
+That pin is the enforcement — asking a model to certify its own class does not work, because
+the instruction is read by the thing it is meant to bind. The skill stops if the agent file is
+missing rather than classifying inline, since an inline fallback would be invisible in the
+output: the tiers would look identical.
+
+Record the pinned model in your `docs/agent-routing.md` mapping table so a future re-sync
+reviews it.
 
 **3. Create the labels:**
 
@@ -169,8 +181,10 @@ diff -q docs/agent-routing.md ~/repos/greg/repo-governance/templates/agent-routi
 # Labels exist
 gh label list --limit 200 | grep -c '^impl:'                       # → 3
 
-# Skill installed
+# Skill AND classifier agent installed — the skill refuses to run without the agent
 test -f .claude/skills/routing-triage/SKILL.md && echo OK
+test -f .claude/agents/routing-classifier.md && grep -q '^model:' .claude/agents/routing-classifier.md && echo OK
+head -1 .claude/agents/routing-classifier.md | grep -q '^---$' && echo "OK frontmatter is first line"
 
 # At least 15 issues carry a tier
 gh issue list --state open --limit 300 --json number,labels \

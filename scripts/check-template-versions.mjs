@@ -29,6 +29,9 @@
  * Stamp formats, by file type:
  *   .md          <!-- template: <relpath> v<semver> · updated <YYYY-MM-DD> -->
  *   SKILL.md     frontmatter `version:` + `updated:`
+ *   agents/*.md  frontmatter `version:` + `updated:` — an agent definition's
+ *                frontmatter must be the first thing in the file or the harness
+ *                will not parse it, which would silently drop the `model:` pin
  *   .mjs         // template: <relpath> v<semver> · updated <YYYY-MM-DD>
  *   .yml         # template: <relpath> v<semver> · updated <YYYY-MM-DD>
  *
@@ -57,6 +60,11 @@ function walk(dir, acc = []) {
   return acc;
 }
 
+/** True for files whose stamp must live inside YAML frontmatter. */
+function isFrontmatterStamped(path) {
+  return path.endsWith('SKILL.md') || path.includes('/agents/');
+}
+
 /** Extract {version, updated, claimedPath} from a file's stamp. */
 function stampOf(src, isSkill, relForSkill = null) {
   const head = src.slice(0, 1200);
@@ -81,7 +89,7 @@ const files = walk(TEMPLATES).sort();
 for (const file of files) {
   const rel = relative(TEMPLATES, file);
   const src = readFileSync(file, 'utf8');
-  const { version, updated, claimedPath } = stampOf(src, file.endsWith('SKILL.md'), rel);
+  const { version, updated, claimedPath } = stampOf(src, isFrontmatterStamped(file), rel);
 
   if (!version || !updated) {
     problems.push(`${rel}: missing or malformed version stamp`);
@@ -117,7 +125,7 @@ if (BASE) {
     }
     const after = readFileSync(join(ROOT, pathFromRoot), 'utf8');
     const rel = relative('templates', pathFromRoot);
-    const isSkill = pathFromRoot.endsWith('SKILL.md');
+    const isSkill = isFrontmatterStamped(pathFromRoot);
     const vBefore = stampOf(before, isSkill).version;
     const vAfter = stampOf(after, isSkill).version;
     if (!vBefore || !vAfter) continue; // rule 1 territory
