@@ -1,4 +1,4 @@
-name: template-versions
+name: governance-lints
 
 on:
   push:
@@ -39,3 +39,7 @@ jobs:
             echo "::warning::No usable base ref; rule 3 (version bump on change) did not run."
             node scripts/check-template-versions.mjs
           fi
+      - name: Check /analyze-repo template coverage
+        # Every template must be offered by the bootstrap command or excluded on
+        # the record. A bootstrap that omits templates looks like one that worked.
+        run: node scripts/check-analyze-repo-coverage.mjs

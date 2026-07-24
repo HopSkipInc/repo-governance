@@ -178,7 +178,11 @@ Present the score with a label:
 
 ### 2.2 Template applicability matrix
 
-For each template in `~/repos/greg/repo-governance/templates/`, determine whether it applies:
+For each template in `~/repos/greg/repo-governance/templates/`, determine whether it applies.
+
+**Templates are named by their path relative to `templates/`** — not by bare filename. Seven
+skills share the basename `SKILL.md`, so a bare name matches the wrong thing. `scripts/check-analyze-repo-coverage.mjs`
+enforces that every template appears here or is excluded on the record.
 
 | Template | Applicable if | Priority | Rationale |
 |---|---|---|---|
@@ -186,17 +190,35 @@ For each template in `~/repos/greg/repo-governance/templates/`, determine whethe
 | `pdr/` + `adr/023-product-decision-records.md` | Always | P0 | The only artifact recording *why* the software exists. Cannot be bootstrapped by reading the repo — requires interviewing the decision-maker (`skills/pdr-interview/`). Flag in the prompt that this step needs a human, not an agent working alone |
 | `pull_request_template.md` | Always | P0 | Enforces DoD at PR submission |
 | `issue-authoring.md` | Backlog has >10 open issues or issue quality is a concern | P1 | Structure for backlog hygiene |
-| `scheduled-audit.yml` | Always (after DoD + PR template) | P0 | Compounding dynamic requires the audit loop |
-| `audit-deadman.yml` | scheduled-audit is applied | P0 | Required companion — audit without deadman is unverifiable |
+| `workflows/scheduled-audit.yml` | Always (after DoD + PR template) | P0 | Compounding dynamic requires the audit loop |
+| `workflows/audit-deadman.yml` | scheduled-audit is applied | P0 | Required companion — audit without deadman is unverifiable |
 | `db-migration-governance.md` | DB detected (migrations dir, DbUp, Flyway, Alembic, etc.) | P1 | Migration safety is a DoD gate |
-| `db-migration-harness-*.yml` | DB migration governance applied | P2 | CI gate for the migration policy |
+| `workflows/db-migration-harness-postgres.yml` | DB migration governance applied **and** Postgres | P2 | CI gate for the migration policy |
+| `workflows/db-migration-harness-sqlserver.yml` | DB migration governance applied **and** SQL Server | P2 | CI gate for the migration policy |
 | `watch-items.md` | Always (informational) | P2 | Watch-list format — low urgency, high compound value |
 | `governance-health.md` | After 3+ audit cycles | P2 (deferred) | Metrics need data to be meaningful |
-| `governance-sync-claude-section.md` | CLAUDE.md or AGENTS.md exists | P0 | Tells downstream agents about repo-governance |
-| `adr/022-definition-of-done.md` | DoD is being applied | P0 | Gives DoD its formal ADR authority |
+| `governance-sync-claude-section.md` | CLAUDE.md or AGENTS.md exists | P0 | Tells downstream agents about repo-governance; carries the Synced-templates table drift detection reads |
+| `adr/README.md` + `adr/_template.md` | ADR corpus is being applied | P0 | The index and the blank form — an ADR directory without both drifts immediately |
 | `scripts/check-adr-readme-sync.mjs` | ADR directory **or** PDR directory exists | P1 | Prevents index drift in both corpora — one script covers both |
-| `skills/competitive-analysis/SKILL.md` | Team values competitive intel | P2 | Self-discovering skill — adds capability |
-| `skills/pdr-interview/SKILL.md` | PDR corpus is being applied | P0 | How the PDR corpus actually gets written — the interview is the work, the record is the output |
+| **`agent-routing.md`** | Backlog is worked by coding agents | P1 | `impl:` tiers keep work a weak model would botch away from it. Skip only if all implementation is human |
+| **`skills/routing-triage/`** | agent-routing is applied | P1 | How tiers actually get assigned; installs `agents/routing-classifier.md` as its dependency |
+| **`scripts/check-issue-routing.mjs`** | agent-routing is applied | P1 | Mechanical enforcement of the routing rules; queries the GitHub API, so language-agnostic |
+| **`skills/adr-interview/`** | Repo has load-bearing patterns and no ADRs, or ADRs without enforcement | P1 | Five-layer sweep — layer 2 |
+| **`skills/clean-code-interview/`** | Always | P2 | Five-layer sweep — layer 3 |
+| **`skills/test-coverage-interview/`** | Always | P1 | Five-layer sweep — layer 4. Coverage is what keeps issues cheap to route |
+| **`skills/agent-instructions-interview/`** | CLAUDE.md or AGENTS.md exists | P1 | Five-layer sweep — layer 5 |
+| `skills/competitive-analysis/` | Team values competitive intel | P2 | Self-discovering skill — adds capability |
+| `skills/pdr-interview/` | PDR corpus is being applied | P0 | How the PDR corpus actually gets written — the interview is the work, the record is the output |
+| **`scripts/check-root-clutter.mjs`** | Always | P2 | Directory listing, zero language dependency; converged independently in three repos before being templated |
+| **`scripts/check-breaking-migrations.mjs`** | DB migration governance applied | P1 | A migration dropping/renaming a column must have zero remaining code references. Driven by a real outage |
+| **`scripts/check-schema-promises.mjs`** | DB migration governance applied | P1 | Sibling of the above — enforcement-bearing schema must have a consumer or a dormant register entry |
+| **`scripts/lint-stub-tests.mjs`** | npm `test`/`test:*` scripts exist | P2 | Catches false-green CI. Ships in report mode; promote to gate once clean |
+| **`scripts/check-magic-strings.mjs`** | TypeScript repo | P2 | Value duplicating an exported alias without importing it |
+| **`scripts/check-inline-type-unions.mjs`** | TypeScript repo | P2 | Type-level sibling of the above |
+| **`scripts/check-duplicated-sql.mjs`** | TypeScript repo **and** inline SQL | P2 | Same query inlined in 2+ files instead of a registry |
+
+**Bolded rows were added 2026-07-24**, when `check-analyze-repo-coverage.mjs` found the matrix
+named 13 of 36 templates. Everything bold was previously unreachable via `/analyze-repo`.
 
 ### 2.3 Priority-ordered action plan
 
