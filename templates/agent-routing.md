@@ -1,4 +1,3 @@
-<!-- template: agent-routing.md v1.2.0 · updated 2026-07-24 -->
 # Agent Routing
 
 **Version:** 1.2.0 · **Last updated:** 2026-07-24
