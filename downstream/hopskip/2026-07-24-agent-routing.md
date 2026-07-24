@@ -6,6 +6,7 @@ do not assume. This prompt deliberately does not name a version: a prompt that h
 goes stale the moment the policy moves, which is the same drift the version stamps exist to
 prevent, one level up.
 **Templates:** `templates/agent-routing.md`, `templates/skills/routing-triage/SKILL.md`,
+`templates/agents/routing-classifier.md` (Claude Code), `templates/agents/routing-classifier.opencode.md` (opencode),
 `templates/routing-calibration-protocol.md`, `templates/issue-authoring.md` (updated)
 **Status of this policy:** candidate, revised twice on its first day from two live runs. Report
 friction rather than working around it.
@@ -61,15 +62,35 @@ grep -m2 -E '^\*\*Version:|^\*\*Last updated' docs/agent-routing.md
 Record that version wherever you write up the run. A run split across two policy versions is
 not internally consistent, and a triager cannot tell from the inside.
 
-**2. Install the triage skill and its classifier agent.** Both, or neither works:
+**2. Install the triage skill and its classifier agent.** Both, or neither works.
+The classifier agent definition is **harness-specific** — install the one matching your
+primary harness. If your team uses both harnesses, install both (they do not conflict —
+different paths, same body):
 
 ```bash
+# Skill (per-repo, both harnesses)
 mkdir -p .claude/skills/routing-triage .claude/agents
 cp ~/repos/greg/repo-governance/templates/skills/routing-triage/SKILL.md \
    .claude/skills/routing-triage/SKILL.md
+
+# Claude Code classifier (per-repo)
 cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.md \
    .claude/agents/routing-classifier.md
+
+# opencode classifier (global — one agent serves every repo on the machine)
+mkdir -p ~/.config/opencode/agents
+cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.opencode.md \
+   ~/.config/opencode/agents/routing-classifier.md
 ```
+
+**If your team runs opencode as the primary harness, the per-repo `.claude/agents/` install
+is unnecessary** — opencode does not read Claude Code agent definitions, and the global agent
+at `~/.config/opencode/agents/` is the one that binds. Install only the opencode variant.
+The repo still needs `docs/agent-routing.md` (Step 1) — the policy is per-repo even when the
+classifier is global.
+
+**Restart opencode after installing the agent** — agent config is loaded at startup, not
+hot-reloaded.
 
 The skill runs at any model class; the **classification** is delegated to
 `routing-classifier`, which pins its model in frontmatter so the harness resolves it at spawn.
@@ -77,6 +98,10 @@ That pin is the enforcement — asking a model to certify its own class does not
 the instruction is read by the thing it is meant to bind. The skill stops if the agent file is
 missing rather than classifying inline, since an inline fallback would be invisible in the
 output: the tiers would look identical.
+
+In opencode, invoke the classifier with `@routing-classifier` or ask the primary agent to
+delegate. The `mode: subagent` + `hidden: true` frontmatter means it is only ever spawned for
+triage, never a primary agent.
 
 Record the pinned model in your `docs/agent-routing.md` mapping table so a future re-sync
 reviews it.
@@ -183,8 +208,14 @@ gh label list --limit 200 | grep -c '^impl:'                       # → 3
 
 # Skill AND classifier agent installed — the skill refuses to run without the agent
 test -f .claude/skills/routing-triage/SKILL.md && echo OK
+
+# Claude Code classifier (per-repo) — skip if your team runs opencode only
 test -f .claude/agents/routing-classifier.md && grep -q '^model:' .claude/agents/routing-classifier.md && echo OK
 head -1 .claude/agents/routing-classifier.md | grep -q '^---$' && echo "OK frontmatter is first line"
+
+# opencode classifier (global) — skip if your team runs Claude Code only
+test -f ~/.config/opencode/agents/routing-classifier.md && grep -q '^model:' ~/.config/opencode/agents/routing-classifier.md && echo OK
+grep -q '^mode: subagent' ~/.config/opencode/agents/routing-classifier.md && echo "OK subagent mode"
 
 # At least 15 issues carry a tier
 gh issue list --state open --limit 300 --json number,labels \

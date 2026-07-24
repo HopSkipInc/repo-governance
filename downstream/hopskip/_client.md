@@ -37,9 +37,9 @@
 | HopSkipInc/enrichment-pipeline | [2026-07-07 competitive-analysis skill](2026-07-07-competitive-analysis-skill.md) | applied 2026-07-07 |
 | HopSkipInc/ai-fleet | [2026-07-23 two-phase audit lifecycle](ai-fleet/2026-07-23-two-phase-audit-lifecycle.md) | pending |
 | HopSkipInc/analytics-infrastructure | [2026-07-23 two-phase audit lifecycle](analytics-infrastructure/2026-07-23-two-phase-audit-lifecycle.md) | pending |
-| HopSkipInc/enrichment-pipeline | [2026-07-23 two-phase audit lifecycle](enrichment-pipeline/2026-07-23-two-phase-audit-lifecycle.md) | pending |
+| HopSkipInc/enrichment-pipeline | [2026-07-23 two-phase audit lifecycle](enrichment-pipeline/2026-07-23-two-phase-audit-lifecycle.md) | applied 2026-07-24 |
 | HopSkipInc/ai-fleet | [2026-07-24 agent routing](2026-07-24-agent-routing.md) | partial — first run 2026-07-24 under policy 1.0.0 (17 issues, epic #1339). **Re-sync backfill owed:** `both` kind, general-backlog re-baseline, provisional calibration marking, validator rules |
 | HopSkipInc/analytics-infrastructure | [2026-07-24 agent routing](2026-07-24-agent-routing.md) | partial — first run 2026-07-24 under policy 1.0.0/1.1.0 (~24 issues, ~75% single epic → spec ratio sample-limited). **Re-sync backfill owed** + GLM-5.2 calibration run queued (`docs/experiments/2026-07-24-glm-routing-calibration.md`) |
-| HopSkipInc/enrichment-pipeline | [2026-07-24 agent routing](2026-07-24-agent-routing.md) | pending — bootstrap path, no prior run |
+| HopSkipInc/enrichment-pipeline | [2026-07-24 agent routing](2026-07-24-agent-routing.md) | applied 2026-07-24 — setup only (policy v1.6.0, skill, classifier agent, labels, validator, CLAUDE.md block); triage run pending frontier model session |
 
 Prompts are dated files in each repo's subdirectory. Run them in the respective repo's Claude Code context. Update status to `applied YYYY-MM-DD` once run, or `partial — <note>` if only some steps landed.

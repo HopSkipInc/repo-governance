@@ -50,6 +50,12 @@ A small, portable practice built around five observations:
 | `templates/skills/clean-code-interview/` | Skill | Probes for naming/organization conventions, triages intentional vs accidental → coding standard ADRs + convention notes + PR |
 | `templates/skills/test-coverage-interview/` | Skill | Maps coverage gaps and false-green traps, interviews for testing strategy → testing standard ADRs with coverage gates + PR |
 | `templates/skills/agent-instructions-interview/` | Skill | Reconciles CLAUDE.md/AGENTS.md against reality, surfaces tribal knowledge → verified agent instructions + PR |
+| `templates/agent-routing.md` | Policy | `impl:` tier on every issue (standard/frontier/human) + kind (spec/inherent/both) so a dispatcher routes by failure mode, not difficulty |
+| `templates/skills/routing-triage/` | Skill | Bootstraps or refreshes a repo's agent-routing tiers — delegates classification to a model-pinned subagent |
+| `templates/agents/routing-classifier.md` | Agent (Claude Code) | Pinned-model classifier subagent — proposes tiers, read-only by construction. Per-repo |
+| `templates/agents/routing-classifier.opencode.md` | Agent (opencode) | Same classifier, opencode-native frontmatter (`mode: subagent`, `permission:` block). Global — one agent serves every repo |
+| `templates/routing-calibration-protocol.md` | Protocol | Freeze predictions, run a weak model at the backlog, measure the gap — validates the tier taxonomy |
+| `templates/scripts/check-issue-routing.mjs` | Lint (GATE) | Six mechanical routing rules via GitHub API — structural errors fail, contradictions warn |
 | `templates/governance-sync-claude-section.md` | Integration | CLAUDE.md breadcrumb so downstream agents can self-navigate to governance |
 | `docs/claude-md-additions.md` | Integration | The two lines to add to `CLAUDE.md` or session instructions |
 | `docs/personas.md` | Reference | Named roles (repo owner, reviewer, auditor, remediator) used by templates — most small teams collapse all into the founder |

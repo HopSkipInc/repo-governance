@@ -8,7 +8,7 @@ description: >
   (`spec` or `inherent`) with a one-line reason for each, surfaces the disputed calls for
   a human, applies the labels and tier lines, and writes the repo's calibration set to
   docs/agent-routing.md.
-version: 1.2.0
+version: 1.3.0
 updated: 2026-07-24
 triggers:
   - /routing-triage
@@ -44,25 +44,46 @@ versions, and a run split across two versions is not internally consistent.
 **Classification is delegated to the `routing-classifier` agent, which pins its own model.**
 Triage is a frontier task — the router has to be smarter than the routed — but asking a model
 to certify its own class does not work: the instruction is read by the thing it is meant to
-bind. The pin lives in `.claude/agents/routing-classifier.md` frontmatter and is resolved by
-the harness at spawn, so the classifier never gets a vote.
+bind. The pin lives in the agent definition's frontmatter and is resolved by the harness at
+spawn, so the classifier never gets a vote.
+
+**The agent definition is harness-specific.** Two templates ship from repo-governance:
+
+| Harness | Agent file | Install location | Invocation |
+|---|---|---|---|
+| Claude Code | `templates/agents/routing-classifier.md` | `.claude/agents/routing-classifier.md` (per-repo) | harness spawns on skill request |
+| opencode | `templates/agents/routing-classifier.opencode.md` | `~/.config/opencode/agents/routing-classifier.md` (global) | `@routing-classifier` or ask primary to delegate |
+
+In opencode the agent is **global**, not per-repo — one classifier serves every repo on the
+machine, reading each repo's `docs/agent-routing.md` at invocation. The policy is per-repo;
+the classifier is shared. This is the cleaner shape: one pin to update when the model moves,
+not one per repo.
 
 **You may run this skill at any model class.** The parts you own — `gh` calls, the interview,
 applying the batch, writing records, opening the PR — are not the frontier task. The
 classification is, and you do not do it.
 
 **Before classifying, confirm the delegation actually happened — not that a file exists.**
-A presence check cannot verify a capability, and the file being present says nothing about
-whether this harness honours `model:` frontmatter at all. Both failures have been observed:
+A presence check cannot verify a capability. Both failure modes have been observed:
 
 - The file was **absent** in one run and classification proceeded inline regardless.
-- The harness (opencode) does not read Claude Code agent definitions, so the pin would not
-  have bound even with the file present.
+- The harness (opencode) does not read Claude Code agent definitions (`.claude/agents/`), so
+  a per-repo pin would not bind even with the file present. The opencode agent lives at
+  `~/.config/opencode/agents/` — a different path the old check never looked at.
 
 So: **if you cannot confirm that `routing-classifier` ran as a separately-spawned agent, stop
 and say so.** Do not classify inline as a fallback, and do not substitute your own assessment
 of your class — that is the compliance failure the pin exists to prevent, and it has already
 been observed in the wild as a PR line reading "inline by frontier model (glm-5.2)".
+
+**How to confirm delegation in each harness:**
+
+- **Claude Code:** the skill's spawn call returns a separate agent result. If you are running
+  inside the same context with no spawn boundary, delegation did not happen.
+- **opencode:** invoke `@routing-classifier` explicitly. If the agent is not installed
+  (`ls ~/.config/opencode/agents/routing-classifier.md` fails), install it from the template
+  first (see Step 1 below). If the invocation falls back to inline classification with no
+  subagent boundary, stop.
 
 **A self-reported classifier identity is not evidence.** If you cannot delegate, the correct
 output is a refusal naming the harness, not a table of tiers with a note about who made them.
@@ -139,9 +160,27 @@ You do not have to produce this map — the classifier does, and cites it in eve
 
 ## Step 1: Delegate to the routing-classifier agent
 
-Spawn `routing-classifier` with the candidate issue set and the sample-composition notes from
-Step 0. It maps the risk surfaces itself and returns the proposal tables — its job is to
-classify, not to decide, and it is read-only by construction: it proposes, you apply.
+Delegate classification to `routing-classifier` with the candidate issue set and the
+sample-composition notes from Step 0. It maps the risk surfaces itself and returns the
+proposal tables — its job is to classify, not to decide, and it is read-only by construction:
+it proposes, you apply.
+
+**The spawn mechanism depends on your harness:**
+
+- **Claude Code:** the harness spawns the agent defined in `.claude/agents/routing-classifier.md`
+  when the skill requests it. If that file is missing, install it from
+  `templates/agents/routing-classifier.md` first.
+- **opencode:** invoke `@routing-classifier` in the session, or ask the primary agent to
+  delegate. The agent lives at `~/.config/opencode/agents/routing-classifier.md` (global).
+  If it is missing, install it from `templates/agents/routing-classifier.opencode.md`:
+
+  ```bash
+  mkdir -p ~/.config/opencode/agents
+  cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.opencode.md \
+     ~/.config/opencode/agents/routing-classifier.md
+  ```
+
+  Then restart opencode (agent config is loaded at startup, not hot-reloaded).
 
 Do not paraphrase its output into your own judgement. If a row looks wrong, that is a
 **dispute** and belongs in the interview (Step 2), not a silent correction. A skill that
@@ -304,7 +343,10 @@ appending this repo's own records to it — not creating it, and not editing the
 above them. Three sections:
 
 1. **The model→class mapping**, dated. Which model IDs count as standard and frontier
-   *today*. This is the file that churns; the labels never do.
+   *today*. This is the file that churns; the labels never do. If the classifier agent is
+   pinned, record the pinned model and the file it is pinned in — `.claude/agents/routing-classifier.md`
+   (Claude Code, per-repo) or `~/.config/opencode/agents/routing-classifier.md` (opencode,
+   global). A pin nobody reviews is a pin that quietly names a retired model.
 2. **The calibration set** — 5–8 of the issues you just triaged, with tier, kind, and the
    one-line reason. Pick the ones that were *disputed*, not the obvious ones: the value of a
    calibration set is settling future arguments, and the obvious cases never generate any.

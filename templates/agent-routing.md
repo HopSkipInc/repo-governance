@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.6.0 · updated 2026-07-24 -->
+<!-- template: agent-routing.md v1.7.0 · updated 2026-07-24 -->
 # Agent Routing
 
-**Version:** 1.6.0 · **Last updated:** 2026-07-24
+**Version:** 1.7.0 · **Last updated:** 2026-07-24
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -22,6 +22,7 @@
 | 1.3.0 | 2026-07-24 | Weakened verification named as an anti-pattern — a silent failure mode of `standard`-tiered work, mitigated by authoring rather than escalation |
 | 1.4.0 | 2026-07-24 | Classification delegated to a `model:`-pinned agent; the pin is the one place a model name may be written, and must appear in the mapping table |
 | 1.6.0 | 2026-07-24 | What the kind means over time — fixing the spec on a `both` issue leaves `inherent`; the classification stays frozen in the calibration set. Without this `both` blocks `status:ready` forever |
+| 1.7.0 | 2026-07-24 | opencode harness support — the classifier pin is harness-specific: `.claude/agents/` (Claude Code, per-repo) or `~/.config/opencode/agents/` (opencode, global). Closes the cross-harness enforcement gap from 1.4.0 |
 | 1.5.0 | 2026-07-24 | CLAUDE.md block listed only two kinds — `both` was added in 1.2.0 and the block never followed. Downstream repos installing it taught their agents a two-kind taxonomy against a three-kind policy |
 
 ## Purpose
@@ -283,11 +284,24 @@ file. Never write a model name into a label.
 
 **One exception, and it is the enforcement point.** The `routing-classifier` agent definition
 pins its model in frontmatter — that pin is what makes triage un-self-certifiable, so it has
-to name something concrete. Add it as a row here so a re-sync reviews it:
+to name something concrete. The pin lives in a harness-specific location:
+
+| Harness | Pin file | Scope | Invocation |
+|---|---|---|---|
+| Claude Code | `.claude/agents/routing-classifier.md` | per-repo | harness spawns on skill request |
+| opencode | `~/.config/opencode/agents/routing-classifier.md` | global (one per machine) | `@routing-classifier` or ask primary to delegate |
+
+In opencode the classifier is global — one agent serves every repo, reading each repo's
+`docs/agent-routing.md` at invocation. The policy is per-repo; the classifier is shared. This
+is the cleaner shape: one pin to update when the model moves, not one per repo. The trade-off
+is that every repo's model→class mapping table references the same global pin, so a re-sync
+reviews them in batch.
+
+Add the pin as a row in the mapping table so a re-sync reviews it:
 
 | Class | Approved models | As of | Pinned in |
 |---|---|---|---|
-| frontier | [model ids] | [YYYY-MM-DD] | `.claude/agents/routing-classifier.md` |
+| frontier | [model ids] | [YYYY-MM-DD] | `.claude/agents/routing-classifier.md` or `~/.config/opencode/agents/routing-classifier.md` |
 
 A pin nobody reviews is a pin that quietly names a retired model.
 
@@ -304,6 +318,11 @@ Same defence-in-depth posture as issue authoring — **label and comment, never 
 
 2. **Layer 2 — agent contract (advisory).** The self-bounding contract and stop conditions
    above. Catches honest cases, cannot catch confident ones.
+   *Harness note:* in opencode, the classifier agent's `permission:` frontmatter block
+   (`edit: deny`, bash allowlist, `task: deny`) makes read-only enforcement harness-level,
+   not advisory — the agent cannot attempt a mutating command at all. This is stronger than
+   Claude Code's `tools:` restriction, which limits the tool surface but does not block
+   individual commands within an allowed tool.
 
 3. **Layer 3 — PR gate (backstop).** A PR fixing a `gate:human-review` or
    `gate:human-approval` issue requires a human approver (CODEOWNERS). A PR fixing an
