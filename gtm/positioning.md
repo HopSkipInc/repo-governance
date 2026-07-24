@@ -32,6 +32,14 @@ Three things that distinguish this from existing vCTO / engineering-advisory off
 
 4. **Compounding across repos, not just within one.** When the fastest-moving repo develops a better practice, it flows back to the template set, then out to every other governed repo via targeted maintenance prompts — concrete Claude Code instructions, scoped to each repo's current state. The client doesn't need to read changelogs or recheck the templates; they get told exactly what to add and where. This is what a retainer looks like in practice: not advice, but a continuous upstream of improvements landing in your repo.
 
+5. **Routing work to the cheapest model that can safely do it.** The `impl:` tier taxonomy (`templates/agent-routing.md`) labels every issue with the minimum capability class required, and *why*. The industry vocabulary for this, as of 2026-07, is **hill-climbing the cost-to-outcome frontier** — Microsoft's framing, worth adopting because it is about to be standard and explaining it from scratch is wasted breath in a CTO or partner conversation.
+
+   Use the term with technical buyers and partners. **Never in the founder one-pager** — that document was deliberately stripped of DORA vocabulary for the same reason, and this would reintroduce the problem in new clothes. Founder-facing, the mechanism is: *the cleaner your specs and the better your test coverage, the cheaper your contractor's agents are to run.*
+
+   The differentiated half is not the routing — it's that our tiers key on **loud vs. silent failure**, not difficulty. Cost-to-outcome optimization presumes a trustworthy eval; the dangerous cases in a codebase are exactly the ones where the eval is green and wrong. The `inherent`-tier population is a map of a repo's eval gaps, and coverage is what closes them. See `docs/watch-items/2026-07-24-microsoft-mai-hill-climbing.md`.
+
+   **Commoditization risk, stated plainly:** Microsoft's incentive is to give this layer away (Foundry) to drive model consumption. "Route by task class" will not stay a differentiator. What survives is the per-repo, non-inheritable part — the risk-surface map, the calibration set, and the judgment about which direction of change is dangerous. Position on those, not on the mechanism.
+
 ## Sales motion
 
 - **Channels:** engineering leadership networks (other CTOs, VPEs), founder networks, AI/developer-tools community (Wayfind audience), partner-of-partner referrals (JDAQA flavor).

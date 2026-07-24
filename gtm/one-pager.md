@@ -26,6 +26,7 @@ You end the build with working infrastructure, a codebase that matches its own d
 - Definition of Done installed in your repo — makes "done" explicit so you don't have to argue about it after
 - PR template that surfaces the checklist at submission time
 - CLAUDE.md additions so your AI coding agent knows the rules too
+- Every backlog item labeled with what it takes to build it safely — which work a cheap AI agent can finish on its own, which needs the expensive one, and which needs a person. Most work only needs the expensive model because nobody wrote the spec clearly enough. Fixing that is the cheapest thing on this page: the clearer your specs and the better your test coverage, the less your build costs to run.
 
 **Running in CI:**
 - Scheduled staleness audit — daily Claude-run check that opens a PR if your docs, specs, and code drift apart
