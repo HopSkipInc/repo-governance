@@ -138,6 +138,7 @@ Session 12 additions (2026-07-18):
 
 - DORA mapping section removed from founder-ICP one-pager — not the buyer's vocabulary.
 - "Launch window coverage" engagement shape is new and not in the CTO one-pager — formalized from BModelr pattern.
+- **Conventional-commit prefixes auto-close issues.** A commit subject of the form `<type>: #N …` — e.g. `fix: #1 escalated to frontier` — is parsed by GitHub as a closing directive, because `fix`/`fixes`/`close`/`resolve` are closing keywords and the colon does not break the match. On 2026-07-24 commit `0e328e9` silently closed #1 with none of its work done. **Never start a commit subject with `<type>: #N`.** Put the reference later in the subject (`fix: escalate #1 to frontier`) or in the body. The keyword must not sit adjacent to the reference.
 - **Git push auth (leizerowicz repos):** The `gh-real` credential helper reads `~/.config/gh/hosts.yml`, where the default account is `greghopskip` (no write access to `leizerowicz/*` repos). `gh auth switch` doesn't help when `GH_TOKEN` env is unset but the helper still picks the wrong account. **Fix:** push with the token inline: `TOKEN=$(gh auth token) && git push https://gleizerowicz:${TOKEN}@github.com/leizerowicz/<repo>.git <branch>`. The `gh auth token` command returns the active account's token (gleizerowicz when that's the active `gh` account).
 
 Session 13 additions (2026-07-23):
