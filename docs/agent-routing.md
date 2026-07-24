@@ -216,8 +216,30 @@ when the outcome contradicted the tier — a provisional row that turned out wro
 instructive entry the set will ever have. An all-provisional set is expected on run one and
 should be treated as weaker evidence than the heuristics table, not stronger.
 
-<!-- Fill this in from your own backlog. Do not inherit another repo's examples — the
-     whole value is that they are recognisable to the people doing the triage. -->
+### Calibration set (provisional — built from open issues on the bootstrap run, 2026-07-24)
+
+All four open issues. The entire backlog — no epic, no curation, the honest baseline.
+
+| # | Tier | Kind | Why | Disputed? |
+|---|---|---|---|---|
+| 7 | frontier | inherent | Bad tiers get skimmed and accepted, and this set is what settles future disputes — silent and compounding. | No |
+| 1 | standard | — | Deterministic static analysis; existing pattern to copy. | **Yes — unresolved.** A wrong governance-readiness score looks exactly like a right one, which is a silent failure and argues `frontier`. Left at `standard` pending human review; do **not** treat this row as settled. |
+| 2 | frontier | spec | Does not pick a versioning approach; specifying it makes the stamping and drift wiring mechanical. | **Yes** — arguable `inherent` if the design decision is the hard part regardless of spec quality. |
+| 4 | frontier | **both** | Silent failure (shallow analysis reads as thorough) **and** under-specified (no acceptance criteria bind what "done" means). Rewriting the criteria shrinks what has to be derived; the silent half remains. | Resolved to `both` on review. |
+
+**Corrections applied after the bootstrap run.** `#4` was originally filed `inherent`. The
+silent-failure argument was sound, but the issue is *also* under-specified, which is precisely
+what `both` is for. The run could not reach `both` because the CLAUDE.md block it worked from
+listed only two kinds (fixed in policy 1.5.0) — a documentation defect upstream of the
+triager, not a triage error.
+
+**Spec-escalation ratio (provisional): 2 of 4 (50%)** — issues carrying a `spec` component
+(`#2` spec, `#4` both), measured on the classification before responses. Resolved by rewrite: 0.
+Resolved by split: 0. The bootstrap run reported 25%; the correction to `#4` moved it.
+
+**Standing caution for this set:** every row is provisional and two of four are disputed. It
+is weaker evidence than the heuristics table, not stronger. Promote a row to confirmed only
+when its issue closes and the outcome matched the call.
 
 ## The self-bounding agent contract
 
@@ -257,10 +279,14 @@ human is present and already knows.
 
 For that fallback, keep one dated mapping table in `docs/agent-routing.md`:
 
-| Class | Approved models | As of |
-|---|---|---|
-| standard | [model ids] | [YYYY-MM-DD] |
-| frontier | [model ids] | [YYYY-MM-DD] |
+| Class | Approved models | As of | Pinned in |
+|---|---|---|---|
+| standard | claude-haiku-4-5, glm-5.2 | 2026-07-24 | — |
+| frontier | claude-opus-4-8, claude-sonnet-5 | 2026-07-24 | `.claude/agents/routing-classifier.md` |
+
+> **glm-5.2 is `standard`, not `frontier`.** Recorded because a 2026-07-24 opencode run
+> classified this repo's backlog inline and described itself as a "frontier model (glm-5.2)"
+> in the PR body. That is the self-certification the pin exists to prevent.
 
 The label vocabulary never changes. The mapping churns every few months, in exactly one
 file. Never write a model name into a label.

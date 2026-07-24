@@ -16,6 +16,16 @@
  *   2. The stamp's path matches the template's actual path (catches copy-paste).
  *   3. A template whose content changed in this diff must have changed its
  *      version in the same diff. Runs only in diff mode (--base <ref>).
+ *   4. A template that also declares a human-visible `**Version:**` line must
+ *      agree with its own stamp.
+ *
+ * Rule 4 exists because rules 1-3 only compare a file against the template
+ * repo and against history — nothing compared a file against *itself*. On
+ * 2026-07-24 agent-routing.md carried a stamp reading v1.5.0 and a visible
+ * header reading 1.2.0, three bumps stale, while the downstream prompt read
+ * the visible one. The same file's CLAUDE.md block simultaneously taught a
+ * two-kind taxonomy against its own three-kind table. Cross-file drift was
+ * covered; intra-file drift was invisible.
  *
  * Rule 3 was first written as a date comparison — "committed more recently than
  * the stamp claims" — and was blind in exactly the case that matters. Dates here
@@ -97,6 +107,13 @@ for (const file of files) {
   }
   if (claimedPath !== rel) {
     problems.push(`${rel}: stamp claims path "${claimedPath}" — copied from another template without updating the stamp`);
+  }
+
+  // Rule 4 — a second, human-readable version declaration must agree with the stamp.
+  // Downstream installs read the visible line; the lint reads the stamp. They must not diverge.
+  const visible = src.match(/^\*\*Version:\*\*\s*(\d+\.\d+\.\d+)/m);
+  if (visible && visible[1] !== version) {
+    problems.push(`${rel}: stamp says v${version} but the visible "**Version:**" header says ${visible[1]} — a file must agree with itself; downstream installs read the visible line`);
   }
 }
 

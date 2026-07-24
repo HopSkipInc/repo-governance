@@ -8,7 +8,7 @@ description: >
   (`spec` or `inherent`) with a one-line reason for each, surfaces the disputed calls for
   a human, applies the labels and tier lines, and writes the repo's calibration set to
   docs/agent-routing.md.
-version: 1.1.0
+version: 1.2.0
 updated: 2026-07-24
 triggers:
   - /routing-triage
@@ -51,9 +51,21 @@ the harness at spawn, so the classifier never gets a vote.
 applying the batch, writing records, opening the PR — are not the frontier task. The
 classification is, and you do not do it.
 
-**If `.claude/agents/routing-classifier.md` is missing, stop.** Do not classify inline as a
-fallback. An inline fallback is exactly the ungated path this split exists to remove, and it
-would be invisible in the output — the tiers would look identical.
+**Before classifying, confirm the delegation actually happened — not that a file exists.**
+A presence check cannot verify a capability, and the file being present says nothing about
+whether this harness honours `model:` frontmatter at all. Both failures have been observed:
+
+- The file was **absent** in one run and classification proceeded inline regardless.
+- The harness (opencode) does not read Claude Code agent definitions, so the pin would not
+  have bound even with the file present.
+
+So: **if you cannot confirm that `routing-classifier` ran as a separately-spawned agent, stop
+and say so.** Do not classify inline as a fallback, and do not substitute your own assessment
+of your class — that is the compliance failure the pin exists to prevent, and it has already
+been observed in the wild as a PR line reading "inline by frontier model (glm-5.2)".
+
+**A self-reported classifier identity is not evidence.** If you cannot delegate, the correct
+output is a refusal naming the harness, not a table of tiers with a note about who made them.
 
 **Bounded by default.** Do not attempt a whole backlog on the first run. Triage 15–30
 issues, confirm the calls, build the calibration set, then widen. A 200-issue pass
