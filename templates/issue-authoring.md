@@ -1,3 +1,4 @@
+<!-- template: issue-authoring.md v1.0.0 · updated 2026-07-24 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]

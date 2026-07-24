@@ -1,3 +1,4 @@
+<!-- template: pdr/_template.md v1.0.0 · updated 2026-07-24 -->
 # PDR-NNN: <Title>
 
 **Status:** Proposed | Accepted | Superseded by PDR-NNN | Retired

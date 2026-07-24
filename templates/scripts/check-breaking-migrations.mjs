@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// template: scripts/check-breaking-migrations.mjs v1.0.0 · updated 2026-07-24
 /**
  * lint:breaking-migrations  [governance template — copy to <project migration-runner dir>/scripts/
  * or wherever your project's lint scripts live]

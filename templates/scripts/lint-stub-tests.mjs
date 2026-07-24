@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// template: scripts/lint-stub-tests.mjs v1.0.0 · updated 2026-07-24
 /**
  * lint:stub-tests  [governance template — copy to <project>/scripts/ or tools/, npm repos only]
  *

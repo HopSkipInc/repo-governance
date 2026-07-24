@@ -1,3 +1,4 @@
+<!-- template: adr/README.md v1.0.0 · updated 2026-07-24 -->
 # Architecture Decision Records
 
 How the code is shaped: load-bearing patterns, conventions, and invariants that would be

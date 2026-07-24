@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// template: scripts/check-root-clutter.mjs v1.0.0 · updated 2026-07-24
 /**
  * lint:root-clutter  [governance template — copy to <project>/scripts/]
  *

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// template: scripts/check-schema-promises.mjs v1.0.0 · updated 2026-07-24
 /**
  * lint:schema-promises  [governance template — copy to <project migration-runner dir>/scripts/]
  *

@@ -1,3 +1,4 @@
+<!-- template: routing-calibration-protocol.md v1.0.0 · updated 2026-07-24 -->
 # Routing Calibration Protocol
 
 **Status:** Experiment protocol — run once per repo to calibrate `impl:` tiers against reality

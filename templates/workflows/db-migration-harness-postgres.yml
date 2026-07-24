@@ -1,3 +1,4 @@
+# template: workflows/db-migration-harness-postgres.yml v1.0.0 · updated 2026-07-24
 # Kind: GATE — migration harness must pass before migration files can merge.
 # Wire as a required status check in branch protection settings.
 #

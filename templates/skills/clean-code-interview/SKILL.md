@@ -8,6 +8,7 @@ description: >
   team to triage which conventions are load-bearing enough to enforce. Produces coding
   standard ADRs with lints, plus a PR.
 version: 1.0.0
+updated: 2026-07-24
 triggers:
   - /clean-code-interview
   - clean code interview

@@ -1,3 +1,4 @@
+<!-- template: pull_request_template.md v1.0.0 · updated 2026-07-24 -->
 ## What this PR does
 
 <!-- One sentence. -->

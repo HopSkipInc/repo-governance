@@ -1,3 +1,4 @@
+<!-- template: pdr/README.md v1.0.0 · updated 2026-07-24 -->
 # Product Decision Records
 
 Why this software exists: who it serves, what bet it makes, what it deliberately will not do.

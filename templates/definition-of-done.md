@@ -1,3 +1,4 @@
+<!-- template: definition-of-done.md v1.0.0 · updated 2026-07-24 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit

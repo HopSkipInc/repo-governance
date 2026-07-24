@@ -1,3 +1,4 @@
+// template: scripts/check-adr-readme-sync.mjs v1.0.0 · updated 2026-07-24
 /**
  * lint:adr-readme-sync  [governance template — copy to host/scripts/ in the target repo]
  *

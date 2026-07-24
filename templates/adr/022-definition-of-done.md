@@ -1,3 +1,4 @@
+<!-- template: adr/022-definition-of-done.md v1.0.0 · updated 2026-07-24 -->
 # ADR-022: Definition of Done is a First-Class Policy
 
 **Status:** Accepted

@@ -1,3 +1,4 @@
+<!-- template: db-migration-governance.md v1.0.0 · updated 2026-07-24 -->
 # Database Migration Governance
 
 ## Mandate

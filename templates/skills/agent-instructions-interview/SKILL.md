@@ -8,6 +8,7 @@ description: >
   team to surface tribal knowledge that isn't written anywhere. Produces a verified,
   complete agent instruction file, plus a PR.
 version: 1.0.0
+updated: 2026-07-24
 triggers:
   - /agent-instructions-interview
   - agent instructions interview

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// template: scripts/check-duplicated-sql.mjs v1.0.0 · updated 2026-07-24
 /**
  * lint:duplicated-sql  [governance template — copy to <project>/scripts/, TypeScript repos
  * with inline SQL only]

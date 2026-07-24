@@ -1,3 +1,4 @@
+<!-- template: watch-items.md v1.0.0 · updated 2026-07-24 -->
 # Watch Items
 
 **Status:** Policy — enforced by periodic audit sweep

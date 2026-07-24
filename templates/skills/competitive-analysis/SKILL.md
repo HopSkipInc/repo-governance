@@ -7,6 +7,7 @@ description: >
   in docs/watch-items/. The skill is self-discovering — it reads the repo's ADRs, architecture
   docs, and source structure rather than relying on pre-baked knowledge.
 version: 1.0.0
+updated: 2026-07-24
 triggers:
   - /competitive-analysis
   - competitive analysis

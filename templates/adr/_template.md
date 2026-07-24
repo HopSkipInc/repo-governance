@@ -1,3 +1,4 @@
+<!-- template: adr/_template.md v1.0.0 · updated 2026-07-24 -->
 # ADR-NNN: <Title>
 
 **Status:** Proposed | Accepted | Superseded by ADR-NNN | Retired

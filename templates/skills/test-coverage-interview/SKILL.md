@@ -8,6 +8,7 @@ description: >
   what the coverage expectation is). Produces testing standard ADRs with enforcement
   (coverage gates, test-presence checks), plus a PR.
 version: 1.0.0
+updated: 2026-07-24
 triggers:
   - /test-coverage-interview
   - test coverage interview

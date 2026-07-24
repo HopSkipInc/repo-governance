@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// template: scripts/check-magic-strings.mjs v1.0.0 · updated 2026-07-24
 /**
  * lint:magic-strings  [governance template — copy to <project>/scripts/, TypeScript repos only]
  *

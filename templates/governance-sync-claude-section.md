@@ -1,3 +1,4 @@
+<!-- template: governance-sync-claude-section.md v1.0.0 · updated 2026-07-24 -->
 # Governance sync — CLAUDE.md section
 
 When a downstream repo's CLAUDE.md includes this section, the agent can reliably find

@@ -9,6 +9,7 @@ description: >
   a human, applies the labels and tier lines, and writes the repo's calibration set to
   docs/agent-routing.md.
 version: 1.0.0
+updated: 2026-07-24
 triggers:
   - /routing-triage
   - /routing-triage refresh

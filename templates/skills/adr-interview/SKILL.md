@@ -8,6 +8,7 @@ description: >
   architecture. Produces numbered records in docs/adr/ with enforcement (lints or checks),
   plus a PR.
 version: 1.0.0
+updated: 2026-07-24
 triggers:
   - /adr-interview
   - adr interview

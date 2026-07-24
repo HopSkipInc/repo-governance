@@ -7,6 +7,7 @@ description: >
   each one. Produces numbered records in docs/pdr/ with observable falsifiers, plus a PR.
   The evidence is the interview's leverage — this skill never asks a blank-slate question.
 version: 1.0.0
+updated: 2026-07-24
 triggers:
   - /pdr-interview
   - pdr interview
