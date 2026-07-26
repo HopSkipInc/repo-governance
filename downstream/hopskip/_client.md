@@ -12,6 +12,41 @@
 | HopSkipInc/analytics-infrastructure | `~/repos/HopSkipInc/analytics-infrastructure` | 2026-06 | Early — inaugural audit done, code-hygiene not yet wired | Recent adopter; surface onboarding friction as a template signal |
 | HopSkipInc/enrichment-pipeline | `~/repos/HopSkipInc/enrichment-pipeline` | 2026-06 | Early-mid — first audit cycle done | Code-hygiene / slop-detection most complete here; reference for that artifact class |
 
+## Routing ratio targets
+
+Per-repo, per `templates/agent-routing.md` §*The frontier ratio and what it measures*. The
+target is a **decomposition** metric — escalations as a share of tiered issues — and it moves
+by splitting, not by relabeling. The inherent *population* is a different number and is not
+targeted here.
+
+Ramp: bootstrap (runs 1–2) records a baseline and targets nothing; adopting repos target
+**≤ 20%**; mature repos target **≤ 10%**. Move a repo to the next stage only after it holds
+the current one across two audit cycles.
+
+| Repo | Baseline (date) | Stage | Target | Latest reading | Decomposition record |
+|---|---|---|---|---|---|
+| HopSkipInc/ai-fleet | 63% — 10/16 tiered open issues, 2026-07-26 | Adopting | ≤ 20% | 63% (2026-07-26) | 0 split, 0 declared, 10 undeclared |
+| HopSkipInc/analytics-infrastructure | 85% — 23/27 tiered open issues, 2026-07-26 | Bootstrap | record only | 85% (2026-07-26) | 0 split, 0 declared, 23 undeclared |
+| HopSkipInc/enrichment-pipeline | not yet triaged | Bootstrap | record only | — | — |
+
+Readings come from `check-issue-routing.mjs` (v1.1.0+), which prints the census directly:
+
+```bash
+ROUTING_REPO=<owner>/<repo> node scripts/check-issue-routing.mjs
+```
+
+**Notes on the 2026-07-26 baseline.** All three readings predate the decomposition rule
+(policy v1.8.0) and are therefore the *pre-rule* baseline — the number the rule exists to
+move. Two splits are known to have happened in ai-fleet (#1346 from #1255, #1347 from #1256)
+and the census reports zero, because the parents' tier lines were never edited to record
+them. That gap is the reason the record is now part of the tier line rather than tribal
+knowledge: a split nobody wrote down is invisible to every downstream measurement.
+
+analytics-infrastructure stays at *bootstrap* despite having the higher number: ~22 of its 23
+escalations belong to a single gateway epic scoped by component, so its ratio is measuring
+issue granularity in one epic rather than the repo. Re-baseline it after that epic is
+decomposed, then set a target.
+
 ## Maintenance Log
 
 | Repo | Prompt | Status |

@@ -174,9 +174,9 @@ including the policy version. Do not modify files in repo-governance.
 
 ---
 
-## Re-sync backfill (repos that already triaged under 1.0.x / 1.1.x)
+## Re-sync backfill (repos that already triaged under 1.0.x–1.7.x)
 
-Your existing tiers were assigned under rules that have since changed. Three passes:
+Your existing tiers were assigned under rules that have since changed. Four passes:
 
 1. **Backfill `both`.** The `both` kind did not exist. Any issue tiered `inherent` that also
    carries `needs-structure` is almost certainly `both` — your validator says it is
@@ -187,11 +187,38 @@ Your existing tiers were assigned under rules that have since changed. Three pas
      --jq '.[] | select([.labels[].name] | any(startswith("impl:"))) | .number'
    ```
 
-2. **Re-baseline the spec ratio.** If your first sample was a single epic, the number is not a
+2. **Backfill the decomposition record (new in 1.8.0).** Every escalation now carries either
+   a split reference or a `Not splittable: <mechanism>` sentence in its tier line. Yours
+   predate the rule and have neither, so the audit's decomposition signal reads zero for a
+   backlog that may well have split issues in it — a split nobody wrote down is invisible to
+   every downstream measurement.
+
+   ```bash
+   # Every escalation lacking a decomposition record
+   node scripts/check-issue-routing.mjs 2>&1 | grep -E '\[R7\]|Decomposition census'
+   ```
+
+   Work the R7 findings first — those are the escalations that conceded a mechanical majority
+   in their own tier line, and they are your highest-yield split candidates. Then sweep the
+   rest: for each, either propose the split or write the sentence. **Do not bulk-append
+   `Not splittable:` to clear the lint.** That converts a real finding into a rubber stamp,
+   and it is the exact failure the `inherent`-is-the-flattering-call warning describes one
+   level up. If you cannot name the mechanism in a sentence, the issue splits.
+
+   Escalations already split under an earlier run need their *parent* tier lines edited to say
+   so (`Split into #NNN, #NNN`) — the children carry `impl:standard` and are not the record.
+
+3. **Re-baseline the spec ratio.** If your first sample was a single epic, the number is not a
    baseline. Run a second pass over a general-backlog sample and report that one instead, and
    mark the original as sample-limited rather than deleting it.
 
-3. **Mark the calibration set provisional** if it was built from open issues — head it
+   Report the **frontier ratio and decomposition debt** (escalations ÷ distinct surfaces they
+   name) alongside it. If more than half your set escalates, lead with that: the finding is
+   decomposition, not risk. A repo does not have thirty dangerous surfaces — it has three,
+   sliced into thirty component-shaped issues. Your ratio target is per-repo and lives in the
+   client governance record, not in the policy.
+
+4. **Mark the calibration set provisional** if it was built from open issues — head it
    `Calibration set (provisional — built from open issues on the bootstrap run, YYYY-MM-DD)`.
    Promote rows to confirmed as issues close and outcomes confirm the call.
 
@@ -230,6 +257,10 @@ bad=[i['number'] for i in json.load(sys.stdin) if not re.search(r'\b(spec|inhere
 print('missing kind:',bad)"
 # → missing kind: []
 
+# Every escalation carries a decomposition record (policy 1.8.0+)
+node scripts/check-issue-routing.mjs 2>&1 | grep 'Decomposition census'
+# → "undeclared" should be 0; any non-zero count is the backfill still owed
+
 # Contradiction check: under-structured but tiered without a spec component
 gh issue list --state open --limit 300 --label needs-structure --json number,body,labels \
   | python3 -c "
@@ -257,8 +288,14 @@ grep -q 'impl:' CLAUDE.md && echo OK
   `9 frontier — 3 spec, 4 inherent, 2 both` is.
 - **Spec-escalation ratio**, measured on the classification, before responses. Three numbers:
   classified `spec`-component, resolved by rewrite, resolved by split.
-- **Splits performed** — and whether the tells (`and` in the title, AC changing character
-  partway down) would have caught them at authoring time instead.
+- **Frontier ratio against your repo's target**, plus **decomposition debt** (escalations ÷
+  distinct surfaces). Report the ratio *after* the sample composition, never before it.
+- **Splits: proposed, accepted, declined** — and the count of escalations carrying a
+  `Not splittable:` statement. A run where nothing split and everything was declared
+  inseparable is either a genuinely indivisible backlog or a rule that wasn't applied; say
+  which you believe. Also note whether the tells (`and` in the title, a mechanical-majority
+  hedge, AC changing character partway down) would have caught the splits at authoring time
+  instead of at triage.
 - **Anything the tiers, kinds, or `gate:` family could not express.** Highest-value item you
   can send back; two template revisions on day one both came from exactly this.
 - **Scripting damage**, if any. It is not a policy bug and it is still worth reporting — it is
