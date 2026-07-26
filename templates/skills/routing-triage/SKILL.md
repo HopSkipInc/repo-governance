@@ -5,11 +5,12 @@ description: >
   surfaces — isolation boundaries, credential handling, uncovered code, dropping
   migrations — then classifies open issues by the failure mode their botched
   implementation would produce, not by difficulty. Proposes an `impl:` tier and a kind
-  (`spec` or `inherent`) with a one-line reason for each, surfaces the disputed calls for
+  (`spec`, `inherent`, or `both`) with a one-line reason for each, surfaces the disputed calls for
   a human, applies the labels and tier lines, and writes the repo's calibration set to
-  docs/agent-routing.md.
-version: 1.3.0
-updated: 2026-07-24
+  docs/agent-routing-records.md. Every escalation is decomposed before it is tiered — a split
+  proposal or a non-splittability statement is required, not suggested.
+version: 1.5.0
+updated: 2026-07-26
 triggers:
   - /routing-triage
   - /routing-triage refresh
@@ -233,6 +234,27 @@ Issues where two signals point different directions, or where the agent's confid
 low. Present them with the case for each tier. Do not let the agent break its own ties —
 these are the interview.
 
+#### 3a. Decomposition record — required on every escalation
+
+Every row above `standard` carries either a **split proposal** (the `standard` children plus
+the frontier residue) or a **non-splittability statement** (one sentence naming the mechanism
+that makes the mechanical work inseparable). Not a candidate list — a required field.
+
+"It's all one thing", "the whole issue is on the boundary", and "the parts are tightly
+coupled" are not statements; each means the issue splits. A statement names a transaction, a
+function, an atomic migration, a lockstep contract, or a suite whose value is running against
+the whole.
+
+**Reject any escalated row with an empty decomposition column and send it back.** This is the
+one output most likely to be skipped, because tiering is the interesting part and decomposing
+is the work. Through policy v1.7.0 it was a suggestion made after the fact and produced two
+splits in thirty-eight escalations.
+
+**Check the classifier's own prose for the tell.** A failure-mode column reading "mostly
+mechanical, but…", "X alone would be standard", "highest signal wins", or "mostly built —
+the residual is…" is a split proposal written as a hedge. Those rows go back regardless of
+what the decomposition column says.
+
 #### 4. Escalate-only lint candidates
 
 Path patterns that appeared in three or more `inherent` escalations. These are mechanically
@@ -252,20 +274,24 @@ Bring the human the disputes and the `spec` list. Not the whole table — the ta
 uncontroversial and reviewing 30 obvious rows exhausts the attention you need for the six
 that matter.
 
-Ask, in this order:
+Ask, in this order. **Splits come first** — they change which issues are even up for
+discussion, so asking about tiers before splits re-runs the conversation twice:
 
-1. **The disputed calls, one at a time.** Present both cases, ask for the call and the
+1. **The split proposals.** For each, present the `standard` children and the residue, and
+   ask for a yes/no. A yes usually converts one escalation into three or four cheap issues
+   plus a smaller dangerous one, which is the highest-value outcome available in this whole
+   procedure.
+2. **The non-splittability statements.** Read them out. The question is not "do you agree
+   this is hard" — it is *"is this mechanism real?"* A statement the human cannot confirm
+   from the code is a split that hasn't been found yet. Push once, then accept.
+3. **The disputed calls, one at a time.** Present both cases, ask for the call and the
    *reason*. The reason becomes the tier line.
-2. **The `spec` escalations.** For each: "this is frontier only because the issue doesn't
+4. **The `spec` escalations.** For each: "this is frontier only because the issue doesn't
    say [X]. Do you want to answer that now and drop it to standard, or leave it?" Many will
    be answerable in a sentence — that is the whole point of the kind split, and the fastest
    demonstration of why it exists.
-3. **Split candidates.** For every escalated issue, ask whether a mechanical half can be
-   lifted out: plumbing, config, scaffolding, the cost cap around the admission logic. If
-   yes, propose the split — it is usually the highest-value response available, and it is
-   the one triagers forget. See *Responses to an escalation* in the policy.
-4. **The surfaces you could not classify.** Verbatim.
-5. **Nothing else.** Do not ask the human to confirm the obvious rows.
+5. **The surfaces you could not classify.** Verbatim.
+6. **Nothing else.** Do not ask the human to confirm the obvious rows.
 
 If the human disagrees with a call, ask what signal you missed, then check whether that
 signal applies to other rows too. One correction usually moves several.
@@ -306,7 +332,31 @@ constraint with no reason and cannot tell whether it still applies.
 ## Impl tier
 frontier (inherent) — touches the [boundary]; a wrong scope returns plausible-looking
 rows and no test covers cross-tenant reads.
+Not splittable: the scope predicate is composed in one function whose every branch reads
+it; there is no mechanical half to lift.
 ```
+
+**The decomposition record is part of the line, not an optional postscript.** Every escalated
+issue carries either `Not splittable: <mechanism>` or `Split into #NNN, #NNN` / `Split from
+#NNN`. An escalation without one is malformed the same way a missing kind is — R7 in
+`check-issue-routing.mjs` flags it, and the audit's decomposition-debt signal cannot be
+computed without it.
+
+**Create the split children before applying tiers to their parents.** Order matters: the
+parent's tier line references the children by number, so the children must exist first.
+
+```bash
+# For each accepted split: create the standard child, then narrow the parent.
+gh issue create --title "<mechanical half>" --label "impl:standard" \
+  --body "Split from #<parent>. <scope>
+
+## Impl tier
+standard — <loud failure mode>; <coverage evidence>."
+```
+
+Then edit the parent's body to narrow its scope to the residue *and* append its tier line in
+the same edit. A parent left describing work that moved to a child is worse than no split —
+the next agent implements it twice.
 
 **Apply from a reviewed batch file, not an ad-hoc loop.** Write every intended change to a
 single file first — issue number, label, and the exact tier line — have the human read it, then
@@ -336,18 +386,32 @@ ordering is the anti-gaming rule, and this is the run where you establish it.
 
 ---
 
-## Step 4: Extend docs/agent-routing.md
+## Step 4: Write docs/agent-routing-records.md
 
-The policy was installed here before the run (Step 0 refused to start otherwise). You are
-appending this repo's own records to it — not creating it, and not editing the policy text
-above them. Three sections:
+**Records go in their own file. Never write them into `docs/agent-routing.md`.** That file is
+the policy, byte-identical to the template, and its adoption check is a `diff -q`. Appending
+records to it breaks the check permanently, and the obvious repair is deleting the records —
+which is the one artifact that cannot be recovered from upstream.
 
-1. **The model→class mapping**, dated. Which model IDs count as standard and frontier
-   *today*. This is the file that churns; the labels never do. If the classifier agent is
-   pinned, record the pinned model and the file it is pinned in — `.claude/agents/routing-classifier.md`
-   (Claude Code, per-repo) or `~/.config/opencode/agents/routing-classifier.md` (opencode,
-   global). A pin nobody reviews is a pin that quietly names a retired model.
-2. **The calibration set** — 5–8 of the issues you just triaged, with tier, kind, and the
+If the file does not exist, install the form first:
+
+```bash
+cp <governance-repo>/templates/agent-routing-records.md docs/agent-routing-records.md
+```
+
+Then fill in the sections you have evidence for. Leave the rest as placeholders — a half-filled
+records file is honest; an invented one is not:
+
+1. **Model → class**, dated. What counts as standard and frontier *today*.
+2. **Model → harness route.** How each harness addresses those models. Keep this separate from
+   the class table: the same model reached through two harnesses is the same class, and
+   collapsing them makes a slug rename read as a capability change.
+3. **Classifier pins** — the pin file per harness, and **the model each pin resolves to**.
+   Verify every pin resolves to something the class table calls `frontier`. A pin nobody
+   reviews is a pin that quietly names a retired model.
+4. **The routing ratio** — the baseline reading, the stage, and the target. On a first run the
+   correct target is *none*: record the baseline and say so.
+5. **The calibration set** — 5–8 of the issues you just triaged, with tier, kind, and the
    one-line reason. Pick the ones that were *disputed*, not the obvious ones: the value of a
    calibration set is settling future arguments, and the obvious cases never generate any.
 
@@ -356,7 +420,7 @@ above them. Three sections:
    `Calibration set (provisional — built from open issues on the bootstrap run, YYYY-MM-DD)`
    and treat it as weaker evidence than the heuristics table until the issues close and the
    outcomes either confirm or contradict the calls.
-3. **Repo-specific surfaces** — the map from Step 0, so the next run does not rediscover it.
+6. **Repo-specific surfaces** — the map from Step 1, so the next run does not rediscover it.
 
 Do not copy another repo's calibration set. The examples only work if the people triaging
 recognise them.
@@ -364,13 +428,33 @@ recognise them.
 Then add the routing block to CLAUDE.md / AGENTS.md — the template is at the end of
 [agent-routing.md](../../agent-routing.md).
 
+### Migrating a repo that has records inside the policy file
+
+Repos triaged under policy ≤ 1.8.0 kept both in `docs/agent-routing.md`. **Move the records out
+before you overwrite the policy, never after** — a `cp` over the combined file destroys them
+with no diff to recover from.
+
+```bash
+# 1. Copy the whole thing aside first. Cheap insurance; the records have no upstream copy.
+cp docs/agent-routing.md /tmp/agent-routing-combined.md
+
+# 2. Find the record blocks — typically the calibration set and the filled-in mapping table.
+grep -n '^### Calibration set\|^| Class | Approved models' docs/agent-routing.md
+```
+
+Move those blocks into `docs/agent-routing-records.md` **verbatim**, then `cp` the template
+over `docs/agent-routing.md` and confirm `diff -q` is clean. Read the combined copy once more
+before deleting it: anything in it that is neither template text nor a record you moved is a
+local edit somebody made to the policy, and that is worth a conversation rather than a
+silent overwrite.
+
 ---
 
 ## Step 5: Branch, commit, open PR
 
 ```bash
 git checkout -b governance/agent-routing
-git add docs/agent-routing.md CLAUDE.md
+git add docs/agent-routing.md docs/agent-routing-records.md CLAUDE.md
 git commit -m "governance: agent routing tiers + calibration set"
 gh pr create --title "governance: agent routing tiers" --body "..."
 ```
@@ -385,6 +469,18 @@ how many were fixed-and-downgraded in this pass, and the lint candidates from St
 Report to the human:
 
 - Tier distribution across the triaged set.
+- **Frontier ratio against this repo's target.** Escalations as a share of tiered issues.
+  The target is per-repo and lives in the client's governance record
+  (`downstream/<client>/_client.md`), not in the policy — read it, don't assume it. On runs
+  1–2 there is no target: record the baseline and say so. Adopting repos target ≤ 20%;
+  mature repos ≤ 10%.
+- **Decomposition debt** — escalations ÷ the distinct risk surfaces they name. A backlog with
+  twenty escalations over three surfaces is scoped by component, not by failure mode, and no
+  amount of triage rigor will fix it upstream of the authoring.
+- **Splits: proposed, accepted, declined.** Plus the count of escalations carrying a
+  `Not splittable:` statement. A run where every escalation was declared inseparable and none
+  was split is either a genuinely indivisible backlog or a rule that isn't being applied —
+  say which you believe and why, because the ratio alone cannot tell them apart.
 - **Spec-escalation ratio** — escalations with a `spec` component (`spec` or `both`) as a
   share of the set, measured on the *classification*, before responses were applied. Report
   three numbers: classified `spec`, resolved by rewrite, resolved by split. Counting only
@@ -429,3 +525,8 @@ architecture moves, which arrives as an ADR, not as a triage pass.
   that the backlog is unauthored, and more labels will not fix it.
 - If nothing comes out `inherent`, you have not found the repo's risk surfaces. Go back to
   Step 0.
+- **If more than half the set escalates, the finding is decomposition, not risk.** Say so
+  before you report a single tier. A repo does not have thirty dangerous surfaces; it has
+  three, sliced into thirty component-shaped issues. Lead the report with that.
+- Titles of the form `<Component>: <thing>` across a whole epic are the signature. The tier
+  then measures the component's worst surface, every time, correctly and uselessly.

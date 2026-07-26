@@ -5,7 +5,7 @@
 do not assume. This prompt deliberately does not name a version: a prompt that hardcodes one
 goes stale the moment the policy moves, which is the same drift the version stamps exist to
 prevent, one level up.
-**Templates:** `templates/agent-routing.md`, `templates/skills/routing-triage/SKILL.md`,
+**Templates:** `templates/agent-routing.md`, `templates/agent-routing-records.md`, `templates/skills/routing-triage/SKILL.md`,
 `templates/agents/routing-classifier.md` (Claude Code), `templates/agents/routing-classifier.opencode.md` (opencode),
 `templates/routing-calibration-protocol.md`, `templates/issue-authoring.md` (updated)
 **Status of this policy:** candidate, revised twice on its first day from two live runs. Report
@@ -62,7 +62,7 @@ grep -m2 -E '^\*\*Version:|^\*\*Last updated' docs/agent-routing.md
 Record that version wherever you write up the run. A run split across two policy versions is
 not internally consistent, and a triager cannot tell from the inside.
 
-**2. Install the triage skill and its classifier agent.** Both, or neither works.
+**2. Install the triage skill, its classifier agent, and the records form.** The first two, or neither works.
 The classifier agent definition is **harness-specific** — install the one matching your
 primary harness. If your team uses both harnesses, install both (they do not conflict —
 different paths, same body):
@@ -81,7 +81,16 @@ cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.md \
 mkdir -p ~/.config/opencode/agents
 cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.opencode.md \
    ~/.config/opencode/agents/routing-classifier.md
+
+# Records form (per-repo, never syncs after this — it is where YOUR records go)
+cp ~/repos/greg/repo-governance/templates/agent-routing-records.md \
+   docs/agent-routing-records.md
 ```
+
+**`docs/agent-routing-records.md` is the one file here you own.** The policy is byte-identical
+in every governed repo and gets overwritten on every re-sync; the records file is yours, never
+synced, and holds your calibration set, model→class mapping, pin resolutions, and ratio
+readings. Nothing upstream can reconstruct it.
 
 **If your team runs opencode as the primary harness, the per-repo `.claude/agents/` install
 is unnecessary** — opencode does not read Claude Code agent definitions, and the global agent
@@ -103,8 +112,9 @@ In opencode, invoke the classifier with `@routing-classifier` or ask the primary
 delegate. The `mode: subagent` + `hidden: true` frontmatter means it is only ever spawned for
 triage, never a primary agent.
 
-Record the pinned model in your `docs/agent-routing.md` mapping table so a future re-sync
-reviews it.
+Record the pinned model in `docs/agent-routing-records.md` — specifically **which model the
+pin resolves to**, so a reviewer can check it against your class table without reading a
+harness's model catalogue. Every pin must resolve to a model you list as `frontier`.
 
 **3. Create the labels:**
 
@@ -148,6 +158,8 @@ was a policy bug. Write the intended changes to a file, read it, then execute, t
 three issues.
 
 **6. Add the routing block to CLAUDE.md.** Template is at the end of `agent-routing.md`.
+Note it points readers at `docs/agent-routing-records.md` for the mapping and calibration
+examples, and at `docs/agent-routing.md` for the tier definitions.
 
 **7. Install the routing validator.** The six Layer 2 rules now have a reference
 implementation. It queries the GitHub API rather than parsing source, so it drops into this
@@ -174,9 +186,9 @@ including the policy version. Do not modify files in repo-governance.
 
 ---
 
-## Re-sync backfill (repos that already triaged under 1.0.x / 1.1.x)
+## Re-sync backfill (repos that already triaged under 1.0.x–1.7.x)
 
-Your existing tiers were assigned under rules that have since changed. Three passes:
+Your existing tiers were assigned under rules that have since changed. Four passes:
 
 1. **Backfill `both`.** The `both` kind did not exist. Any issue tiered `inherent` that also
    carries `needs-structure` is almost certainly `both` — your validator says it is
@@ -187,11 +199,69 @@ Your existing tiers were assigned under rules that have since changed. Three pas
      --jq '.[] | select([.labels[].name] | any(startswith("impl:"))) | .number'
    ```
 
-2. **Re-baseline the spec ratio.** If your first sample was a single epic, the number is not a
+2. **Backfill the decomposition record (new in 1.8.0).** Every escalation now carries either
+   a split reference or a `Not splittable: <mechanism>` sentence in its tier line. Yours
+   predate the rule and have neither, so the audit's decomposition signal reads zero for a
+   backlog that may well have split issues in it — a split nobody wrote down is invisible to
+   every downstream measurement.
+
+   ```bash
+   # Every escalation lacking a decomposition record
+   node scripts/check-issue-routing.mjs 2>&1 | grep -E '\[R7\]|Decomposition census'
+   ```
+
+   Work the R7 findings first — those are the escalations that conceded a mechanical majority
+   in their own tier line, and they are your highest-yield split candidates. Then sweep the
+   rest: for each, either propose the split or write the sentence. **Do not bulk-append
+   `Not splittable:` to clear the lint.** That converts a real finding into a rubber stamp,
+   and it is the exact failure the `inherent`-is-the-flattering-call warning describes one
+   level up. If you cannot name the mechanism in a sentence, the issue splits.
+
+   Escalations already split under an earlier run need their *parent* tier lines edited to say
+   so (`Split into #NNN, #NNN`) — the children carry `impl:standard` and are not the record.
+
+3. **Split your records out of the policy file (new in 1.9.0) — do this FIRST, before any
+   `cp`.** Through policy 1.8.0 your calibration set and model→class mapping lived inside
+   `docs/agent-routing.md`, which the adoption check verifies is byte-identical to the
+   template. Those instructions contradicted each other and yours has been failing that check
+   ever since. **A `cp` over the combined file destroys your records with no diff to recover
+   them from, and the calibration set has no upstream copy.**
+
+   ```bash
+   # Insurance first — cheap, and the records are unreconstructible.
+   cp docs/agent-routing.md /tmp/agent-routing-combined.md
+
+   # Find your record blocks.
+   grep -n '^### Calibration set\|^| Class | Approved models' docs/agent-routing.md
+
+   # Install the records form, move the blocks into it verbatim, THEN overwrite the policy.
+   cp ~/repos/greg/repo-governance/templates/agent-routing-records.md docs/agent-routing-records.md
+   # ... move blocks by hand ...
+   cp ~/repos/greg/repo-governance/templates/agent-routing.md docs/agent-routing.md
+   diff -q docs/agent-routing.md ~/repos/greg/repo-governance/templates/agent-routing.md
+   ```
+
+   Read `/tmp/agent-routing-combined.md` once more before deleting it. Anything in it that is
+   neither template text nor a record you moved is a **local edit somebody made to the policy**
+   — surface it rather than silently discarding it.
+
+   While filling the records form, split your old mapping table in two: **class←model** (what a
+   model is) and **model→harness route** (how each harness addresses it). And record what each
+   classifier pin *resolves to*, then check it against the class table — a pin must resolve to a
+   model you list as `frontier`, and verifying that shouldn't require reading a harness's model
+   catalogue.
+
+4. **Re-baseline the spec ratio.** If your first sample was a single epic, the number is not a
    baseline. Run a second pass over a general-backlog sample and report that one instead, and
    mark the original as sample-limited rather than deleting it.
 
-3. **Mark the calibration set provisional** if it was built from open issues — head it
+   Report the **frontier ratio and decomposition debt** (escalations ÷ distinct surfaces they
+   name) alongside it. If more than half your set escalates, lead with that: the finding is
+   decomposition, not risk. A repo does not have thirty dangerous surfaces — it has three,
+   sliced into thirty component-shaped issues. Your ratio target is per-repo and lives in the
+   client governance record, not in the policy.
+
+5. **Mark the calibration set provisional** if it was built from open issues — head it
    `Calibration set (provisional — built from open issues on the bootstrap run, YYYY-MM-DD)`.
    Promote rows to confirmed as issues close and outcomes confirm the call.
 
@@ -200,8 +270,16 @@ Your existing tiers were assigned under rules that have since changed. Three pas
 ## Verifiable outcomes
 
 ```bash
-# Policy is present, readable from inside the repo, and matches the template exactly
+# Policy is present and byte-identical to the template. This check is only meaningful
+# from policy 1.9.0 on — before that, records lived in this file and it could never pass.
 diff -q docs/agent-routing.md ~/repos/greg/repo-governance/templates/agent-routing.md && echo OK
+
+# Records live in their own file and carry no template text
+test -f docs/agent-routing-records.md && echo OK
+grep -q 'Policy version these records were written against' docs/agent-routing-records.md && echo OK
+
+# Every classifier pin resolves to a model the class table calls frontier
+grep -A6 '^| Harness | Pin file' docs/agent-routing-records.md
 
 # Labels exist
 gh label list --limit 200 | grep -c '^impl:'                       # → 3
@@ -230,6 +308,10 @@ bad=[i['number'] for i in json.load(sys.stdin) if not re.search(r'\b(spec|inhere
 print('missing kind:',bad)"
 # → missing kind: []
 
+# Every escalation carries a decomposition record (policy 1.8.0+)
+node scripts/check-issue-routing.mjs 2>&1 | grep 'Decomposition census'
+# → "undeclared" should be 0; any non-zero count is the backfill still owed
+
 # Contradiction check: under-structured but tiered without a spec component
 gh issue list --state open --limit 300 --label needs-structure --json number,body,labels \
   | python3 -c "
@@ -257,8 +339,14 @@ grep -q 'impl:' CLAUDE.md && echo OK
   `9 frontier — 3 spec, 4 inherent, 2 both` is.
 - **Spec-escalation ratio**, measured on the classification, before responses. Three numbers:
   classified `spec`-component, resolved by rewrite, resolved by split.
-- **Splits performed** — and whether the tells (`and` in the title, AC changing character
-  partway down) would have caught them at authoring time instead.
+- **Frontier ratio against your repo's target**, plus **decomposition debt** (escalations ÷
+  distinct surfaces). Report the ratio *after* the sample composition, never before it.
+- **Splits: proposed, accepted, declined** — and the count of escalations carrying a
+  `Not splittable:` statement. A run where nothing split and everything was declared
+  inseparable is either a genuinely indivisible backlog or a rule that wasn't applied; say
+  which you believe. Also note whether the tells (`and` in the title, a mechanical-majority
+  hedge, AC changing character partway down) would have caught the splits at authoring time
+  instead of at triage.
 - **Anything the tiers, kinds, or `gate:` family could not express.** Highest-value item you
   can send back; two template revisions on day one both came from exactly this.
 - **Scripting damage**, if any. It is not a policy bug and it is still worth reporting — it is

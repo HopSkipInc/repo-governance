@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.0.0 · updated 2026-07-24
+// template: scripts/check-issue-routing.mjs v1.1.0 · updated 2026-07-26
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -20,6 +20,7 @@
  *   R4 ready-vs-spec       status:ready + spec-component kind (contradiction)
  *   R5 structure-vs-kind   needs-structure + no spec component(contradiction)
  *   R6 ungrounded-downgrade  impl: lowered with no body edit  (contradiction)
+ *   R7 undecomposed          escalation hedges but never split (contradiction)
  *
  * R4: an issue that is frontier only because it is under-specified is ready to
  * be *rewritten*, not worked. R5: your own validator says the issue is
@@ -27,7 +28,22 @@
  * be true, and the usual correct answer is kind `both`. R6 is the anti-gaming
  * check: a tier may only be lowered in the same edit that removes the reason.
  *
- * R4–R6 default to WARN. Promote them to ERROR (the WARN→FAIL convention) once
+ * R7 is the mechanical-majority tell. Escalations announce their own
+ * splittability in the tier line, in the triager's own words — "mostly
+ * mechanical, but…", "X alone would be standard", "highest signal wins",
+ * "mostly built, the residual is…". Each is a correct application of *assign by
+ * the highest signal* and a missed split: the triager saw the mechanical
+ * majority, named it, and escalated the whole issue anyway. Measured across
+ * three live backlogs, that pattern produced two splits in thirty-eight
+ * escalations.
+ *
+ * R7 clears when the tier line carries a decomposition record — either a
+ * `Not splittable: <mechanism>` sentence or a `Split from|into #N` reference.
+ * That interlock is the point: the hedge is only a finding while the
+ * decomposition is missing, so the cheapest way to silence the lint is to do
+ * the thing the policy asks for.
+ *
+ * R4–R7 default to WARN. Promote them to ERROR (the WARN→FAIL convention) once
  * your backlog is clean — a first run over an untriaged backlog will be noisy,
  * and a lint that cries wolf on day one gets disabled on day two.
  *
@@ -58,6 +74,7 @@ const SEVERITY = {
   R4: 'warn',
   R5: 'warn',
   R6: 'warn',
+  R7: 'warn',
 };
 
 /** The label your issue-structure validator applies. */
@@ -77,6 +94,32 @@ const TIER_RANK = { 'impl:standard': 1, 'impl:frontier': 2, 'impl:human': 3 };
 
 /** Kinds that mean "specification would help". */
 const SPEC_KINDS = ['spec', 'both'];
+
+/**
+ * R7: phrases in a tier line that concede a mechanical majority. Each was
+ * observed verbatim in a live backlog on an escalation that was never split.
+ * Tune to your triagers' vocabulary — this list is a starting point, not a
+ * closed set, and a hedge you see twice belongs in it.
+ */
+const HEDGE_PATTERNS = [
+  /\bmostly mechanical\b/i,
+  /\bmostly built\b/i,
+  /\blargely mechanical\b/i,
+  /\bhighest signal wins\b/i,
+  /\bresidual is\b/i,
+  /\balone would be\s+(standard|frontier)\b/i,
+  /\bon its own (would|is)\s+(standard|frontier)\b/i,
+  /\bthe (rest|remainder|bulk) is mechanical\b/i,
+  /\bmechanical (except|apart from|other than)\b/i,
+];
+
+/**
+ * R7 clears on either half of the decomposition record. `Not splittable:` must
+ * be followed by something — the policy is explicit that "it's all one thing"
+ * is not a statement, and an empty marker is exactly that dressed up.
+ */
+const NOT_SPLITTABLE = /\bnot splittable\b\s*[::-]\s*\S+/i;
+const SPLIT_REFERENCE = /\bsplit\s+(from|into)\b[^.\n]*#\d+/i;
 
 // ------------------------------------------------------------------ helpers
 
@@ -136,6 +179,9 @@ const issues = JSON.parse(
 
 const tiered = [];
 
+/** Decomposition census — the mechanical half of the audit's signal 5. */
+const census = { escalations: 0, notSplittable: 0, split: 0, undeclared: 0 };
+
 for (const issue of issues) {
   const names = issue.labels.map((l) => l.name);
   const impls = implLabels(issue.labels);
@@ -167,6 +213,25 @@ for (const issue of issues) {
   }
   if (tier && names.includes(STRUCTURE_LABEL) && !(kind && SPEC_KINDS.includes(kind))) {
     report('R5', issue.number, `carries ${STRUCTURE_LABEL} but is tiered ${kind ? `(${kind})` : 'with no spec component'} — the validator says under-specified, triage says specification would not help. Usual correct answer: both`);
+  }
+
+  // R7: the tier line concedes a mechanical majority but carries no decomposition
+  // record. The hedge is the triager writing the split proposal in prose and then
+  // escalating the whole issue anyway.
+  if (tier && tier !== 'impl:standard' && block) {
+    const isSplit = SPLIT_REFERENCE.test(block);
+    const isDeclared = NOT_SPLITTABLE.test(block);
+    const decomposed = isSplit || isDeclared;
+    census.escalations += 1;
+    if (isSplit) census.split += 1;
+    else if (isDeclared) census.notSplittable += 1;
+    else census.undeclared += 1;
+    if (!decomposed) {
+      const hedge = HEDGE_PATTERNS.find((p) => p.test(block));
+      if (hedge) {
+        report('R7', issue.number, `${tier} tier line concedes a mechanical majority (${block.match(hedge)[0].trim()}) but carries no decomposition record — lift the mechanical half into a standard issue, or state in one sentence what makes it inseparable ("Not splittable: <mechanism>")`);
+      }
+    }
   }
 
   if (tier) tiered.push(issue.number);
@@ -215,6 +280,19 @@ const errors = findings.filter((f) => f.sev === 'error');
 const warns = findings.filter((f) => f.sev === 'warn');
 
 console.log(`check-issue-routing: ${REPO} — swept ${issues.length} ${STATE} issues, ${tiered.length} tiered.`);
+
+if (census.escalations) {
+  const pct = ((census.escalations / tiered.length) * 100).toFixed(0);
+  console.log(
+    `\nDecomposition census: ${census.escalations}/${tiered.length} tiered issues escalate (${pct}%) — ` +
+    `${census.split} split, ${census.notSplittable} declared not splittable, ${census.undeclared} undeclared.`
+  );
+  console.log(
+    'Compare the ratio against this repo\'s target (per-repo, in the client governance record — ' +
+    'adopting ≤ 20%, mature ≤ 10%). All-declared-and-never-split and not-attempting-the-rule ' +
+    'look identical from the ratio alone; the split count is what separates them.'
+  );
+}
 
 for (const group of [errors, warns]) {
   if (!group.length) continue;

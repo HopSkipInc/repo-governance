@@ -201,7 +201,9 @@ enforces that every template appears here or is excluded on the record.
 | `adr/README.md` + `adr/_template.md` | ADR corpus is being applied | P0 | The index and the blank form — an ADR directory without both drifts immediately |
 | `scripts/check-adr-readme-sync.mjs` | ADR directory **or** PDR directory exists | P1 | Prevents index drift in both corpora — one script covers both |
 | **`agent-routing.md`** | Backlog is worked by coding agents | P1 | `impl:` tiers keep work a weak model would botch away from it. Skip only if all implementation is human |
-| **`skills/routing-triage/`** | agent-routing is applied | P1 | How tiers actually get assigned; installs `agents/routing-classifier.md` as its dependency |
+| **`agent-routing-records.md`** | agent-routing is applied | P1 | The per-repo records file — model→class, pin resolutions, ratio readings, calibration set. Never syncs after install. Without it the repo appends records to the policy, which the adoption check requires to be identical to the template |
+| **`skills/routing-triage/`** | agent-routing is applied | P1 | How tiers actually get assigned; installs a `agents/routing-classifier*` variant as its dependency |
+| **`agents/routing-classifier.opencode.md`** | agent-routing is applied **and** the team runs opencode | P1 | opencode does not read `.claude/agents/`, so the Claude Code pin does not bind there. Installs globally to `~/.config/opencode/agents/`. Install instead of — not alongside — the Claude Code variant on an opencode-only team |
 | **`scripts/check-issue-routing.mjs`** | agent-routing is applied | P1 | Mechanical enforcement of the routing rules; queries the GitHub API, so language-agnostic |
 | **`skills/adr-interview/`** | Repo has load-bearing patterns and no ADRs, or ADRs without enforcement | P1 | Five-layer sweep — layer 2 |
 | **`skills/clean-code-interview/`** | Always | P2 | Five-layer sweep — layer 3 |
