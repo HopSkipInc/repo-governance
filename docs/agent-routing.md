@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.6.0 · updated 2026-07-24 -->
+<!-- template: agent-routing.md v1.8.0 · updated 2026-07-26 -->
 # Agent Routing
 
-**Version:** 1.6.0 · **Last updated:** 2026-07-24
+**Version:** 1.8.0 · **Last updated:** 2026-07-26
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -21,7 +21,10 @@
 | 1.2.0 | 2026-07-24 | `both` kind; ratio measured pre-response; curated-baseline caveat; provisional calibration sets |
 | 1.3.0 | 2026-07-24 | Weakened verification named as an anti-pattern — a silent failure mode of `standard`-tiered work, mitigated by authoring rather than escalation |
 | 1.4.0 | 2026-07-24 | Classification delegated to a `model:`-pinned agent; the pin is the one place a model name may be written, and must appear in the mapping table |
+| 1.6.0 | 2026-07-24 | What the kind means over time — fixing the spec on a `both` issue leaves `inherent`; the classification stays frozen in the calibration set. Without this `both` blocks `status:ready` forever |
+| 1.7.0 | 2026-07-24 | opencode harness support — the classifier pin is harness-specific: `.claude/agents/` (Claude Code, per-repo) or `~/.config/opencode/agents/` (opencode, global). Closes the cross-harness enforcement gap from 1.4.0 |
 | 1.5.0 | 2026-07-24 | CLAUDE.md block listed only two kinds — `both` was added in 1.2.0 and the block never followed. Downstream repos installing it taught their agents a two-kind taxonomy against a three-kind policy |
+| 1.8.0 | 2026-07-26 | **Decompose before tiering.** An escalation now requires a split proposal or a non-splittability statement. Frontier *ratio* separated from inherent *population*; decomposition debt added as a signal; per-repo target ramp (20% → 10%). Measured across three live backlogs: 76% above-standard, 2 splits in 38 escalations, zero `both` in 33 client-repo calls |
 
 ## Purpose
 
@@ -110,12 +113,63 @@ dangerous surface, and it works on `inherent` escalations where rewriting cannot
 issue that is 80% plumbing and 20% tenancy boundary is not a frontier issue — it is two
 issues, one of which nobody noticed was cheap.
 
-The tell is the word "and" in the issue title, or an acceptance-criteria list where the
-first three items are mechanical and the fourth is the whole risk. Both are common, and
-both are invisible if you only ask "what tier is this."
-
 A split is not a downgrade and is never subject to the downgrade rules. Nothing was talked
 down; the work was divided and each part got the tier it deserves.
+
+### The decomposition rule
+
+> **No issue is tiered above `standard` until decomposition has been attempted and the
+> attempt is on the record.**
+
+For every issue a triager wants to escalate, exactly one of two artifacts must exist:
+
+1. **A split proposal** — N `standard` children plus the frontier residue, or
+2. **A non-splittability statement** — one sentence naming what makes the mechanical work
+   inseparable from the dangerous work.
+
+"It's all one thing" is not a statement. Neither is "the whole issue is on the boundary."
+The statement has to name the *mechanism*:
+
+- a single transaction the whole change must land inside;
+- one function whose every branch composes the predicate;
+- a migration that is atomic by definition;
+- a contract whose producer and consumers must change in lockstep;
+- a test suite whose value is that it runs against the un-split whole.
+
+**If a triager cannot write that sentence, the issue splits.**
+
+This is the same move the `kind` field made one level up. `spec` vs `inherent` converted
+"this is hard" into a declaration that can be argued with. The non-splittability statement
+converts "this is all dangerous" into one that can be **checked against the diff afterwards**
+— an issue declared inseparable whose merged PR turns out to be three mechanical commits and
+one risky one was mis-declared, and that is visible in a way a bare tier never was.
+
+**The order is the whole rule: decompose first, tier the residue.** Tiering first and asking
+about splits afterwards is what this policy did through v1.7.0. It produced **two splits in
+thirty-eight escalations** across three live backlogs. The response ordering was right in the
+prose and backwards in the procedure.
+
+### The mechanical-majority tell
+
+Escalations announce their own splittability, in the tier line, in the triager's own words.
+Observed verbatim in live backlogs:
+
+- "**mostly mechanical delivery, but** the principal-keyed result cache is a silent
+  cross-tenant leak surface"
+- "(The starter-prompt catalog alone would be **standard; highest signal wins**.)"
+- "**mostly built** — residual is converging the two scoring entry points"
+
+Each is a correct application of *assign by the highest signal* **and** a missed split. The
+triager saw the mechanical majority, named it, and escalated the whole issue anyway — because
+the policy asked for a tier and never asked for a decomposition.
+
+Older tells, still good: the word "and" in the issue title, or an acceptance-criteria list
+whose first three items are mechanical and whose fourth is the entire risk.
+
+All of these are mechanically detectable. Rule **R7** in `check-issue-routing.mjs` flags a
+hedge phrase in the tier line of an escalated issue and clears when the line carries a
+non-splittability statement. It is the cheap detector that tells you whether this section is
+being followed.
 
 ## The tiers
 
@@ -193,16 +247,22 @@ the reason, so the agent sees the *why* before it starts:
 ## Impl tier
 frontier (inherent) — touches the tenant-isolation boundary; a wrong scope leaks
 cross-workspace data silently, and no test currently covers cross-tenant reads.
+Not splittable: the scope predicate is composed in one function whose every branch
+reads it; there is no mechanical half to lift.
 ```
 
 ```
 ## Impl tier
 frontier (spec) — acceptance criteria don't specify retry semantics on partial failure.
+Split from #NNN — the endpoint, config, and wiring went to #NNN (standard); this is
+the residue.
 ```
 
-Rules: the line names the tier, the kind (`spec` or `inherent`), and one sentence of reason.
-A tier above `standard` with no kind is malformed. "It's complicated" is not a reason —
-say what fails and whether the failure is loud.
+Rules: the line names the tier, the kind (`spec`, `inherent`, or `both`), one sentence of
+reason, **and the decomposition record** — either `Split from #NNN` / `Split into #NNN, #NNN`
+or a `Not splittable:` sentence naming the mechanism. A tier above `standard` missing the
+kind or the decomposition record is malformed. "It's complicated" is not a reason — say what
+fails and whether the failure is loud.
 
 **3. Epic tier table.** Epics list children with tiers, so a dispatcher can route the
 mechanical work cheaply and hold the boundary work back.
@@ -263,6 +323,9 @@ metric the whole practice is supposed to drive down.
 is weaker evidence than the heuristics table, not stronger. Promote a row to confirmed only
 when its issue closes and the outcome matched the call.
 
+<!-- Fill this in from your own backlog. Do not inherit another repo's examples — the
+     whole value is that they are recognisable to the people doing the triage. -->
+
 ## The self-bounding agent contract
 
 Add to agent instructions (CLAUDE.md / AGENTS.md — see the section template below):
@@ -304,22 +367,51 @@ For that fallback, keep one dated mapping table in `docs/agent-routing.md`:
 | Class | Approved models | As of | Pinned in |
 |---|---|---|---|
 | standard | claude-haiku-4-5, glm-5.2 | 2026-07-24 | — |
-| frontier | claude-opus-4-8, claude-sonnet-5 | 2026-07-24 | `.claude/agents/routing-classifier.md` |
+| frontier | claude-opus-4-8, claude-sonnet-5 | 2026-07-24 ⚠ **unreviewed since** | `.claude/agents/routing-classifier.md` (Claude Code, per-repo) · `~/.config/opencode/agents/routing-classifier.md` (opencode, global) |
 
 > **glm-5.2 is `standard`, not `frontier`.** Recorded because a 2026-07-24 opencode run
 > classified this repo's backlog inline and described itself as a "frontier model (glm-5.2)"
 > in the PR body. That is the self-certification the pin exists to prevent.
+
+> **Both pins exist in this environment and both are live.** The 2026-07-24 record named only
+> the Claude Code path; the opencode global agent was installed the same day and went
+> unrecorded. Corrected 2026-07-26 during the v1.8.0 re-sync — which is the review the policy
+> says this table exists to receive.
+>
+> **The approved-model list is the stale part.** The two pins currently resolve to `opus` and
+> `opencode/claude-opus-5`; neither appears in the frontier row, which still names
+> `claude-opus-4-8`. The pins are not wrong — the *record of what counts as frontier* is
+> behind them. Needs a human call, not a sync: deciding which models clear the bar is the one
+> thing this table must never infer from what happens to be installed.
+
+**Local deviation, deliberate:** the opencode global agent runs `hidden: false` against the
+template's `hidden: true`, so `@routing-classifier` is invocable from the picker. Preserved
+across the 2026-07-26 sync rather than clobbered. If the template ever depends on `hidden`,
+this is the line to revisit.
 
 The label vocabulary never changes. The mapping churns every few months, in exactly one
 file. Never write a model name into a label.
 
 **One exception, and it is the enforcement point.** The `routing-classifier` agent definition
 pins its model in frontmatter — that pin is what makes triage un-self-certifiable, so it has
-to name something concrete. Add it as a row here so a re-sync reviews it:
+to name something concrete. The pin lives in a harness-specific location:
+
+| Harness | Pin file | Scope | Invocation |
+|---|---|---|---|
+| Claude Code | `.claude/agents/routing-classifier.md` | per-repo | harness spawns on skill request |
+| opencode | `~/.config/opencode/agents/routing-classifier.md` | global (one per machine) | `@routing-classifier` or ask primary to delegate |
+
+In opencode the classifier is global — one agent serves every repo, reading each repo's
+`docs/agent-routing.md` at invocation. The policy is per-repo; the classifier is shared. This
+is the cleaner shape: one pin to update when the model moves, not one per repo. The trade-off
+is that every repo's model→class mapping table references the same global pin, so a re-sync
+reviews them in batch.
+
+Add the pin as a row in the mapping table so a re-sync reviews it:
 
 | Class | Approved models | As of | Pinned in |
 |---|---|---|---|
-| frontier | [model ids] | [YYYY-MM-DD] | `.claude/agents/routing-classifier.md` |
+| frontier | [model ids] | [YYYY-MM-DD] | `.claude/agents/routing-classifier.md` or `~/.config/opencode/agents/routing-classifier.md` |
 
 A pin nobody reviews is a pin that quietly names a retired model.
 
@@ -336,6 +428,11 @@ Same defence-in-depth posture as issue authoring — **label and comment, never 
 
 2. **Layer 2 — agent contract (advisory).** The self-bounding contract and stop conditions
    above. Catches honest cases, cannot catch confident ones.
+   *Harness note:* in opencode, the classifier agent's `permission:` frontmatter block
+   (`edit: deny`, bash allowlist, `task: deny`) makes read-only enforcement harness-level,
+   not advisory — the agent cannot attempt a mutating command at all. This is stronger than
+   Claude Code's `tools:` restriction, which limits the tool surface but does not block
+   individual commands within an allowed tool.
 
 3. **Layer 3 — PR gate (backstop).** A PR fixing a `gate:human-review` or
    `gate:human-approval` issue requires a human approver (CODEOWNERS). A PR fixing an
@@ -366,9 +463,58 @@ the frontier ratio is a metric people want to improve, and relabeling is free.
 - An agent **never** downgrades the tier of an issue it is about to implement. Escalation is
   self-service; de-escalation is not.
 
+## The frontier ratio and what it measures
+
+Two different numbers get called "the frontier ratio," and conflating them makes both
+useless.
+
+- **The frontier *ratio*** — escalations as a share of tiered issues — is a **decomposition**
+  metric. It says how finely the backlog separates dangerous work from the mechanical work
+  packed around it. It *should trend down*, and it responds almost entirely to splitting.
+- **The inherent *population*** — the count of distinct risk **surfaces** carrying
+  escalations — is a **risk** metric. It *should not trend*. It moves when the architecture
+  moves, which arrives as an ADR.
+
+**Splitting does not reduce risk; it isolates it.** Split an issue into four mechanical
+children and one dangerous residue: the risk is identical, the escalation count is unchanged,
+and the ratio drops. That is the intended behaviour, not gaming — the four children are now
+routable to a cheap model, which is the entire economic point of the practice.
+
+> **Decomposition debt = escalations ÷ distinct surfaces they name.**
+
+A backlog with 22 escalations across 9 surfaces — 7 of them on a single entitlement predicate
+— does not have a risk problem. It has issues scoped by **component** instead of by **failure
+mode**, and every component that touches the boundary anywhere inherits the whole boundary
+under *assign by the highest signal*. Decomposition debt is the number that tells the two
+apart, and it is the one to watch on a backlog that resists the split.
+
+### Set a target per repo, and ramp it
+
+A repo adopting this practice measures somewhere north of 60% on its first pass. That is
+normal. It is a statement about the granularity issues were written at, not about the repo's
+risk.
+
+| Stage | Target | What it means |
+|---|---|---|
+| Bootstrap (runs 1–2) | **record, don't target** | The first number is the baseline. Chasing it before you have one produces relabeling, not decomposition. |
+| Adopting | **≤ 20%** | Splits are happening. The mechanical work is routing cheaply. |
+| Mature | **≤ 10%** | Issues are authored at failure-mode granularity, not component granularity. |
+
+**20% is this practice's working target today, and it is provisional.** It is not derived: no
+repo has yet completed a full decomposition-first pass, so nobody knows what floor a genuinely
+boundary-heavy repo hits. 10% is the destination. Treat a repo that reaches it and holds as
+evidence the target was right; treat a repo that stalls at 25% with a defensible
+`Not splittable:` sentence on every escalation as evidence the target was wrong. **Record
+which** — this is the practice's own falsifier, and it is the only way the number stops being
+a guess.
+
+Per-repo targets and current readings live in the client's governance record
+(`downstream/<client>/_client.md` in the governance repo), not here. They are records, not
+shape, and they do not sync.
+
 ## Audit signals
 
-Four numbers, reported as findings, not as a compliance score:
+Five numbers, reported as findings, not as a compliance score:
 
 1. **Spec-escalation ratio** — escalations with a `spec` component (`spec` or `both`) as a
    share of the triaged set. *Should trend down.* This is the number that says whether your
@@ -393,6 +539,13 @@ Four numbers, reported as findings, not as a compliance score:
    instead of correctness, which makes it much harder to notice — report it explicitly.
 4. **Unlabeled worked issues** — issues that got implementation activity with no `impl:`
    label. Each one is a dispatcher that isn't filtering, or a human path that should be.
+5. **Decomposition debt** — escalations ÷ distinct surfaces they name, plus the frontier
+   ratio against this repo's current target. *Should trend down.* Report alongside it the
+   count of escalations carrying a `Not splittable:` statement versus a `Split from`
+   reference: a backlog where every escalation is declared inseparable and none was ever
+   split is either genuinely indivisible or not attempting the rule, and the two look
+   identical from the ratio alone. Rule R7 in `check-issue-routing.mjs` is the mechanical
+   half of this signal.
 
 ## Who assigns the tier
 
@@ -447,7 +600,9 @@ Before implementing an issue:
    exceeds [N] files.
 
 You may escalate an issue's tier at any time. You may never downgrade one — least of all
-on an issue you are about to implement.
+on an issue you are about to implement. An escalation you raise must carry the same
+decomposition record as any other: either lift the mechanical half into a new `standard`
+issue, or state in one sentence what makes it inseparable.
 
 Tier definitions, the model→class mapping, and this repo's calibration examples are in
 `docs/agent-routing.md`.
@@ -483,5 +638,18 @@ Tier definitions, the model→class mapping, and this repo's calibration example
    regardless of its tier — the mitigation is authoring (name the rule and the expected error;
    see [Issue Authoring](issue-authoring.md)), not escalation.
 
-8. **Chasing the frontier ratio to zero.** `inherent` escalations are supposed to persist.
-   A repo reporting zero has mislabeled its dangerous surfaces, not eliminated them.
+8. **Chasing the inherent *population* to zero.** `inherent` escalations are supposed to
+   persist — a repo reporting zero has mislabeled its dangerous surfaces, not eliminated
+   them. This is *not* an argument against a frontier-ratio target: the ratio and the
+   population are different numbers moving for different reasons (see *The frontier ratio
+   and what it measures*). Drive the ratio down by splitting; leave the population alone.
+
+9. **Tiering before decomposing.** The failure this policy shipped with for seven versions.
+   Ask "what tier is this" first and the answer is always the highest signal in the issue,
+   which on a component-scoped backlog is always the boundary. Two splits in thirty-eight
+   escalations was the measured result. Decompose, *then* tier the residue.
+
+10. **Scoping issues by component.** "Gateway: result-set delivery" inherits every risk on
+    the gateway. "Derive the principal-keyed cache key" inherits one. The unit of work
+    determines the tier far more than the rubric does, which is why the highest-leverage
+    fix for a bad ratio is upstream in authoring, not in triage.
