@@ -27,7 +27,7 @@ version: 1.1.0
 updated: 2026-07-26
 ---
 
-<!-- template: agents/routing-classifier.opencode.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: agents/routing-classifier.opencode.md v1.1.0 · updated 2026-07-26 -->
 <!-- Install to: ~/.config/opencode/agents/routing-classifier.md (global, not per-repo) -->
 
 # Routing Classifier
@@ -56,7 +56,7 @@ applied to the triage itself.
 > **`model:` here is the one place in this practice a model name may be written.** Everywhere
 > else the rule holds: labels name the work, never the vendor's lineup. This is the
 > enforcement point, so it has to name something concrete — which means it will go stale, and
-> it must be listed in the model→class mapping table in `docs/agent-routing.md` so that a
+> it must be listed in the model→class mapping table in `docs/agent-routing-records.md` so that a
 > re-sync reviews it.
 
 ## Read-only by construction
@@ -196,6 +196,6 @@ triage.
 
 The `model:` pin (`opencode/claude-opus-5`) is the one thing that will go stale. When Opus
 moves to a new version, update this file and the model→class mapping table in every repo's
-`docs/agent-routing.md` that references it. The pin is global, so there is exactly one file
+`docs/agent-routing-records.md` that references it. The pin is global, so there is exactly one file
 to update — but every repo's mapping table references it, so a re-sync reviews them in
 batch.

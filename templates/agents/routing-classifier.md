@@ -40,7 +40,7 @@ applied to the triage itself.
 > **`model:` here is the one place in this practice a model name may be written.** Everywhere
 > else the rule holds: labels name the work, never the vendor's lineup. This is the
 > enforcement point, so it has to name something concrete — which means it will go stale, and
-> it must be listed in the model→class mapping table in `docs/agent-routing.md` so that a
+> it must be listed in the model→class mapping table in `docs/agent-routing-records.md` so that a
 > re-sync reviews it.
 
 ## Read-only by construction

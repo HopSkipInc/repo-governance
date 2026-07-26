@@ -5,7 +5,7 @@
 do not assume. This prompt deliberately does not name a version: a prompt that hardcodes one
 goes stale the moment the policy moves, which is the same drift the version stamps exist to
 prevent, one level up.
-**Templates:** `templates/agent-routing.md`, `templates/skills/routing-triage/SKILL.md`,
+**Templates:** `templates/agent-routing.md`, `templates/agent-routing-records.md`, `templates/skills/routing-triage/SKILL.md`,
 `templates/agents/routing-classifier.md` (Claude Code), `templates/agents/routing-classifier.opencode.md` (opencode),
 `templates/routing-calibration-protocol.md`, `templates/issue-authoring.md` (updated)
 **Status of this policy:** candidate, revised twice on its first day from two live runs. Report
@@ -62,7 +62,7 @@ grep -m2 -E '^\*\*Version:|^\*\*Last updated' docs/agent-routing.md
 Record that version wherever you write up the run. A run split across two policy versions is
 not internally consistent, and a triager cannot tell from the inside.
 
-**2. Install the triage skill and its classifier agent.** Both, or neither works.
+**2. Install the triage skill, its classifier agent, and the records form.** The first two, or neither works.
 The classifier agent definition is **harness-specific** — install the one matching your
 primary harness. If your team uses both harnesses, install both (they do not conflict —
 different paths, same body):
@@ -81,7 +81,16 @@ cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.md \
 mkdir -p ~/.config/opencode/agents
 cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.opencode.md \
    ~/.config/opencode/agents/routing-classifier.md
+
+# Records form (per-repo, never syncs after this — it is where YOUR records go)
+cp ~/repos/greg/repo-governance/templates/agent-routing-records.md \
+   docs/agent-routing-records.md
 ```
+
+**`docs/agent-routing-records.md` is the one file here you own.** The policy is byte-identical
+in every governed repo and gets overwritten on every re-sync; the records file is yours, never
+synced, and holds your calibration set, model→class mapping, pin resolutions, and ratio
+readings. Nothing upstream can reconstruct it.
 
 **If your team runs opencode as the primary harness, the per-repo `.claude/agents/` install
 is unnecessary** — opencode does not read Claude Code agent definitions, and the global agent
@@ -103,8 +112,9 @@ In opencode, invoke the classifier with `@routing-classifier` or ask the primary
 delegate. The `mode: subagent` + `hidden: true` frontmatter means it is only ever spawned for
 triage, never a primary agent.
 
-Record the pinned model in your `docs/agent-routing.md` mapping table so a future re-sync
-reviews it.
+Record the pinned model in `docs/agent-routing-records.md` — specifically **which model the
+pin resolves to**, so a reviewer can check it against your class table without reading a
+harness's model catalogue. Every pin must resolve to a model you list as `frontier`.
 
 **3. Create the labels:**
 
@@ -148,6 +158,8 @@ was a policy bug. Write the intended changes to a file, read it, then execute, t
 three issues.
 
 **6. Add the routing block to CLAUDE.md.** Template is at the end of `agent-routing.md`.
+Note it points readers at `docs/agent-routing-records.md` for the mapping and calibration
+examples, and at `docs/agent-routing.md` for the tier definitions.
 
 **7. Install the routing validator.** The six Layer 2 rules now have a reference
 implementation. It queries the GitHub API rather than parsing source, so it drops into this
@@ -208,7 +220,38 @@ Your existing tiers were assigned under rules that have since changed. Four pass
    Escalations already split under an earlier run need their *parent* tier lines edited to say
    so (`Split into #NNN, #NNN`) — the children carry `impl:standard` and are not the record.
 
-3. **Re-baseline the spec ratio.** If your first sample was a single epic, the number is not a
+3. **Split your records out of the policy file (new in 1.9.0) — do this FIRST, before any
+   `cp`.** Through policy 1.8.0 your calibration set and model→class mapping lived inside
+   `docs/agent-routing.md`, which the adoption check verifies is byte-identical to the
+   template. Those instructions contradicted each other and yours has been failing that check
+   ever since. **A `cp` over the combined file destroys your records with no diff to recover
+   them from, and the calibration set has no upstream copy.**
+
+   ```bash
+   # Insurance first — cheap, and the records are unreconstructible.
+   cp docs/agent-routing.md /tmp/agent-routing-combined.md
+
+   # Find your record blocks.
+   grep -n '^### Calibration set\|^| Class | Approved models' docs/agent-routing.md
+
+   # Install the records form, move the blocks into it verbatim, THEN overwrite the policy.
+   cp ~/repos/greg/repo-governance/templates/agent-routing-records.md docs/agent-routing-records.md
+   # ... move blocks by hand ...
+   cp ~/repos/greg/repo-governance/templates/agent-routing.md docs/agent-routing.md
+   diff -q docs/agent-routing.md ~/repos/greg/repo-governance/templates/agent-routing.md
+   ```
+
+   Read `/tmp/agent-routing-combined.md` once more before deleting it. Anything in it that is
+   neither template text nor a record you moved is a **local edit somebody made to the policy**
+   — surface it rather than silently discarding it.
+
+   While filling the records form, split your old mapping table in two: **class←model** (what a
+   model is) and **model→harness route** (how each harness addresses it). And record what each
+   classifier pin *resolves to*, then check it against the class table — a pin must resolve to a
+   model you list as `frontier`, and verifying that shouldn't require reading a harness's model
+   catalogue.
+
+4. **Re-baseline the spec ratio.** If your first sample was a single epic, the number is not a
    baseline. Run a second pass over a general-backlog sample and report that one instead, and
    mark the original as sample-limited rather than deleting it.
 
@@ -218,7 +261,7 @@ Your existing tiers were assigned under rules that have since changed. Four pass
    sliced into thirty component-shaped issues. Your ratio target is per-repo and lives in the
    client governance record, not in the policy.
 
-4. **Mark the calibration set provisional** if it was built from open issues — head it
+5. **Mark the calibration set provisional** if it was built from open issues — head it
    `Calibration set (provisional — built from open issues on the bootstrap run, YYYY-MM-DD)`.
    Promote rows to confirmed as issues close and outcomes confirm the call.
 
@@ -227,8 +270,16 @@ Your existing tiers were assigned under rules that have since changed. Four pass
 ## Verifiable outcomes
 
 ```bash
-# Policy is present, readable from inside the repo, and matches the template exactly
+# Policy is present and byte-identical to the template. This check is only meaningful
+# from policy 1.9.0 on — before that, records lived in this file and it could never pass.
 diff -q docs/agent-routing.md ~/repos/greg/repo-governance/templates/agent-routing.md && echo OK
+
+# Records live in their own file and carry no template text
+test -f docs/agent-routing-records.md && echo OK
+grep -q 'Policy version these records were written against' docs/agent-routing-records.md && echo OK
+
+# Every classifier pin resolves to a model the class table calls frontier
+grep -A6 '^| Harness | Pin file' docs/agent-routing-records.md
 
 # Labels exist
 gh label list --limit 200 | grep -c '^impl:'                       # → 3

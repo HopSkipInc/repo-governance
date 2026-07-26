@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.8.0 · updated 2026-07-26 -->
+<!-- template: agent-routing.md v1.9.0 · updated 2026-07-26 -->
 # Agent Routing
 
-**Version:** 1.8.0 · **Last updated:** 2026-07-26
+**Version:** 1.9.0 · **Last updated:** 2026-07-26
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -25,6 +25,7 @@
 | 1.7.0 | 2026-07-24 | opencode harness support — the classifier pin is harness-specific: `.claude/agents/` (Claude Code, per-repo) or `~/.config/opencode/agents/` (opencode, global). Closes the cross-harness enforcement gap from 1.4.0 |
 | 1.5.0 | 2026-07-24 | CLAUDE.md block listed only two kinds — `both` was added in 1.2.0 and the block never followed. Downstream repos installing it taught their agents a two-kind taxonomy against a three-kind policy |
 | 1.8.0 | 2026-07-26 | **Decompose before tiering.** An escalation now requires a split proposal or a non-splittability statement. Frontier *ratio* separated from inherent *population*; decomposition debt added as a signal; per-repo target ramp (20% → 10%). Measured across three live backlogs: 76% above-standard, 2 splits in 38 escalations, zero `both` in 33 client-repo calls |
+| 1.9.0 | 2026-07-26 | **Policy and records split into two files** — `docs/agent-routing.md` (syncs, `diff -q`-verifiable) and `docs/agent-routing-records.md` (never syncs). The old single-file shape told repos to append records to the file the checklist verified was identical to the template; every repo that ran a triage failed it permanently and the obvious fix was deleting its own calibration set. Model→class mapping split into class←model and model→harness-route, so a slug rename stops reading as a capability change |
 
 ## Purpose
 
@@ -274,7 +275,7 @@ mechanical work cheaply and hold the boundary work back.
 | #NNN | human | inherent | removes a safety invariant |
 
 **4. Calibration set.** Keep 5–8 real issues from this repo labeled as worked examples, in
-`docs/agent-routing.md`. Triage disputes get settled by nearest neighbour against the set,
+`docs/agent-routing-records.md`. Triage disputes get settled by nearest neighbour against the set,
 not by re-arguing the heuristics table. A taxonomy without calibration examples drifts
 within two months, because every triager reads "contained blast radius" differently.
 
@@ -290,38 +291,6 @@ Promote a row to confirmed when its issue closes and the outcome matched the tie
 when the outcome contradicted the tier — a provisional row that turned out wrong is the most
 instructive entry the set will ever have. An all-provisional set is expected on run one and
 should be treated as weaker evidence than the heuristics table, not stronger.
-
-### Calibration set (provisional — built from open issues on the bootstrap run, 2026-07-24)
-
-All four open issues. The entire backlog — no epic, no curation, the honest baseline.
-
-| # | Tier | Kind | Why | Disputed? |
-|---|---|---|---|---|
-| 7 | frontier | inherent | Bad tiers get skimmed and accepted, and this set is what settles future disputes — silent and compounding. | No |
-| 1 | **frontier** | **both** | The analyze-repo template matrix is hand-maintained and named 18 of 36 templates — a bootstrapped repo silently receives roughly the session-8 practice while the analysis still prints a score and reads as a success. Also carried no acceptance criteria. | **Resolved to `frontier (both)`** by human decision, escalated from `standard`. |
-| 2 | frontier | spec | Does not pick a versioning approach; specifying it makes the stamping and drift wiring mechanical. | **Yes** — arguable `inherent` if the design decision is the hard part regardless of spec quality. |
-| 4 | frontier | **both** | Silent failure (shallow analysis reads as thorough) **and** under-specified (no acceptance criteria bind what "done" means). Rewriting the criteria shrinks what has to be derived; the silent half remains. | Resolved to `both` on review. |
-
-**Corrections applied after the bootstrap run.** `#4` was originally filed `inherent`. The
-silent-failure argument was sound, but the issue is *also* under-specified, which is precisely
-what `both` is for. The run could not reach `both` because the CLAUDE.md block it worked from
-listed only two kinds (fixed in policy 1.5.0) — a documentation defect upstream of the
-triager, not a triage error.
-
-**Spec-escalation ratio (provisional): 3 of 4 (75%)** — issues carrying a `spec` component
-(`#2` spec, `#4` both, `#1` both), measured on the classification before responses.
-**Resolved by rewrite: 1** (`#1` — acceptance criteria written, which is what moved it off
-`spec` alone). Resolved by split: 0.
-
-The bootstrap run reported 25%. Review moved it to 75%. Both corrections went the same
-direction, and the reason is structural rather than incidental: the run could not reach `both`
-at all, so every issue that was *also* under-specified got recorded as purely `inherent` — the
-flattering call. **A two-kind taxonomy systematically under-reports spec debt**, which is the
-metric the whole practice is supposed to drive down.
-
-**Standing caution for this set:** every row is provisional and one of four remains disputed. It
-is weaker evidence than the heuristics table, not stronger. Promote a row to confirmed only
-when its issue closes and the outcome matched the call.
 
 <!-- Fill this in from your own backlog. Do not inherit another repo's examples — the
      whole value is that they are recognisable to the people doing the triage. -->
@@ -362,35 +331,36 @@ should not have to. **The dispatcher knows what it launched**, so it passes the 
 budget in at launch. Self-identification is the fallback for interactive sessions, where a
 human is present and already knows.
 
-For that fallback, keep one dated mapping table in `docs/agent-routing.md`:
+For that fallback, keep the mapping in `docs/agent-routing-records.md`. **Two tables, not
+one** — capability and addressing are different concerns and they churn on different clocks:
 
-| Class | Approved models | As of | Pinned in |
+**1. Class ← model.** What a model *is*. Changes when a model's capability is reassessed.
+
+| Class | Models | As of |
+|---|---|---|
+| standard | [model names] | [YYYY-MM-DD] |
+| frontier | [model names] | [YYYY-MM-DD] |
+
+**2. Model → harness route.** How each harness *addresses* that model. Changes when a harness
+renames a slug, adds a provider, or a model ships somewhere new.
+
+| Model | Claude Code | opencode | [other harness] |
 |---|---|---|---|
-| standard | claude-haiku-4-5, glm-5.2 | 2026-07-24 | — |
-| frontier | claude-opus-4-8, claude-sonnet-5 | 2026-07-24 ⚠ **unreviewed since** | `.claude/agents/routing-classifier.md` (Claude Code, per-repo) · `~/.config/opencode/agents/routing-classifier.md` (opencode, global) |
+| [model name] | `[slug]` | `[provider/slug]` | `[slug]` |
 
-> **glm-5.2 is `standard`, not `frontier`.** Recorded because a 2026-07-24 opencode run
-> classified this repo's backlog inline and described itself as a "frontier model (glm-5.2)"
-> in the PR body. That is the self-certification the pin exists to prevent.
+**Why the split.** A single table conflates the model with the inference endpoint that serves
+it. `opencode/claude-opus-5` and `opus` are the same model reached two ways, and the class is
+a property of the *model* — the same weights do not become less capable because a different
+harness dialed them. Collapsing the two means every new harness re-litigates the capability
+question it has no business answering, and a slug rename reads as a capability change.
 
-> **Both pins exist in this environment and both are live.** The 2026-07-24 record named only
-> the Claude Code path; the opencode global agent was installed the same day and went
-> unrecorded. Corrected 2026-07-26 during the v1.8.0 re-sync — which is the review the policy
-> says this table exists to receive.
->
-> **The approved-model list is the stale part.** The two pins currently resolve to `opus` and
-> `opencode/claude-opus-5`; neither appears in the frontier row, which still names
-> `claude-opus-4-8`. The pins are not wrong — the *record of what counts as frontier* is
-> behind them. Needs a human call, not a sync: deciding which models clear the bar is the one
-> thing this table must never infer from what happens to be installed.
+It also removes a real failure mode: with one table, a model available in only one harness
+looks like a *different class* from the same model elsewhere. The class table answers "may
+this model triage"; the route table answers "how do I reach it here". Only the second is
+allowed to vary by harness.
 
-**Local deviation, deliberate:** the opencode global agent runs `hidden: false` against the
-template's `hidden: true`, so `@routing-classifier` is invocable from the picker. Preserved
-across the 2026-07-26 sync rather than clobbered. If the template ever depends on `hidden`,
-this is the line to revisit.
-
-The label vocabulary never changes. The mapping churns every few months, in exactly one
-file. Never write a model name into a label.
+The label vocabulary never changes. Both tables churn every few months, in exactly one file.
+Never write a model name — or a harness slug — into a label.
 
 **One exception, and it is the enforcement point.** The `routing-classifier` agent definition
 pins its model in frontmatter — that pin is what makes triage un-self-certifiable, so it has
@@ -404,14 +374,23 @@ to name something concrete. The pin lives in a harness-specific location:
 In opencode the classifier is global — one agent serves every repo, reading each repo's
 `docs/agent-routing.md` at invocation. The policy is per-repo; the classifier is shared. This
 is the cleaner shape: one pin to update when the model moves, not one per repo. The trade-off
-is that every repo's model→class mapping table references the same global pin, so a re-sync
-reviews them in batch.
+is that every repo's records file references the same global pin, so a re-sync reviews them
+in batch.
 
-Add the pin as a row in the mapping table so a re-sync reviews it:
+**The pin carries a harness slug; the class table carries the model.** This is the one place
+the two tables meet, and it is why they are separate: a pin is an *address*, so it names
+whatever its harness understands. Record which model each pin resolves to, so a reviewer can
+check the pin against the class table without knowing every harness's naming scheme:
 
-| Class | Approved models | As of | Pinned in |
-|---|---|---|---|
-| frontier | [model ids] | [YYYY-MM-DD] | `.claude/agents/routing-classifier.md` or `~/.config/opencode/agents/routing-classifier.md` |
+| Harness | Pin file | Resolves to (model) | Class | Reviewed |
+|---|---|---|---|---|
+| Claude Code | `.claude/agents/routing-classifier.md` | [model name] | frontier | [YYYY-MM-DD] |
+| opencode | `~/.config/opencode/agents/routing-classifier.md` | [model name] | frontier | [YYYY-MM-DD] |
+
+**Every pin must resolve to a model the class table lists as `frontier`.** That check is the
+whole point of writing the resolution down — without it, verifying a pin means reading a
+harness's model catalogue, which nobody does, and a pin drifts to a retired or downgraded
+model in silence.
 
 A pin nobody reviews is a pin that quietly names a retired model.
 
@@ -558,10 +537,32 @@ Layer 5's escalate-only lint is the automated assist, not a replacement.
 
 ## Cross-repo consistency
 
-The three tiers, the two kinds, and the heuristics table are the same everywhere — that is
-the shape, and it syncs. The model→class mapping and the calibration set are per-repo and
-dated — those are records, and they do not sync. A repo inheriting another repo's
-calibration examples has inherited a vocabulary its triagers cannot recognise.
+The three tiers, the three kinds, the decomposition rule, and the heuristics table are the
+same everywhere — that is the **shape**, and it syncs. The model→class mapping and the
+calibration set are per-repo and dated — those are **records**, and they never sync. A repo
+inheriting another repo's calibration examples has inherited a vocabulary its triagers cannot
+recognise.
+
+### Two files, and the boundary is physical
+
+| File | Contents | Syncs? | Check |
+|---|---|---|---|
+| `docs/agent-routing.md` | This policy, verbatim | Yes — byte-identical to the template | `diff -q` against the template |
+| `docs/agent-routing-records.md` | Class←model + model→route tables, pin resolutions, calibration set, repo surfaces | **Never** | Version-stamp header names the policy version it was written against |
+
+**They were one file until 2026-07-26, and that was a real defect, not a tidiness question.**
+The policy told every repo to *append its records* to `docs/agent-routing.md` while the
+adoption checklist verified that same file was `diff -q`-identical to the template. Both
+instructions shipped together. Every repo that actually ran a triage failed the check
+permanently, and the obvious way for an agent to "fix" it was to **delete its own calibration
+set** — destroying the one artifact the policy says cannot be reconstructed from anywhere else.
+
+A conventional boundary inside a shared file gets crossed. A file boundary does not. The
+re-sync is now `cp` and the verification is now `diff -q`, and neither can touch the records.
+
+**Migrating an existing repo:** move the records out first, then overwrite the policy. Never
+the other way round — a `cp` over a combined file destroys the records with no diff to recover
+them from, and the calibration set is the part with no upstream copy.
 
 ## Interaction with existing conventions
 
@@ -604,8 +605,8 @@ on an issue you are about to implement. An escalation you raise must carry the s
 decomposition record as any other: either lift the mechanical half into a new `standard`
 issue, or state in one sentence what makes it inseparable.
 
-Tier definitions, the model→class mapping, and this repo's calibration examples are in
-`docs/agent-routing.md`.
+Tier definitions are in `docs/agent-routing.md`. The model→class mapping and this repo's
+calibration examples are in `docs/agent-routing-records.md`.
 ```
 
 ## Anti-patterns

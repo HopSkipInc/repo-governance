@@ -5,11 +5,11 @@ description: >
   surfaces — isolation boundaries, credential handling, uncovered code, dropping
   migrations — then classifies open issues by the failure mode their botched
   implementation would produce, not by difficulty. Proposes an `impl:` tier and a kind
-  (`spec` or `inherent`) with a one-line reason for each, surfaces the disputed calls for
+  (`spec`, `inherent`, or `both`) with a one-line reason for each, surfaces the disputed calls for
   a human, applies the labels and tier lines, and writes the repo's calibration set to
-  docs/agent-routing.md. Every escalation is decomposed before it is tiered — a split
+  docs/agent-routing-records.md. Every escalation is decomposed before it is tiered — a split
   proposal or a non-splittability statement is required, not suggested.
-version: 1.4.0
+version: 1.5.0
 updated: 2026-07-26
 triggers:
   - /routing-triage
@@ -386,18 +386,32 @@ ordering is the anti-gaming rule, and this is the run where you establish it.
 
 ---
 
-## Step 4: Extend docs/agent-routing.md
+## Step 4: Write docs/agent-routing-records.md
 
-The policy was installed here before the run (Step 0 refused to start otherwise). You are
-appending this repo's own records to it — not creating it, and not editing the policy text
-above them. Three sections:
+**Records go in their own file. Never write them into `docs/agent-routing.md`.** That file is
+the policy, byte-identical to the template, and its adoption check is a `diff -q`. Appending
+records to it breaks the check permanently, and the obvious repair is deleting the records —
+which is the one artifact that cannot be recovered from upstream.
 
-1. **The model→class mapping**, dated. Which model IDs count as standard and frontier
-   *today*. This is the file that churns; the labels never do. If the classifier agent is
-   pinned, record the pinned model and the file it is pinned in — `.claude/agents/routing-classifier.md`
-   (Claude Code, per-repo) or `~/.config/opencode/agents/routing-classifier.md` (opencode,
-   global). A pin nobody reviews is a pin that quietly names a retired model.
-2. **The calibration set** — 5–8 of the issues you just triaged, with tier, kind, and the
+If the file does not exist, install the form first:
+
+```bash
+cp <governance-repo>/templates/agent-routing-records.md docs/agent-routing-records.md
+```
+
+Then fill in the sections you have evidence for. Leave the rest as placeholders — a half-filled
+records file is honest; an invented one is not:
+
+1. **Model → class**, dated. What counts as standard and frontier *today*.
+2. **Model → harness route.** How each harness addresses those models. Keep this separate from
+   the class table: the same model reached through two harnesses is the same class, and
+   collapsing them makes a slug rename read as a capability change.
+3. **Classifier pins** — the pin file per harness, and **the model each pin resolves to**.
+   Verify every pin resolves to something the class table calls `frontier`. A pin nobody
+   reviews is a pin that quietly names a retired model.
+4. **The routing ratio** — the baseline reading, the stage, and the target. On a first run the
+   correct target is *none*: record the baseline and say so.
+5. **The calibration set** — 5–8 of the issues you just triaged, with tier, kind, and the
    one-line reason. Pick the ones that were *disputed*, not the obvious ones: the value of a
    calibration set is settling future arguments, and the obvious cases never generate any.
 
@@ -406,7 +420,7 @@ above them. Three sections:
    `Calibration set (provisional — built from open issues on the bootstrap run, YYYY-MM-DD)`
    and treat it as weaker evidence than the heuristics table until the issues close and the
    outcomes either confirm or contradict the calls.
-3. **Repo-specific surfaces** — the map from Step 0, so the next run does not rediscover it.
+6. **Repo-specific surfaces** — the map from Step 1, so the next run does not rediscover it.
 
 Do not copy another repo's calibration set. The examples only work if the people triaging
 recognise them.
@@ -414,13 +428,33 @@ recognise them.
 Then add the routing block to CLAUDE.md / AGENTS.md — the template is at the end of
 [agent-routing.md](../../agent-routing.md).
 
+### Migrating a repo that has records inside the policy file
+
+Repos triaged under policy ≤ 1.8.0 kept both in `docs/agent-routing.md`. **Move the records out
+before you overwrite the policy, never after** — a `cp` over the combined file destroys them
+with no diff to recover from.
+
+```bash
+# 1. Copy the whole thing aside first. Cheap insurance; the records have no upstream copy.
+cp docs/agent-routing.md /tmp/agent-routing-combined.md
+
+# 2. Find the record blocks — typically the calibration set and the filled-in mapping table.
+grep -n '^### Calibration set\|^| Class | Approved models' docs/agent-routing.md
+```
+
+Move those blocks into `docs/agent-routing-records.md` **verbatim**, then `cp` the template
+over `docs/agent-routing.md` and confirm `diff -q` is clean. Read the combined copy once more
+before deleting it: anything in it that is neither template text nor a record you moved is a
+local edit somebody made to the policy, and that is worth a conversation rather than a
+silent overwrite.
+
 ---
 
 ## Step 5: Branch, commit, open PR
 
 ```bash
 git checkout -b governance/agent-routing
-git add docs/agent-routing.md CLAUDE.md
+git add docs/agent-routing.md docs/agent-routing-records.md CLAUDE.md
 git commit -m "governance: agent routing tiers + calibration set"
 gh pr create --title "governance: agent routing tiers" --body "..."
 ```
