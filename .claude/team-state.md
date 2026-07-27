@@ -1,6 +1,6 @@
 # repo-governance — Team State
 
-Last updated: 2026-07-24 (session 15)
+Last updated: 2026-07-27 (session 17)
 
 ## Architecture & Key Decisions
 
@@ -254,3 +254,45 @@ Spot-checked the hardest case to be sure it wasn't criteria-in-name-only. analyt
 **Session outcome:** PR [#10](https://github.com/leizerowicz/repo-governance/pull/10) open on `governance/decomposition-rule`, 5 commits, CI green on `8ff5f9d`. Not merged.
 
 **Still open:** all three governed repos owe the 1.9.0 re-sync, which now includes the records-file migration; ai-fleet and analytics-infrastructure have 33 escalations with no decomposition record and a `diff -q` that has been failing since the day they triaged. **Greg is running the downstream catch-up and triage re-runs separately.**
+
+Session 17 additions (2026-07-27):
+
+- **Clean code and test coverage went from skills-only to a wired practice.** Both shipped in session 13 as skills whose output dispersed into ADRs, a `## Code Conventions` block in CLAUDE.md, and lint config. Nothing downstream had an artifact to cite: the DoD gated nothing per-PR for either layer, and triage answered "is this surface covered?" by impression. Four decisions taken interactively, all four the recommended option.
+- **Each layer now has a records file** — `templates/code-conventions.md` and `templates/testing-strategy.md`, on the `agent-routing-records.md` precedent (blank form upstream, contents local, never synced back). **The load-bearing sections are the negative ones.** Conventions §3 (Not codified) is what stops each refresh re-proposing the patterns the last one dropped; strategy §3 (Deliberately untested) is what stops the audit re-reporting decisions as gaps. Both are cheaper to maintain than they were to write, which is the argument for them.
+- **Audit domain 8 added, and it closed a dangling reference.** Domain 7's staleness triggers cited "has coverage dropped since last audit" and "any false-green tests found in this audit" — findings **no domain produced**. They could never fire, and had been unfireable since session 13. Domains 7 and 8 are now explicitly a pair: 8 measures, 7 decides. Domain 8 also carries two suppression rules — never file against conventions §2 (preferences), never propose anything in §3 (recorded drops).
+- **DoD:** coverage gates per-PR (no decrease on changed files, floor holds, new modules get a coverage-map row); conventions stay a probe, gated only where an off-the-shelf lint exists. Follows the repo's own rule — judgment calls belong in probes, only deterministic checks belong in gates.
+
+**Coverage is now the fourth response to an escalation (policy 1.10.0).**
+
+- An escalation resting on the uncovered-surface signal carries `Coverage gap: #NNN` or `Coverage: not testable — <mechanism>`, **read out of `docs/testing-strategy.md` §2/§6** rather than assembled from an impression of the suite. The two files are a loop: triage names the surfaces it is paying for, the coverage layer closes them, the ratio falls without a single tier being re-argued.
+- **Why it gets a field and not a paragraph:** rewriting fixes one spec, splitting divides one issue, but covering a surface changes the tier of *every future issue that touches it*. Slow, compounding, and the benefit lands on someone else's sprint — which describes exactly the work that does not happen unless something asks for it. The split rule spent seven versions as good advice nobody executed; that lesson was already paid for.
+- **R8 in `check-issue-routing.mjs` (v1.2.0)** is the mechanical half, same interlock as R7. Verified live on ai-fleet: fires on exactly **#1256** ("No test covers this surface"), zero false positives across 9 escalations. Note ai-fleet has moved a long way since session 16 — now 39% ratio, 8 splits, 1 declared, 0 undeclared.
+- **Correction found by reading #1256, not by reasoning:** an escalation often rests on more than one signal, so a coverage record retires **the signal, not necessarily the tier**. #1256's residue is also held by a single-transaction lock-order argument. The record must say which. Without that, a triager who believes filing a gap promises a downgrade discovers it does not, and stops filing them.
+- New anti-pattern 11: **`Coverage: not testable` as the default** — the flattering call one level below `inherent`. The honest answer is far more often "no fixture exists yet."
+
+**Dogfooded both interviews against this repo, and it found three defects.**
+
+- **`GETTING_STARTED`'s ADR block never copied `docs/adr/README.md`.** A repo that followed it exactly had **red CI on its first run** — live since session 13, and the same class as session 11's `000-template.md`, in the same file, for a different reason.
+- `check-blank-form-naming` R1 could not see the case it was written for: a form numbered like a record is classified as a record and skipped. R3 now reads content, not filenames. **Found by writing the fixture test for R1** — which is the entire argument for the fixture tests.
+- Its record pattern `^\d{3,}-` matched date-prefixed files, so every watch-items and downstream-prompt directory read as a records corpus.
+
+**This repo's own records, now filled in:**
+
+- `docs/code-conventions.md` — 5 enforced, 5 documented, 5 dropped. **No ADR column entries, and that is not an omission:** repo-governance has no `docs/adr/`, so the lint *is* the record. Consequence for the template: `clean-code-interview` assumes "enforce = ADR + lint", and §1 has to tolerate an empty ADR column. Whether this repo owes itself an ADR corpus is an open question for `adr-interview`, never run here.
+- `docs/testing-strategy.md` — **the floor is a rule, not a percentage:** every script in `scripts/` fires on a known-bad input and clears on a known-good one. A percentage would be theatre for 5 scripts and 70 markdown files. The rule targets the only failure a lint has — a check that quietly stops checking — which has happened here twice (`\Z` anchor; rule 3 comparing dates not versions). 25 tests in CI: 19 fixture cases across 4 lints, 6 bootstrap-smoke.
+- **The bootstrap smoke test derives its bootstrap from `GETTING_STARTED.md` itself**, parsing and executing the guide's `mkdir`/`cp` lines. A hand-kept copy list tests the list. Verified it fails when the ADR fix is reverted.
+
+**New this session:** `scripts/check-blank-form-naming.mjs` (R1 corpus purity, R2 form naming, R3 form-wearing-a-record-number), `test/lints.test.mjs`, `test/bootstrap-smoke.test.mjs`, all wired into `governance-lints.yml`.
+
+**Two corrections on the way out:**
+
+- `.github/workflows/issue-routing.yml` ran `templates/scripts/check-issue-routing.mjs` **in place** while every client copies it to `scripts/`. The template's header says CONFIGURE BEFORE USE and this repo never could, without editing what ships. Copied to `scripts/` and repointed, so CI exercises the install path clients actually use.
+- **`node --test 'glob'` is Node 22+**; CI pins Node 20, where the quoted form is read as a literal path. The step that was just added to catch checks that silently stop checking, silently did not run. Unquoted so bash expands it.
+
+**Recorded, not fixed:** `scripts/check-downstream-drift.mjs` exits non-zero on 10 findings today and is **wired to no trigger**. It cannot run in CI — it reads local client checkouts — so it is a gate with no gate. Logged as a `code-conventions.md` §5 contradiction with a proposed home in `/review-sync` Step 5.0.
+
+**Rollout:** one combined prompt, `downstream/hopskip/2026-07-27-quality-coverage-layers.md`, carrying the routing re-sync to 1.10.0. All three repos `pending`. **Ordering constraint recorded in `_client.md`: run the coverage interview before backfilling R8 records** — the records are read out of `testing-strategy.md`, so backfilling first is guesswork. The prompt warns explicitly against bulk-appending `Coverage: not testable` to silence the lint.
+
+**Known weakness, stated in the prompt:** the dogfood ran in a repo with no application code and no test suite — a strong test of the conventions interview, a weak one for coverage. ai-fleet is the first real exercise of the coverage half. Also un-exercised: both skills' Step 1 (background evidence agent), since the dogfood did the evidence pass inline.
+
+**Session outcome:** PR [#11](https://github.com/leizerowicz/repo-governance/pull/11) merged to master, CI green.
