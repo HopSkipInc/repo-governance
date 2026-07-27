@@ -96,4 +96,5 @@ Real and intentional; a violation is not a defect and never blocks a PR.
 | Date | Trigger | What changed |
 |---|---|---|
 | 2026-07-27 | bootstrap | 5 enforced (2 new: blank-form naming, lint fixture tests), 5 documented, 5 dropped. One §5 contradiction resolved in the same pass, one left open. Recorded that this repo has no ADR corpus, so the lint is the record |
+| 2026-07-27 | agent-instructions refresh | CLAUDE.md reconciled: `[N]` placeholder in the diff-size stop condition filled (10 files), the `docs/agent-routing.md` reference corrected for the 1.9.0 records split, and commands / records-file rules / gotchas added. All paths and commands verified to resolve |
 | 2026-07-27 | PDR bootstrap | Rows 6–7 added — record-index sync and PDR falsifier enforcement, both gates. The PDR corpus now exists (`docs/pdr/`), so this repo runs 4 of the 5 layers on itself; the ADR layer is still the outstanding one |
