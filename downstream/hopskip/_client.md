@@ -70,11 +70,19 @@ decomposed, then set a target.
 | HopSkipInc/ai-fleet | [2026-07-07 competitive-analysis skill](2026-07-07-competitive-analysis-skill.md) | applied 2026-07-07 |
 | HopSkipInc/analytics-infrastructure | [2026-07-07 competitive-analysis skill](2026-07-07-competitive-analysis-skill.md) | applied 2026-07-07 |
 | HopSkipInc/enrichment-pipeline | [2026-07-07 competitive-analysis skill](2026-07-07-competitive-analysis-skill.md) | applied 2026-07-07 |
-| HopSkipInc/ai-fleet | [2026-07-23 two-phase audit lifecycle](ai-fleet/2026-07-23-two-phase-audit-lifecycle.md) | pending |
+| HopSkipInc/ai-fleet | [2026-07-23 two-phase audit lifecycle](ai-fleet/2026-07-23-two-phase-audit-lifecycle.md) | applied 2026-07-27 — added docs/personas.md, updated DoD Audit section (two-phase lifecycle + close-out reframed), added "Audit remediation" work type to DoD and PR template, migration 0358 updates audit-fleet PR body text |
 | HopSkipInc/analytics-infrastructure | [2026-07-23 two-phase audit lifecycle](analytics-infrastructure/2026-07-23-two-phase-audit-lifecycle.md) | pending |
 | HopSkipInc/enrichment-pipeline | [2026-07-23 two-phase audit lifecycle](enrichment-pipeline/2026-07-23-two-phase-audit-lifecycle.md) | applied 2026-07-24 |
-| HopSkipInc/ai-fleet | [2026-07-24 agent routing](2026-07-24-agent-routing.md) | partial — first run 2026-07-24 under policy 1.0.0 (17 issues, epic #1339). **Re-sync backfill owed:** `both` kind, general-backlog re-baseline, provisional calibration marking, validator rules |
+| HopSkipInc/ai-fleet | [2026-07-24 agent routing](2026-07-24-agent-routing.md) | partial (re-sync 2026-07-27) — policy updated to 1.9.0, records split to docs/agent-routing-records.md, skill/classifiers/validator reinstalled, labels completed, calibration set candidates identified. **Triage backfill owed:** `both` reclassification (#1215, #1344), decomposition records on all 9 escalations, general-backlog re-baseline, provisional calibration set confirmation — all require a frontier-model session (classifier pins to claude-opus-5). |
 | HopSkipInc/analytics-infrastructure | [2026-07-24 agent routing](2026-07-24-agent-routing.md) | partial — first run 2026-07-24 under policy 1.0.0/1.1.0 (~24 issues, ~75% single epic → spec ratio sample-limited). **Re-sync backfill owed** + GLM-5.2 calibration run queued (`docs/experiments/2026-07-24-glm-routing-calibration.md`) |
 | HopSkipInc/enrichment-pipeline | [2026-07-24 agent routing](2026-07-24-agent-routing.md) | applied 2026-07-24 — setup only (policy v1.6.0, skill, classifier agent, labels, validator, CLAUDE.md block); triage run pending frontier model session |
+| HopSkipInc/ai-fleet | [2026-07-27 quality + coverage layers](2026-07-27-quality-coverage-layers.md) | pending |
+| HopSkipInc/analytics-infrastructure | [2026-07-27 quality + coverage layers](2026-07-27-quality-coverage-layers.md) | pending |
+| HopSkipInc/enrichment-pipeline | [2026-07-27 quality + coverage layers](2026-07-27-quality-coverage-layers.md) | pending |
+
+The 2026-07-27 prompt also carries the routing re-sync to policy 1.10.0 (the coverage lever).
+A repo doing both at once should do the coverage interview **before** backfilling R8 records —
+the records are read out of `docs/testing-strategy.md` §2/§6, and backfilling first means
+guessing at coverage, which is the thing the lever exists to stop.
 
 Prompts are dated files in each repo's subdirectory. Run them in the respective repo's Claude Code context. Update status to `applied YYYY-MM-DD` once run, or `partial — <note>` if only some steps landed.
