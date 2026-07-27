@@ -34,8 +34,12 @@ it never proposes anything in §3.
 | 3 | Every file under `templates/` is named in the `/analyze-repo` applicability matrix or excluded there on the record | — | `scripts/check-analyze-repo-coverage.mjs` | gate | 2026-07-24 |
 | 4 | A blank form is `_`-prefixed and never carries a record's number; a records corpus holds only records, `README.md`, and `_`-prefixed forms | — | `scripts/check-blank-form-naming.mjs` R1–R3 | gate | 2026-07-27 |
 | 5 | Every script in `scripts/` has a fixture test asserting it fires on a known-bad input and clears on a known-good one | — | `test/lints.test.mjs`, run in CI | gate | 2026-07-27 |
+| 6 | Every record in `docs/adr/` and `docs/pdr/` is registered in its README index | — | `scripts/check-adr-readme-sync.mjs` | gate | 2026-07-27 |
+| 7 | An Accepted PDR carries a falsifier, and not one of the phrasings the form rules out | [PDR corpus](pdr/README.md) | `scripts/check-pdr-falsifiers.mjs` R1–R2 (R3–R4 report) | gate + report | 2026-07-27 |
 
-**No ADR column entries, and that is not an omission.** This repo has no `docs/adr/`. It
+**Row 7 is the first with anything in the ADR column** — pointing at the PDR corpus rather than an ADR, because the decision it enforces is a product-layer one. Rows 1–6 remain empty for the reason below.
+
+**No ADR column entries on rows 1–6, and that is not an omission.** This repo has no `docs/adr/`. It
 governs an ADR *practice* without running one on itself, because its own load-bearing
 decisions are recorded in `templates/agent-routing.md`'s changelog, in `.claude/team-state.md`,
 and in the lint headers — every lint here opens with the incident that caused it. Whether
@@ -92,3 +96,4 @@ Real and intentional; a violation is not a defect and never blocks a PR.
 | Date | Trigger | What changed |
 |---|---|---|
 | 2026-07-27 | bootstrap | 5 enforced (2 new: blank-form naming, lint fixture tests), 5 documented, 5 dropped. One §5 contradiction resolved in the same pass, one left open. Recorded that this repo has no ADR corpus, so the lint is the record |
+| 2026-07-27 | PDR bootstrap | Rows 6–7 added — record-index sync and PDR falsifier enforcement, both gates. The PDR corpus now exists (`docs/pdr/`), so this repo runs 4 of the 5 layers on itself; the ADR layer is still the outstanding one |
