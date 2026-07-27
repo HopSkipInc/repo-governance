@@ -45,7 +45,9 @@ jobs:
         # lint bugs have shipped here, both of the only kind that matters — a
         # check that quietly stopped checking, indistinguishable in CI from one
         # that passed. See docs/testing-strategy.md.
-        run: node --test 'test/*.test.mjs'
+        # Unquoted so bash expands the glob. `node --test 'glob'` is Node 22+;
+        # this job pins Node 20, where the quoted form is read as a literal path.
+        run: node --test test/*.test.mjs
 
       - name: Check blank-form naming
         # A blank form in a records directory gets read as a record — twice here,

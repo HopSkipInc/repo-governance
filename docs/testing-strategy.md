@@ -75,7 +75,7 @@ in mind.
 
 | Level | What it covers | Where it lives | How it runs | Runtime |
 |---|---|---|---|---|
-| fixture | one lint against a throwaway git repo built per case | `test/lints.test.mjs` | `node --test 'test/*.test.mjs'` | <1s |
+| fixture | one lint against a throwaway git repo built per case | `test/lints.test.mjs` | `node --test test/*.test.mjs` | <1s |
 | bootstrap smoke | the whole template set applied to a throwaway repo, per GETTING_STARTED's own commands | `test/bootstrap-smoke.test.mjs` | same | <1s |
 | live | the lints run against real backlogs (`ROUTING_REPO=<owner>/<repo>`) | — | by hand, during triage | seconds |
 
