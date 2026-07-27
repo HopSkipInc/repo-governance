@@ -7,8 +7,8 @@ description: >
   followed but not enforced, and where lints exist but aren't documented. Interviews the
   team to triage which conventions are load-bearing enough to enforce. Produces coding
   standard ADRs with lints, plus a PR.
-version: 1.0.0
-updated: 2026-07-24
+version: 1.1.0
+updated: 2026-07-27
 triggers:
   - /clean-code-interview
   - clean code interview
@@ -57,11 +57,16 @@ the work is configuration, not writing a custom lint.
 
 Do all of these in parallel:
 
-1. **Check for existing convention docs.** `docs/conventions.md`, `CONTRIBUTING.md`, `docs/coding-standards.md`, `docs/style-guide.md`. Read whatever exists.
+1. **Read `docs/code-conventions.md` first if it exists** — this repo's records file, and on a
+   refresh it is the baseline you are checking for drift. Its §3 (Not codified) is binding on
+   you: do not re-propose anything listed there. If the file does not exist, this is a
+   bootstrap run and `templates/code-conventions.md` is the blank form.
 
-2. **Read existing ADRs.** They may already encode some conventions. Don't duplicate — if ADR-005 says "all API responses follow the envelope shape in `src/types/api.ts`", that's already covered.
+2. **Check for other convention docs.** `docs/conventions.md`, `CONTRIBUTING.md`, `docs/coding-standards.md`, `docs/style-guide.md`. Read whatever exists.
 
-3. **Read lint/formatter configs.** These are the repo's *enforced* conventions:
+3. **Read existing ADRs.** They may already encode some conventions. Don't duplicate — if ADR-005 says "all API responses follow the envelope shape in `src/types/api.ts`", that's already covered.
+
+4. **Read lint/formatter configs.** These are the repo's *enforced* conventions:
    - JS/TS: `.eslintrc.*`, `.prettierrc*`, `biome.json`, `deno.json`
    - Python: `pyproject.toml` ([tool.ruff], [tool.black], [tool.mypy]), `.flake8`, `setup.cfg`
    - Go: `.golangci.yml`, `gofumpt` config
@@ -69,16 +74,16 @@ Do all of these in parallel:
    - C#: `.editorconfig`, `Directory.Build.props`, `dotnet-format` config
    - All languages: `.editorconfig`
 
-4. **Read CI config.** `.github/workflows/` — what lint/format gates are wired? Are they required checks or advisory?
+5. **Read CI config.** `.github/workflows/` — what lint/format gates are wired? Are they required checks or advisory?
 
-5. **Read the DoD.** `docs/definition-of-done.md` — its Feature section may already have code quality rules.
+6. **Read the DoD.** `docs/definition-of-done.md` — its Feature section may already have code quality rules.
 
-6. **List the source tree** top-level and one level deep. Note:
+7. **List the source tree** top-level and one level deep. Note:
    - File naming patterns (kebab-case, snake_case, PascalCase?)
    - Directory organization (feature-based? layer-based? hybrid?)
    - Test file placement (alongside source? separate test/ dir? __tests__/?)
 
-7. **Pull recent merged PRs** — they reveal whether conventions are followed in practice:
+8. **Pull recent merged PRs** — they reveal whether conventions are followed in practice:
    ```bash
    gh pr list --state merged --limit 30 --json number,title,mergedAt | \
      jq -r '.[] | "\(.mergedAt[0:10]) #\(.number) \(.title)"'
@@ -99,6 +104,9 @@ intentional but cosmetic, and which are accidental patterns that shouldn't be co
 Repo root: {PWD}
 
 ## What to read
+- docs/code-conventions.md if it exists — the existing records file. Report anything in the
+  codebase that contradicts it, and treat its §3 (Not codified) as decisions already made:
+  list what changed, never re-propose a recorded drop.
 - docs/conventions.md, CONTRIBUTING.md, docs/coding-standards.md, docs/style-guide.md (if they exist)
 - ALL existing ADRs (they may encode conventions already)
 - Lint/formatter configs: .eslintrc, .prettierrc, pyproject.toml [tool.ruff], .golangci.yml, .editorconfig, etc.
@@ -198,7 +206,25 @@ Read `/tmp/clean-code-evidence.md`.
 
 ## Step 3: Write the output
 
-The output has three parts:
+Four parts. **The records file is the one that must exist** — the other three are how its
+rows get enforced, and any of them can be empty on a given run.
+
+### `docs/code-conventions.md` (the records file)
+
+Copy `templates/code-conventions.md` if the repo has no records file yet, then fill it in.
+This is where every triage decision lands, in one of three sections: §1 Enforced, §2
+Documented, §3 Not codified. **§3 is not a leftovers bin** — it is what stops the next
+refresh from re-proposing the same accidental patterns, and it is the section that makes
+this file cheaper to maintain than it was to write.
+
+Also fill §4 (lints wired in CI that document nothing) and §5 (contradictions the interview
+did not resolve). Both are inputs to the next refresh, and §4 is what the audit reads.
+
+**The file never syncs back to repo-governance.** Same rule as `docs/agent-routing-records.md`
+— the blank form is upstream, the contents are local. Never `cp` over an existing one.
+
+Add a Review log row every run, including refresh runs that changed nothing. A refresh with
+no log row is indistinguishable from a refresh that never happened.
 
 ### ADRs (for "enforce" candidates)
 
@@ -246,7 +272,7 @@ git worktree add ../clean-code-${DATE} -b "${BRANCH}" "origin/${BASE}"
 cd ../clean-code-${DATE}
 cp <written ADRs, convention notes, lint configs> <appropriate locations>
 
-git add docs/adr/ CLAUDE.md CONTRIBUTING.md .eslintrc* pyproject.toml scripts/ .github/workflows/
+git add docs/code-conventions.md docs/adr/ CLAUDE.md CONTRIBUTING.md .eslintrc* pyproject.toml scripts/ .github/workflows/
 git commit -m "docs: code quality conventions (${DATE})
 
 Load-bearing conventions promoted to ADRs with enforcement. Cosmetic
@@ -260,6 +286,7 @@ gh pr create --repo "${REPO}" --base "${BASE}" \
 ```
 
 PR body must include:
+- The `docs/code-conventions.md` diff summarised as counts: N enforced, N documented, N dropped
 - Each ADR with its convention, enforcement, and status
 - Convention notes added to CLAUDE.md or CONTRIBUTING.md (list them)
 - Lints wired in this PR (list rules added/configured)
@@ -270,11 +297,13 @@ PR body must include:
 
 ## Step 5: Present
 
-1. Print each ADR: number, title, convention, enforcement, status.
-2. Print convention notes added to CLAUDE.md / CONTRIBUTING.md.
-3. **Report the "drop" decisions** — patterns the human said are accidental and not worth codifying. This is valuable context: the next audit won't flag these as missing ADRs.
-4. **Report unresolved contradictions.** A codebase with inconsistent conventions across modules has a problem that conventions alone don't fix.
-5. Ask: *"What code quality issue has bitten you more than once?"* — that's a convention that should be an ADR with a lint.
+1. Print the records file's three counts (enforced / documented / not codified) and every
+   row in §4 — lints enforcing something nobody wrote down. Those are next run's easiest wins.
+2. Print each ADR: number, title, convention, enforcement, status.
+3. Print convention notes added to CLAUDE.md / CONTRIBUTING.md.
+4. **Report the "drop" decisions** — patterns the human said are accidental and not worth codifying. This is valuable context: the next audit won't flag these as missing ADRs.
+5. **Report unresolved contradictions.** A codebase with inconsistent conventions across modules has a problem that conventions alone don't fix.
+6. Ask: *"What code quality issue has bitten you more than once?"* — that's a convention that should be an ADR with a lint.
 
 ---
 

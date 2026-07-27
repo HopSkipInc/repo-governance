@@ -207,7 +207,9 @@ enforces that every template appears here or is excluded on the record.
 | **`scripts/check-issue-routing.mjs`** | agent-routing is applied | P1 | Mechanical enforcement of the routing rules; queries the GitHub API, so language-agnostic |
 | **`skills/adr-interview/`** | Repo has load-bearing patterns and no ADRs, or ADRs without enforcement | P1 | Five-layer sweep — layer 2 |
 | **`skills/clean-code-interview/`** | Always | P2 | Five-layer sweep — layer 3 |
+| **`code-conventions.md`** | clean-code-interview is applied | P2 | The layer-3 records file — enforced / documented / **not codified**. Never syncs after install. Without it the interview's output disperses into ADRs and CLAUDE.md and no audit domain has anything to measure against, and the next refresh re-proposes every pattern the last one dropped |
 | **`skills/test-coverage-interview/`** | Always | P1 | Five-layer sweep — layer 4. Coverage is what keeps issues cheap to route |
+| **`testing-strategy.md`** | test-coverage-interview is applied | P1 | The layer-4 records file — coverage floor, coverage map, deliberate exemptions, false-green register, and §6 (properties nothing verifies). §6 is a routing input: `agent-routing.md`'s coverage rule reads it instead of guessing at the suite. Never syncs after install |
 | **`skills/agent-instructions-interview/`** | CLAUDE.md or AGENTS.md exists | P1 | Five-layer sweep — layer 5 |
 | `skills/competitive-analysis/` | Team values competitive intel | P2 | Self-discovering skill — adds capability |
 | `skills/pdr-interview/` | PDR corpus is being applied | P0 | How the PDR corpus actually gets written — the interview is the work, the record is the output |
