@@ -20,4 +20,7 @@ jobs:
       - name: Check issue routing
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node templates/scripts/check-issue-routing.mjs
+        # The installed copy, not templates/ — this repo goes through the same
+        # install path a client does, so CI exercises what clients actually run
+        # and this repo can tune its own SEVERITY without editing what ships.
+        run: node scripts/check-issue-routing.mjs

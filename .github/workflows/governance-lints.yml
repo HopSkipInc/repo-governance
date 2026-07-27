@@ -39,6 +39,19 @@ jobs:
             echo "::warning::No usable base ref; rule 3 (version bump on change) did not run."
             node scripts/check-template-versions.mjs
           fi
+      - name: Test the lints
+        # This repo's coverage floor is a rule, not a percentage: every script in
+        # scripts/ fires on a known-bad input and clears on a known-good one. Two
+        # lint bugs have shipped here, both of the only kind that matters — a
+        # check that quietly stopped checking, indistinguishable in CI from one
+        # that passed. See docs/testing-strategy.md.
+        run: node --test 'test/*.test.mjs'
+
+      - name: Check blank-form naming
+        # A blank form in a records directory gets read as a record — twice here,
+        # by two different readers, from the same root cause.
+        run: node scripts/check-blank-form-naming.mjs
+
       - name: Check /analyze-repo template coverage
         # Every template must be offered by the bootstrap command or excluded on
         # the record. A bootstrap that omits templates looks like one that worked.

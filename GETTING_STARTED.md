@@ -32,8 +32,17 @@ If your repo uses ADRs:
 ```bash
 mkdir -p docs/adr
 cp path/to/repo-governance/templates/adr/022-definition-of-done.md docs/adr/022-definition-of-done.md
+cp path/to/repo-governance/templates/adr/README.md docs/adr/README.md
+cp path/to/repo-governance/templates/adr/_template.md docs/adr/_template.md
 cp path/to/repo-governance/templates/scripts/check-adr-readme-sync.mjs scripts/check-adr-readme-sync.mjs
 ```
+
+The index and the blank form are not optional. `check-adr-readme-sync` fails on a
+directory holding records with no `README.md`, so copying the record and the lint without
+the index turns CI red on the first run — for a repo that followed these instructions
+exactly. (That was live here until 2026-07-27; `test/bootstrap-smoke.test.mjs` now
+bootstraps a throwaway repo from the commands in this file and runs the copied lints
+against it, so the next omission fails a test instead of a client's first build.)
 
 To record *why the software exists* — not just how the code is shaped (see Step 3):
 ```bash
