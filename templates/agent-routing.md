@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.9.0 · updated 2026-07-26 -->
+<!-- template: agent-routing.md v1.10.0 · updated 2026-07-27 -->
 # Agent Routing
 
-**Version:** 1.9.0 · **Last updated:** 2026-07-26
+**Version:** 1.10.0 · **Last updated:** 2026-07-27
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -26,6 +26,7 @@
 | 1.5.0 | 2026-07-24 | CLAUDE.md block listed only two kinds — `both` was added in 1.2.0 and the block never followed. Downstream repos installing it taught their agents a two-kind taxonomy against a three-kind policy |
 | 1.8.0 | 2026-07-26 | **Decompose before tiering.** An escalation now requires a split proposal or a non-splittability statement. Frontier *ratio* separated from inherent *population*; decomposition debt added as a signal; per-repo target ramp (20% → 10%). Measured across three live backlogs: 76% above-standard, 2 splits in 38 escalations, zero `both` in 33 client-repo calls |
 | 1.9.0 | 2026-07-26 | **Policy and records split into two files** — `docs/agent-routing.md` (syncs, `diff -q`-verifiable) and `docs/agent-routing-records.md` (never syncs). The old single-file shape told repos to append records to the file the checklist verified was identical to the template; every repo that ran a triage failed it permanently and the obvious fix was deleting its own calibration set. Model→class mapping split into class←model and model→harness-route, so a slug rename stops reading as a capability change |
+| 1.10.0 | 2026-07-27 | **Coverage is the fourth response.** An escalation resting on the uncovered-surface signal now requires a coverage record — a linked gap issue or a statement that the property is not testable. Ties the tier to `docs/testing-strategy.md` §2/§6 instead of to a triager's impression of the test suite. The one response that lowers the tier of every *future* issue on the surface, not just this one |
 
 ## Purpose
 
@@ -99,7 +100,8 @@ been fixed — the lint was right and the policy was silent.)*
 
 ## Responses to an escalation
 
-There are three, and the third is the one triagers forget.
+There are four. The third is the one triagers forget; the fourth is the only one that is
+still paying out a year later.
 
 1. **Accept it.** The tier stands, the work waits for a frontier model or a human. Correct
    for a genuinely indivisible `inherent` issue.
@@ -108,6 +110,10 @@ There are three, and the third is the one triagers forget.
 3. **Split it.** Lift the mechanical half into its own issue. Plumbing, config, scaffolding,
    the cost cap wrapped around the admission logic, the endpoint around the check. The new
    issue routes `standard`; the residue stays `frontier` and gets smaller.
+4. **Cover it.** Available whenever the escalation rests on *no existing test covers the
+   surface being changed*. Write the test and the signal that raised the tier is gone — for
+   this issue and for every future one on that surface. File the coverage gap, link it, and
+   re-tier when it closes.
 
 **Prefer the split.** It is the only response that both reduces cost *and* shrinks the
 dangerous surface, and it works on `inherent` escalations where rewriting cannot help. An
@@ -171,6 +177,51 @@ All of these are mechanically detectable. Rule **R7** in `check-issue-routing.mj
 hedge phrase in the tier line of an escalated issue and clears when the line carries a
 non-splittability statement. It is the cheap detector that tells you whether this section is
 being followed.
+
+### The coverage rule
+
+> **An escalation resting on the uncovered-surface signal must carry a coverage record.**
+
+Exactly one of two forms, on its own line in the tier block:
+
+1. **`Coverage gap: #NNN`** — the issue that covers the surface. When it closes, this issue
+   is re-tiered. The gap issue is `standard` almost every time: writing a test against a
+   dangerous surface is not itself dangerous.
+2. **`Coverage: not testable — <mechanism>`** — the property genuinely cannot be verified by
+   a test at any level, and the mechanism says why (no test double for the external system,
+   the failure is a timing property under real concurrency, the guarantee is enforced by a
+   provider we cannot fault-inject). A surface recorded this way belongs in
+   `docs/testing-strategy.md` §6, where the coverage layer can see it.
+
+**Read the answer out of the coverage map, not out of an impression.** §2 of
+`docs/testing-strategy.md` says whether a module is covered, a gap, a deliberate exemption,
+or hard to test; §6 names properties nothing verifies at any level. A triager who checks the
+map is answering a question the repo already answered. A triager who greps for test files is
+guessing, and guesses about coverage are exactly how a surface stays expensive to route for a
+year without anyone deciding it should.
+
+**A coverage record retires one signal, not necessarily the tier.** Escalations often rest
+on more than one row of the heuristics table. If the surface is also inside a single
+transaction with a canonical lock order, closing the coverage gap leaves that reason
+standing and the tier does not move. Say so in the record — `Coverage gap: #NNN (tier
+holds regardless — see the lock-order reason above)`. The alternative is a triager who
+believes filing the gap promises a downgrade, discovers it doesn't, and stops filing them.
+
+**Order: decompose, then ask coverage of the residue.** A coverage gap filed against a
+component-scoped issue names the whole component, costs a sprint, and closes nothing. Filed
+against the residue it names one predicate and one behaviour.
+
+**Why this gets its own field instead of a paragraph.** Rewriting fixes one spec. Splitting
+divides one issue. Covering a surface changes the tier of *every future issue that touches
+it* — it is the only response with a second payment, and the only one whose benefit lands on
+work nobody has filed yet. That combination (slow, compounding, benefits someone else's
+sprint) describes precisely the work that does not happen unless something asks for it. The
+split rule spent seven versions as good advice nobody executed; this rule starts as a field
+because that lesson was already paid for.
+
+If the repo has no `docs/testing-strategy.md` yet, the record is still required — the answer
+just comes from reading the suite, and the fact that it had to be reconstructed is itself the
+trigger to run `test-coverage-interview`.
 
 ## The tiers
 
@@ -237,6 +288,12 @@ are the same lever.** Coverage on a surface is what keeps work on that surface c
 route. This is the point where test-coverage governance stops being hygiene and starts
 showing up on the invoice.
 
+That lever has a mechanism now: the sixth row may not be cited without a coverage record
+(see *The coverage rule*), and the record is read out of `docs/testing-strategy.md` §2 and
+§6 rather than assembled from an impression of the suite. The two files are a loop —
+triage names the surfaces it is paying for, the coverage layer closes them, and the ratio
+falls without anyone re-arguing a single tier.
+
 ## Mechanism
 
 **1. Label.** One `impl:` label per issue, required. Optional `gate:` labels.
@@ -250,6 +307,8 @@ frontier (inherent) — touches the tenant-isolation boundary; a wrong scope lea
 cross-workspace data silently, and no test currently covers cross-tenant reads.
 Not splittable: the scope predicate is composed in one function whose every branch
 reads it; there is no mechanical half to lift.
+Coverage gap: #NNN — cross-tenant read scoping is unverified at any level
+(testing-strategy §6); covering it drops this to standard.
 ```
 
 ```
@@ -262,8 +321,14 @@ the residue.
 Rules: the line names the tier, the kind (`spec`, `inherent`, or `both`), one sentence of
 reason, **and the decomposition record** — either `Split from #NNN` / `Split into #NNN, #NNN`
 or a `Not splittable:` sentence naming the mechanism. A tier above `standard` missing the
-kind or the decomposition record is malformed. "It's complicated" is not a reason — say what
-fails and whether the failure is loud.
+kind or the decomposition record is malformed. **If the reason cites an uncovered surface, a
+coverage record is required too** — `Coverage gap: #NNN` or `Coverage: not testable — …`.
+"It's complicated" is not a reason — say what fails and whether the failure is loud.
+
+Note what the coverage record does to the first example: it converts "this is a frontier
+issue" into "this is a frontier issue *until* #NNN closes." A tier with an expiry condition
+attached is a different object from one without — it is the difference between a permanent
+cost and a scheduled one.
 
 **3. Epic tier table.** Epics list children with tiers, so a dispatcher can route the
 mechanical work cheaply and hold the boundary work back.
@@ -493,7 +558,7 @@ shape, and they do not sync.
 
 ## Audit signals
 
-Five numbers, reported as findings, not as a compliance score:
+Six numbers, reported as findings, not as a compliance score:
 
 1. **Spec-escalation ratio** — escalations with a `spec` component (`spec` or `both`) as a
    share of the triaged set. *Should trend down.* This is the number that says whether your
@@ -525,6 +590,14 @@ Five numbers, reported as findings, not as a compliance score:
    split is either genuinely indivisible or not attempting the rule, and the two look
    identical from the ratio alone. Rule R7 in `check-issue-routing.mjs` is the mechanical
    half of this signal.
+6. **Coverage-driven escalations** — escalations whose reason cites the uncovered-surface
+   signal, split into those carrying an open `Coverage gap: #NNN` and those declared
+   `Coverage: not testable`. *Should trend down.* This is the number that makes the test
+   coverage layer legible in money: each row is an issue paying frontier rates for a test
+   nobody wrote. Report the top surfaces by count — three escalations naming the same
+   uncovered surface is one test's worth of work holding three issues above `standard`,
+   and it is the highest-return item the coverage layer will find all quarter. Rule R8 in
+   `check-issue-routing.mjs` is the mechanical half.
 
 ## Who assigns the tier
 
@@ -654,3 +727,12 @@ calibration examples are in `docs/agent-routing-records.md`.
     the gateway. "Derive the principal-keyed cache key" inherits one. The unit of work
     determines the tier far more than the rubric does, which is why the highest-leverage
     fix for a bad ratio is upstream in authoring, not in triage.
+
+11. **`Coverage: not testable` as the default.** The flattering call, one level down from
+    `inherent`. Writing a test against a dangerous surface is real work that lands on this
+    sprint and pays out on someone else's, so "not testable" is always the cheaper sentence
+    — and it is *usually wrong*, because the honest answer is much more often "no fixture
+    exists yet" than "no test could exist." The tell is the same as for non-splittability:
+    a mechanism, or nothing. "It's hard to test" is not a mechanism. A `not testable` record
+    that does not appear in `docs/testing-strategy.md` §6 is a triager's opinion that never
+    met the coverage layer.

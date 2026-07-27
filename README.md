@@ -48,7 +48,9 @@ A small, portable practice built around five observations:
 | `templates/skills/pdr-interview/` | Skill | Probes the repo, then interviews the person who holds the thesis → a PDR corpus + PR |
 | `templates/skills/adr-interview/` | Skill | Probes the codebase for load-bearing patterns, surfaces enforcement gaps → an ADR corpus with lints + PR |
 | `templates/skills/clean-code-interview/` | Skill | Probes for naming/organization conventions, triages intentional vs accidental → coding standard ADRs + convention notes + PR |
+| `templates/code-conventions.md` | Form | The layer-3 records file that **never syncs**: enforced (ADR + lint), documented (preference), and **not codified** — the last one is what stops each refresh re-proposing the patterns the last one dropped |
 | `templates/skills/test-coverage-interview/` | Skill | Maps coverage gaps and false-green traps, interviews for testing strategy → testing standard ADRs with coverage gates + PR |
+| `templates/testing-strategy.md` | Form | The layer-4 records file that **never syncs**: coverage floor, coverage map, deliberate exemptions, false-green register, and the properties nothing verifies at any level — which triage reads as a tier lever |
 | `templates/skills/agent-instructions-interview/` | Skill | Reconciles CLAUDE.md/AGENTS.md against reality, surfaces tribal knowledge → verified agent instructions + PR |
 | `templates/agent-routing.md` | Policy | `impl:` tier on every issue (standard/frontier/human) + kind (spec/inherent/both) so a dispatcher routes by failure mode, not difficulty. Escalations must be decomposed first — a split proposal or a non-splittability statement |
 | `templates/agent-routing-records.md` | Form | The per-repo counterpart that **never syncs**: model→class + model→harness-route tables, classifier pin resolutions, ratio readings, calibration set, risk surfaces |
@@ -97,8 +99,8 @@ gaps:
 |---|---|---|---|---|
 | Product | `docs/pdr/` | Why does this software exist at all? | `pdr-interview` | Interview is origination — purpose is not in the codebase |
 | Architecture | `docs/adr/` | Why is the code shaped this way? | `adr-interview` | Probe is primary — architecture IS in the codebase; interview confirms |
-| Clean code | conventions + ADRs | How should code be written? | `clean-code-interview` | Probe + triage — intentional vs. accidental patterns |
-| Test coverage | testing ADRs + gates | How is code verified? | `test-coverage-interview` | Probe maps what exists; interview fills in the strategy |
+| Clean code | `code-conventions.md` + ADRs | How should code be written? | `clean-code-interview` | Probe + triage — intentional vs. accidental patterns |
+| Test coverage | `testing-strategy.md` + gates | How is code verified? | `test-coverage-interview` | Probe maps what exists; interview fills in the strategy |
 | Agent instructions | `CLAUDE.md` / `AGENTS.md` | How are agents briefed? | `agent-instructions-interview` | Probe reconciles docs with reality; interview surfaces tribal knowledge |
 
 The bottom four are recoverable from the repo — you can probe a codebase for its

@@ -50,6 +50,14 @@ cp -r path/to/repo-governance/templates/skills/competitive-analysis .claude/skil
 cp -r path/to/repo-governance/templates/skills/pdr-interview .claude/skills/
 ```
 
+The clean-code and test-coverage layers each keep a records file. Copy the blank forms when
+you run their interviews (Steps 5–6) — they are filled in by the interview, never by hand,
+and like `docs/agent-routing-records.md` they never sync back:
+```bash
+cp path/to/repo-governance/templates/code-conventions.md docs/code-conventions.md
+cp path/to/repo-governance/templates/testing-strategy.md docs/testing-strategy.md
+```
+
 If your repo has a database, also see `templates/db-migration-governance.md` and the matching `templates/workflows/db-migration-harness-*.yml`. If it has migrations, also copy the breaking-migration gate (edit `MIGRATIONS_DIR` and `SOURCE_DIRS` at the top of the file for your layout):
 ```bash
 cp path/to/repo-governance/templates/scripts/check-breaking-migrations.mjs scripts/check-breaking-migrations.mjs
@@ -204,6 +212,11 @@ it, but a violation isn't dangerous) and belong in a convention note. Some are a
    work is configuration, not writing a custom script.
 4. **For "document" candidates:** add to `CLAUDE.md` under `## Code Conventions` or to
    `CONTRIBUTING.md`. These are preferences, not rules.
+5. **Record all three buckets in `docs/code-conventions.md`** (from
+   `templates/code-conventions.md`). This is the layer's artifact — the DoD points at it,
+   audit domain 8 measures against it, and its §3 (Not codified) is what stops the next
+   refresh proposing the same accidental patterns again. A refresh that shipped ADRs and
+   lints but left this file untouched produced nothing the audit can read.
 
 **Don't over-promote to ADRs.** A repo with 20 ADRs about code style is a repo where
 nobody reads ADRs. Reserve ADRs for conventions where violation causes bugs or wastes
@@ -227,6 +240,11 @@ never does.
    as the floor — don't set a target the codebase can't meet on day one.
 4. **Remediate false-green tests:** stubs, skipped tests, and no-op assertions are worse
    than missing tests — they create the illusion of verification.
+5. **Record it all in `docs/testing-strategy.md`** (from `templates/testing-strategy.md`):
+   the floor, the coverage map, the deliberate exemptions, the false-green register, and §6
+   — the properties no test verifies *at any level*. §6 is the section that pays: agent
+   routing reads it as a tier lever, so each line there is a test whose absence is being
+   billed at frontier rates on every issue that touches the surface.
 
 ---
 
@@ -257,7 +275,7 @@ scratch.
 
 Open `.github/workflows/scheduled-audit.yml` and set the cron schedule to fit your cadence. The default is weekdays at 09:00 ET (14:00 UTC).
 
-The workflow prompt already covers seven domains (ADR coherence, docs drift, codebase discipline, GitHub backlog, watch-list sweep, PDR coherence, governance layer staleness). Delete the PDR domain if you're not adopting `docs/pdr/` — a domain that sweeps a directory you don't have reports nothing, which is indistinguishable from a clean result. If your repo has specific patterns you want audited — a particular directory, a specific naming convention, a known recurring drift type — add them to the prompt's "also check" section.
+The workflow prompt already covers eight domains (ADR coherence, docs drift, codebase discipline, GitHub backlog, watch-list sweep, PDR coherence, governance layer staleness, code quality and coverage). Domains 7 and 8 are a pair — 8 measures the clean-code and test-coverage layers against their records files, 7 decides whether that evidence means a layer needs refreshing. Delete the PDR domain if you're not adopting `docs/pdr/` — a domain that sweeps a directory you don't have reports nothing, which is indistinguishable from a clean result. If your repo has specific patterns you want audited — a particular directory, a specific naming convention, a known recurring drift type — add them to the prompt's "also check" section.
 
 Ensure `ANTHROPIC_API_KEY` is available as a secret.
 

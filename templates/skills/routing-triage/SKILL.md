@@ -9,8 +9,8 @@ description: >
   a human, applies the labels and tier lines, and writes the repo's calibration set to
   docs/agent-routing-records.md. Every escalation is decomposed before it is tiered — a split
   proposal or a non-splittability statement is required, not suggested.
-version: 1.5.0
-updated: 2026-07-26
+version: 1.6.0
+updated: 2026-07-27
 triggers:
   - /routing-triage
   - /routing-triage refresh
@@ -284,14 +284,21 @@ discussion, so asking about tiers before splits re-runs the conversation twice:
 2. **The non-splittability statements.** Read them out. The question is not "do you agree
    this is hard" — it is *"is this mechanism real?"* A statement the human cannot confirm
    from the code is a split that hasn't been found yet. Push once, then accept.
-3. **The disputed calls, one at a time.** Present both cases, ask for the call and the
+3. **The coverage records.** For every escalation whose reason cites an untested surface,
+   the classifier proposed either the test that would retire the signal or a mechanism for
+   why none can exist. Ask: *"if this test existed, would this still be frontier?"* A yes
+   means another signal is holding the tier and the record says so; a no means the tier has
+   an expiry date and the gap issue is worth filing today. Push back hard on any "not
+   testable" that names no mechanism — it is the cheapest sentence in the procedure and the
+   one most often wrong.
+4. **The disputed calls, one at a time.** Present both cases, ask for the call and the
    *reason*. The reason becomes the tier line.
-4. **The `spec` escalations.** For each: "this is frontier only because the issue doesn't
+5. **The `spec` escalations.** For each: "this is frontier only because the issue doesn't
    say [X]. Do you want to answer that now and drop it to standard, or leave it?" Many will
    be answerable in a sentence — that is the whole point of the kind split, and the fastest
    demonstration of why it exists.
-5. **The surfaces you could not classify.** Verbatim.
-6. **Nothing else.** Do not ask the human to confirm the obvious rows.
+6. **The surfaces you could not classify.** Verbatim.
+7. **Nothing else.** Do not ask the human to confirm the obvious rows.
 
 If the human disagrees with a call, ask what signal you missed, then check whether that
 signal applies to other rows too. One correction usually moves several.
@@ -334,6 +341,8 @@ frontier (inherent) — touches the [boundary]; a wrong scope returns plausible-
 rows and no test covers cross-tenant reads.
 Not splittable: the scope predicate is composed in one function whose every branch reads
 it; there is no mechanical half to lift.
+Coverage gap: #NNN — cross-tenant read scoping is unverified at any level; covering it
+retires this tier's second reason.
 ```
 
 **The decomposition record is part of the line, not an optional postscript.** Every escalated
@@ -490,10 +499,18 @@ Report to the human:
   been through design or pre-implementation review, say so — that review already removed the
   spec debt, and the ratio measures the review rather than the repo. A first-run 0% is much
   more often a biased sample than a well-authored backlog.
+- **Coverage-driven escalations** — how many escalations rest on an untested surface, split
+  into those with a linked gap issue and those declared not testable. Name any surface that
+  appears more than once: that is a single test holding several issues above `standard`, and
+  it is the cheapest ratio reduction available to this repo. `check-issue-routing.mjs` (R8)
+  prints this census.
 - Issues rewritten-and-downgraded in this pass.
 - Lint candidates for Layer 5.
-- Which surfaces from Step 0 had no coverage — hand this to `test-coverage-interview`,
-  because coverage on those surfaces is what makes their issues cheap to route.
+- Which surfaces from Step 0 had no coverage — hand this to `test-coverage-interview`, and
+  make sure each lands in `docs/testing-strategy.md` §6 (properties nothing verifies) with
+  the issue numbers that paid for it. That section is where the two layers actually meet:
+  triage names what the missing tests are costing, the coverage layer closes them, and the
+  ratio falls without a single tier being re-argued.
 
 ---
 

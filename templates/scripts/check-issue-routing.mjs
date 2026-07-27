@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.1.0 · updated 2026-07-26
+// template: scripts/check-issue-routing.mjs v1.2.0 · updated 2026-07-27
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -21,6 +21,7 @@
  *   R5 structure-vs-kind   needs-structure + no spec component(contradiction)
  *   R6 ungrounded-downgrade  impl: lowered with no body edit  (contradiction)
  *   R7 undecomposed          escalation hedges but never split (contradiction)
+ *   R8 uncovered-no-record   escalation blames coverage, no record(contradiction)
  *
  * R4: an issue that is frontier only because it is under-specified is ready to
  * be *rewritten*, not worked. R5: your own validator says the issue is
@@ -43,7 +44,22 @@
  * decomposition is missing, so the cheapest way to silence the lint is to do
  * the thing the policy asks for.
  *
- * R4–R7 default to WARN. Promote them to ERROR (the WARN→FAIL convention) once
+ * R8 is R7's sibling one signal over. The heuristics table escalates an issue
+ * when no existing test covers the surface being changed — which means the tier
+ * is not a property of the issue at all, it is a property of the test suite, and
+ * it expires the moment somebody writes the test. An escalation that cites the
+ * uncovered surface and carries no coverage record has recorded a recurring cost
+ * with no way to stop paying it. R8 clears on `Coverage gap: #N` (the issue that
+ * closes it) or `Coverage: not testable — <mechanism>` (the property cannot be
+ * verified at any level). Same interlock as R7: the cheapest way to silence the
+ * lint is to do what the policy asks.
+ *
+ * The census this prints is the audit's signal 6. Watch for the same surface
+ * named by several escalations — that is one test's worth of work holding
+ * multiple issues above standard, and it is the highest-return item the coverage
+ * layer will find.
+ *
+ * R4–R8 default to WARN. Promote them to ERROR (the WARN→FAIL convention) once
  * your backlog is clean — a first run over an untriaged backlog will be noisy,
  * and a lint that cries wolf on day one gets disabled on day two.
  *
@@ -75,6 +91,7 @@ const SEVERITY = {
   R5: 'warn',
   R6: 'warn',
   R7: 'warn',
+  R8: 'warn',
 };
 
 /** The label your issue-structure validator applies. */
@@ -120,6 +137,28 @@ const HEDGE_PATTERNS = [
  */
 const NOT_SPLITTABLE = /\bnot splittable\b\s*[::-]\s*\S+/i;
 const SPLIT_REFERENCE = /\bsplit\s+(from|into)\b[^.\n]*#\d+/i;
+
+/**
+ * R8: phrases that cite the uncovered-surface signal as a reason for the tier.
+ * Same tuning advice as HEDGE_PATTERNS — add what your triagers actually write.
+ */
+const COVERAGE_SIGNAL = [
+  /\bno (existing |current )?tests?\b[^.\n]*\bcovers?\b/i,
+  /\bnot covered by (a )?tests?\b/i,
+  /\bno test coverage\b/i,
+  /\bno coverage\b/i,
+  /\buncovered\b/i,
+  /\buntested\b/i,
+  /\bnothing (currently )?(covers|verifies|exercises)\b/i,
+];
+
+/**
+ * R8 clears on either form of the coverage record. Both require something after
+ * the marker for the same reason `Not splittable:` does — "Coverage: not testable"
+ * with no mechanism is the flattering call with a colon after it.
+ */
+const COVERAGE_GAP = /\bcoverage gap\b\s*[::-]\s*[^\n]*#\d+/i;
+const COVERAGE_NOT_TESTABLE = /\bcoverage\b\s*[::-]\s*not testable\b\s*[—–\-:]\s*\S+/i;
 
 // ------------------------------------------------------------------ helpers
 
@@ -182,6 +221,9 @@ const tiered = [];
 /** Decomposition census — the mechanical half of the audit's signal 5. */
 const census = { escalations: 0, notSplittable: 0, split: 0, undeclared: 0 };
 
+/** Coverage census — the mechanical half of the audit's signal 6. */
+const coverage = { cited: 0, gap: 0, notTestable: 0, unrecorded: 0, issues: [] };
+
 for (const issue of issues) {
   const names = issue.labels.map((l) => l.name);
   const impls = implLabels(issue.labels);
@@ -230,6 +272,24 @@ for (const issue of issues) {
       const hedge = HEDGE_PATTERNS.find((p) => p.test(block));
       if (hedge) {
         report('R7', issue.number, `${tier} tier line concedes a mechanical majority (${block.match(hedge)[0].trim()}) but carries no decomposition record — lift the mechanical half into a standard issue, or state in one sentence what makes it inseparable ("Not splittable: <mechanism>")`);
+      }
+    }
+  }
+
+  // R8: the tier line blames an uncovered surface but names no way to close it.
+  // The tier is then a standing charge against a test nobody has been asked to write.
+  if (tier && tier !== 'impl:standard' && block) {
+    const signal = COVERAGE_SIGNAL.find((p) => p.test(block));
+    if (signal) {
+      const hasGap = COVERAGE_GAP.test(block);
+      const hasNotTestable = COVERAGE_NOT_TESTABLE.test(block);
+      coverage.cited += 1;
+      coverage.issues.push(issue.number);
+      if (hasGap) coverage.gap += 1;
+      else if (hasNotTestable) coverage.notTestable += 1;
+      else {
+        coverage.unrecorded += 1;
+        report('R8', issue.number, `${tier} tier line cites an uncovered surface ("${block.match(signal)[0].trim()}") but carries no coverage record — file the gap and link it ("Coverage gap: #N"), or state the mechanism that makes the property unverifiable ("Coverage: not testable — <mechanism>"). Without one, the tier has no expiry condition`);
       }
     }
   }
@@ -291,6 +351,18 @@ if (census.escalations) {
     'Compare the ratio against this repo\'s target (per-repo, in the client governance record — ' +
     'adopting ≤ 20%, mature ≤ 10%). All-declared-and-never-split and not-attempting-the-rule ' +
     'look identical from the ratio alone; the split count is what separates them.'
+  );
+}
+
+if (coverage.cited) {
+  console.log(
+    `\nCoverage census: ${coverage.cited}/${census.escalations || tiered.length} escalations rest on an uncovered surface — ` +
+    `${coverage.gap} with a linked gap issue, ${coverage.notTestable} declared not testable, ${coverage.unrecorded} unrecorded ` +
+    `(${coverage.issues.map((n) => `#${n}`).join(', ')}).`
+  );
+  console.log(
+    'These are issues paying frontier rates for a test nobody wrote. Read the list for repeats: ' +
+    'one surface named by several escalations is one test\'s worth of work holding all of them above standard.'
   );
 }
 

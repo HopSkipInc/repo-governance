@@ -23,11 +23,11 @@ permission:
     "*": deny
   task: deny
 hidden: true
-version: 1.1.0
-updated: 2026-07-26
+version: 1.2.0
+updated: 2026-07-27
 ---
 
-<!-- template: agents/routing-classifier.opencode.md v1.1.0 · updated 2026-07-26 -->
+<!-- template: agents/routing-classifier.opencode.md v1.2.0 · updated 2026-07-27 -->
 <!-- Install to: ~/.config/opencode/agents/routing-classifier.md (global, not per-repo) -->
 
 # Routing Classifier
@@ -98,16 +98,18 @@ Every tier call you make cites this map.
 One row per issue. Read the **full body**, not the title — the tier depends on how well the
 issue is specified, which is only visible in the body.
 
-| # | Proposed | Kind | Failure mode if botched | Decomposition | Evidence |
-|---|---|---|---|---|---|
-| NNN | standard | — | loud — build breaks | — | no risk surface; `[dir]/` covered by [test] |
-| NNN | frontier | inherent | silent — returns plausible wrong rows | not splittable: one predicate function, every branch | [boundary path]; no test |
-| NNN | frontier | both | silent — stale projection yields wrong scope | split → 3 standard children | [projection path]; no AC in body |
+| # | Proposed | Kind | Failure mode if botched | Decomposition | Coverage | Evidence |
+|---|---|---|---|---|---|---|
+| NNN | standard | — | loud — build breaks | — | — | no risk surface; `[dir]/` covered by [test] |
+| NNN | frontier | inherent | silent — returns plausible wrong rows | not splittable: one predicate function, every branch | gap: assert cross-tenant read returns empty | [boundary path]; no test |
+| NNN | frontier | both | silent — stale projection yields wrong scope | split → 3 standard children | covered — not cited | [projection path]; no AC in body |
 
-**Two columns are load-bearing.** If the decomposition column is empty on a row above
+**Three columns are load-bearing.** If the decomposition column is empty on a row above
 `standard`, the row is incomplete. And if you cannot state what a botched
 implementation looks like and whether anyone would notice, you have not classified it —
-you have guessed at difficulty. Redo the row.
+you have guessed at difficulty. Redo the row. The coverage column may read `—` only when
+the tier does not rest on an untested surface; if your evidence column says "no test", the
+coverage column cannot be empty.
 
 ### 3. Issues with a `spec` component
 
@@ -154,23 +156,47 @@ escalations. Splitting is the only response that reduces cost *and* shrinks the 
 surface, and the only one that works on `inherent` escalations. Asking for it last means
 never getting it.
 
-### 5. Disputed calls
+### 5. Coverage — required when the tier rests on an untested surface
+
+If any escalation's reason cites *no existing test covers this surface*, that tier is a
+property of the test suite, not of the issue. It expires the moment someone writes the test.
+For each such row, produce exactly one of:
+
+| Artifact | Shape |
+|---|---|
+| **Coverage gap** | The test that would retire the signal — what it asserts, at what level, and which module it lands in. The triager files it and links it as `Coverage gap: #N`. |
+| **Not-testable statement** | The mechanism that makes the property unverifiable at any level: no fault injection for the external system, a timing property only real concurrency produces, a guarantee enforced by a provider. |
+
+Read the answer out of `docs/testing-strategy.md` if the repo has one — §2 says whether a
+module is covered, a gap, or a deliberate exemption, and §6 lists properties nothing verifies
+at any level. If the repo has no such file, say so in section 8; reconstructing coverage by
+grepping for test files is the guess this section exists to replace.
+
+**"Not testable" is the flattering call here**, exactly as `inherent` is one level up: it
+costs nothing to write and lands the work on nobody. The honest answer is usually "no fixture
+exists yet", which is a gap. Require a mechanism from yourself.
+
+**State whether closing the gap actually drops the tier.** An escalation often rests on more
+than one signal; if a lock order or a boundary independently holds it, the coverage gap is
+still worth filing and the tier still stands. Say which.
+
+### 6. Disputed calls
 
 Where two signals point different directions or your confidence is low. Present the case for
 each tier. **Do not break your own ties** — these are the human's interview.
 
-### 6. Under-structure cross-check
+### 7. Under-structure cross-check
 
 Any issue carrying the repo's under-structure marker (`needs-structure` or equivalent) that
 you tiered without a `spec` component. The validator says under-specified, you said
 specification would not help — both cannot be true. Usual correct answer is `both`.
 
-### 7. Escalate-only lint candidates
+### 8. Escalate-only lint candidates
 
 Path patterns appearing in three or more `inherent` escalations. Mechanically detectable,
 and they belong in the Layer 5 lint later.
 
-### 8. What the backlog cannot tell you
+### 9. What the backlog cannot tell you
 
 Issues whose tier depends on intent the body does not carry. Do not guess — hand these to
 the human verbatim.

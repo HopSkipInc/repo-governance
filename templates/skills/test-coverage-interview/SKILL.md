@@ -7,8 +7,8 @@ description: >
   team to surface the testing strategy (what should be tested, what doesn't need to be,
   what the coverage expectation is). Produces testing standard ADRs with enforcement
   (coverage gates, test-presence checks), plus a PR.
-version: 1.0.0
-updated: 2026-07-24
+version: 1.1.0
+updated: 2026-07-27
 triggers:
   - /test-coverage-interview
   - test coverage interview
@@ -51,25 +51,36 @@ ships with the promise.
 
 Do all of these in parallel:
 
-1. **Check for existing testing docs.** `docs/testing.md`, `docs/test-strategy.md`, `CONTRIBUTING.md` testing section. Read whatever exists.
+1. **Read `docs/testing-strategy.md` first if it exists** — this repo's records file and, on a
+   refresh, the baseline you are checking for drift. Its §3 (Deliberately untested) is binding:
+   those are decisions, not gaps, and re-reporting them is how this layer loses its reader. If
+   the file does not exist, this is a bootstrap run and `templates/testing-strategy.md` is the
+   blank form.
 
-2. **Read existing ADRs.** They may already encode testing decisions (e.g., "we test at the integration level, not unit level"). Don't duplicate.
+2. **Read `docs/agent-routing-records.md` §6 if it exists** — the repo's risk surfaces with a
+   `Covered by tests?` column, written by triage. Every surface marked uncovered there is a
+   coverage gap someone is already paying frontier rates for, which makes it the highest-value
+   input this skill gets and the one place the coverage layer has a price attached.
 
-3. **Find test directories and files.**
+3. **Check for other testing docs.** `docs/testing.md`, `docs/test-strategy.md`, `CONTRIBUTING.md` testing section. Read whatever exists.
+
+4. **Read existing ADRs.** They may already encode testing decisions (e.g., "we test at the integration level, not unit level"). Don't duplicate.
+
+5. **Find test directories and files.**
    ```bash
    # Discover where tests live
    find . -name '*.test.*' -o -name '*.spec.*' -o -name 'test_*' -o -name '*_test.*' | head -50
    find . -type d -name 'test*' -o -type d -name '__tests__' -o -type d -name 'spec*'
    ```
 
-4. **Read test framework config.**
+6. **Read test framework config.**
    - JS/TS: `jest.config.*`, `vitest.config.*`, `playwright.config.*`, `cypress.config.*`, `package.json` scripts
    - Python: `pytest.ini`, `pyproject.toml [tool.pytest]`, `conftest.py`, `tox.ini`
    - Go: `go test` config, `Makefile` test targets
    - C#: `.runsettings`, `xunit` config, test project structure
    - All: CI workflow files — what test commands run, what gates exist
 
-5. **Check coverage configuration.**
+7. **Check coverage configuration.**
    ```bash
    # Is coverage configured?
    grep -r "coverage" jest.config.* vitest.config.* pyproject.toml .github/workflows/ package.json 2>/dev/null
@@ -78,16 +89,16 @@ Do all of these in parallel:
    - Is it enforced (CI fails below threshold) or advisory (report only)?
    - What's the actual coverage? (Run the coverage report if possible, or check CI output)
 
-6. **Read the DoD.** `docs/definition-of-done.md` — its Feature and Bug fix sections should have test requirements. Are they enforced?
+8. **Read the DoD.** `docs/definition-of-done.md` — its Feature and Bug fix sections should have test requirements. Are they enforced?
 
-7. **Sample test files.** Read 5-10 test files across different modules. Note:
+9. **Sample test files.** Read 5-10 test files across different modules. Note:
    - Test naming patterns (`describe/it`, `test()`, `func TestXxx`, `def test_xxx`)
    - Test structure (arrange-act-assert, given-when-then, flat assertions)
    - Mocking/stub patterns (how are dependencies isolated?)
    - Test data patterns (fixtures, factories, inline data, parameterized tests)
    - Are there integration tests? E2E tests? Or only unit tests?
 
-8. **Check for false-green tests.** Look for:
+10. **Check for false-green tests.** Look for:
    - Tests with `expect(true).toBe(true)` or equivalent no-op assertions
    - Tests that are skipped/pendinng (`it.skip`, `pytest.mark.skip`, `t.Skip`)
    - Test scripts that are stubs (`echo "not implemented" && exit 0`)
@@ -109,6 +120,10 @@ a gap, and what needs to change.
 Repo root: {PWD}
 
 ## What to read
+- docs/testing-strategy.md if it exists — the existing records file. Report drift against it:
+  modules whose status changed, exemptions in §3 that no longer hold, §6 properties that have
+  since gained a test. Never re-report a §3 exemption as a gap.
+- docs/agent-routing-records.md §6 if it exists — risk surfaces and whether tests cover them.
 - docs/testing.md, docs/test-strategy.md, CONTRIBUTING.md testing section (if they exist)
 - ALL existing ADRs (they may encode testing decisions already)
 - Test framework config: jest.config, vitest.config, playwright.config, pytest.ini, etc.
@@ -216,6 +231,30 @@ Read `/tmp/test-coverage-evidence.md`.
 
 ## Step 3: Write the output
 
+**`docs/testing-strategy.md` is the deliverable.** The ADRs, the coverage gate, and the gap
+issues below are how its rows get enforced; the file itself is what the DoD points at, what
+audit domain 8 measures against, and what a triager reads instead of guessing at coverage.
+
+### `docs/testing-strategy.md` (the records file)
+
+Copy `templates/testing-strategy.md` if the repo has no records file yet, then fill it in:
+
+- **§1 Coverage floor** — the number, where it is configured, and honestly whether it is a
+  required check or a report. A floor far below actual is not a gate; say so in the row.
+- **§2 Coverage map** — every source directory gets a row and a status. `gap` and
+  `hard to test` require tracking issues; `deliberate` requires an entry in §3.
+- **§3 Deliberately untested** — with the "would we notice if it broke?" answer filled in.
+  An empty answer there is a gap wearing a decision's clothes, and the audit will say so.
+- **§5 False-green register** — everything found, with its disposition.
+- **§6 Properties no test verifies at any level** — cross-tenant scoping, ordering under
+  concurrency, idempotency claims, rate limits that exist only in schema. **This section is
+  read by triage**: each line is a reason issues on that surface route above `standard`, and
+  closing one lowers the tier of every future issue touching it. Cross-check it against
+  `docs/agent-routing-records.md` §6 and note the issue numbers currently paying for each.
+
+**The file never syncs back to repo-governance** — blank form upstream, contents local. Add a
+Review log row every run, including a refresh that changed nothing.
+
 ### Testing standard ADRs (for enforced rules)
 
 Write `docs/adr/NNN-<slug>.md` following `templates/adr/_template.md`. Testing standards
@@ -277,7 +316,7 @@ git worktree add ../test-coverage-${DATE} -b "${BRANCH}" "origin/${BASE}"
 cd ../test-coverage-${DATE}
 cp <written ADRs, DoD updates, coverage config, test fixes> <appropriate locations>
 
-git add docs/adr/ docs/definition-of-done.md jest.config.* vitest.config.* pyproject.toml .github/workflows/ scripts/
+git add docs/testing-strategy.md docs/adr/ docs/definition-of-done.md jest.config.* vitest.config.* pyproject.toml .github/workflows/ scripts/
 git commit -m "docs: testing strategy + coverage enforcement (${DATE})
 
 Testing standard ADRs with enforcement. Coverage gate wired. False-green
@@ -291,6 +330,7 @@ gh pr create --repo "${REPO}" --base "${BASE}" \
 ```
 
 PR body must include:
+- The `docs/testing-strategy.md` diff summarised: floor, N covered / N gaps / N deliberate, N false-green
 - Each testing ADR with its standard and enforcement
 - Coverage threshold configured and whether it's wired as a CI gate
 - False-green tests found and remediated (or filed as issues)
@@ -307,7 +347,10 @@ PR body must include:
 3. **Report false-green tests.** These are findings regardless of what the interview decided — CI was green but the code wasn't verified.
 4. **Report the coverage threshold status.** If the threshold was unenforced and is now wired, say so. If the team chose "report only," flag that the gate is still advisory.
 5. **Report unresolved contradictions.** A repo that says "comprehensive test suite" with 30% coverage has a messaging problem that the testing standard alone doesn't fix.
-6. Ask: *"What bug would have been caught if we had a test for X?"* — that's the highest-value test to write next, and possibly an ADR if the gap is structural.
+6. **Report §6 against the routing records.** For each property nothing verifies, name the
+   open escalations that cite it. "Three frontier issues are waiting on one integration test"
+   is the sentence that gets a coverage gap prioritised; "coverage is at 61%" is not.
+7. Ask: *"What bug would have been caught if we had a test for X?"* — that's the highest-value test to write next, and possibly an ADR if the gap is structural.
 
 ---
 

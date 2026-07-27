@@ -1,4 +1,4 @@
-<!-- template: definition-of-done.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: definition-of-done.md v1.1.0 · updated 2026-07-27 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit
@@ -59,6 +59,9 @@ Every piece of work has a type. A thing is done when the row for its type is ful
 ### Feature
 
 - [ ] Unit tests cover the new code
+- [ ] <!-- delete if no docs/testing-strategy.md --> **Coverage does not decrease on the files this PR changes**, and the floor in `docs/testing-strategy.md` §1 still passes. The floor is a gate, not a report
+- [ ] <!-- delete if no docs/testing-strategy.md --> If this PR adds a source directory or module: it has a row in the coverage map (`docs/testing-strategy.md` §2) with a status of `covered`, `gap` (+ tracking issue), `deliberate` (+ reason in §3), or `hard to test` (+ named blocker). A new module absent from the map is invisible to every later measurement
+- [ ] <!-- delete if no docs/code-conventions.md --> No convention in `docs/code-conventions.md` §1 (Enforced) is violated — those are lint-gated, so this row points at where the rules live rather than asking for a manual check. §2 (Documented) is preference: a violation there is a suggestion, never a blocker
 - [ ] <!-- [PROPOSED from source repo; npm repos] --> The test script actually runs the tests — no `echo "not implemented" && exit 0` reporting false-green; `lint:stub-tests` (report mode) catches this — see `templates/scripts/lint-stub-tests.mjs`
 - [ ] Integration test if the path touches a data store — must use the same wiring the runtime uses, not a standalone test double, and must call the top-level entry point (not just an inner helper) so constraints and identifier resolution are exercised, not bypassed
 - [ ] Affected docs updated and internally consistent — no section contradicts another
@@ -81,6 +84,7 @@ Every piece of work has a type. A thing is done when the row for its type is ful
 - [ ] **Regression test** at the same level the bug manifested (unit if caught by mocks, integration if it required a real data store) — exercising the function that actually failed, not just a sub-component it delegates to
 - [ ] Root cause documented in the commit message — what assumption was wrong, not just what changed
 - [ ] If the bug exposed a missing lint: either the lint ships in the same PR, or a P0 issue is filed and linked
+- [ ] <!-- delete if no docs/testing-strategy.md --> If the bug lived on a surface listed in `docs/testing-strategy.md` §6 (properties no test verifies at all): the regression test closes that line, or the line is updated with why it still stands. A silent failure that actually fired is the strongest evidence that section will ever produce
 - [ ] `Fixes #N` is in the PR description — GitHub closes the tracking issue automatically on merge
 
 > **Why this rule exists:** [Fill in — a bug that recurred because the fix had no regression test. The `Fixes #N` rule exists because PRs that fix issues without linking them leave those issues open indefinitely, caught only by the next audit.]
@@ -193,8 +197,8 @@ catch drift. Run the refresh skill for any layer whose staleness trigger has fir
 |---|---|---|
 | PDRs | Any `Last confirmed` > 90 days, or a falsifier condition has fired | `pdr-interview refresh` |
 | ADRs | Lints exist without ADRs, or ADRs are Proposed for 3+ audit cycles, or audit finds module contradictions | `adr-interview refresh` |
-| Clean code | Lint/formatter config changed since last refresh, or new modules violate existing conventions, or audit finds convention drift | `clean-code-interview refresh` |
-| Test coverage | Coverage dropped below threshold, or new modules have no tests, or false-green tests detected | `test-coverage-interview refresh` |
+| Clean code | Lint/formatter config changed since last refresh, or new modules violate existing conventions, or audit finds convention drift, or `docs/code-conventions.md` §4 has an unresolved row | `clean-code-interview refresh` |
+| Test coverage | Coverage dropped below the floor in `docs/testing-strategy.md` §1, or a new module has no row in the coverage map, or a false-green test was found, or a §3 exemption no longer holds | `test-coverage-interview refresh` |
 | Agent instructions | Commands or paths in CLAUDE.md/AGENTS.md don't match repo reality, or tooling migrated, or directory structure changed | `agent-instructions-interview refresh` |
 
 **Checklist for a layer refresh:**
@@ -204,6 +208,7 @@ catch drift. Run the refresh skill for any layer whose staleness trigger has fir
 - [ ] Evidence agent probed the current codebase state, not the state at last bootstrap
 - [ ] Interview confirmed, corrected, or rejected candidates (evidence-led, one question at a time)
 - [ ] New/updated records registered in their index (`docs/adr/README.md`, `docs/pdr/README.md`)
+- [ ] For a clean-code or test-coverage refresh: the layer's records file (`docs/code-conventions.md` / `docs/testing-strategy.md`) is updated **including its Review log row** — the records file is the deliverable, not a side effect of one. A refresh that produced ADRs and lints but left the records file untouched has no artifact the next audit can read
 - [ ] `lint:adr-readme-sync` passes
 - [ ] DoD and audit domains updated if the refresh changed what's enforced (new ADR → new DoD checklist item → new audit domain if applicable)
 - [ ] Layer refresh log updated in CLAUDE.md `### Layer refresh log`
