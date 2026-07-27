@@ -49,6 +49,16 @@ jobs:
         # this job pins Node 20, where the quoted form is read as a literal path.
         run: node --test test/*.test.mjs
 
+      - name: Check decision-record indexes
+        # Every NNN-*.md in docs/adr/ and docs/pdr/ is registered in its README.
+        run: node scripts/check-adr-readme-sync.mjs
+
+      - name: Check PDR falsifiers
+        # A decision without a falsifier is a wish. Gates on a missing falsifier
+        # and on the phrasings the form rules out; reports the heuristic half and
+        # any revisit date that has come due. See docs/pdr/README.md.
+        run: node scripts/check-pdr-falsifiers.mjs
+
       - name: Check blank-form naming
         # A blank form in a records directory gets read as a record — twice here,
         # by two different readers, from the same root cause.

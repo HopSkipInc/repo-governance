@@ -318,3 +318,100 @@ test('issue-routing: R3 fires on an escalation with no kind', () => {
   assert.equal(code, 1, out);
   assert.match(out, /R3/);
 });
+
+// ------------------------------------------------------------- pdr-falsifiers
+
+const ACCEPTED = (falsifier) =>
+  `# PDR-001: A bet\n\n**Status:** Accepted\n**Confirmed by:** Someone\n\n## Falsifier\n\n${falsifier}\n`;
+
+test('pdr-falsifiers: a corpus with observable falsifiers passes', () => {
+  const dir = fixture({
+    'docs/pdr/001-a.md': ACCEPTED('- [ ] Revisit by 2099-01-01 when the pilot cohort renews or churns'),
+    'docs/pdr/002-b.md': ACCEPTED('- [ ] Revisit when three or more inbound conversations open with a compliance driver'),
+  });
+  const { code, out } = run('check-pdr-falsifiers.mjs', dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
+test('pdr-falsifiers: R1 fires on an Accepted record with no falsifier', () => {
+  const dir = fixture({ 'docs/pdr/001-a.md': '**Status:** Accepted\n\n## Falsifier\n\nNothing here.\n' });
+  const { code, out } = run('check-pdr-falsifiers.mjs', dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /R1/);
+});
+
+test('pdr-falsifiers: a Proposed record without a falsifier is fine', () => {
+  // Proposed is exactly the status for "no falsifier yet" — gating it would make
+  // the status meaningless and push people to skip straight to Accepted.
+  const dir = fixture({ 'docs/pdr/001-a.md': '**Status:** Proposed\n\n## Falsifier\n\nTBD.\n' });
+  const { code, out } = run('check-pdr-falsifiers.mjs', dir);
+  assert.equal(code, 0, out);
+});
+
+test('pdr-falsifiers: R2 gates on a phrasing the form rules out', () => {
+  const dir = fixture({ 'docs/pdr/001-a.md': ACCEPTED('- [ ] Revisit later when we have time') });
+  const { code, out } = run('check-pdr-falsifiers.mjs', dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /R2/);
+});
+
+test('pdr-falsifiers: R3 warns and does not gate', () => {
+  // The heuristic half. It failed 5 of this repo's 7 real falsifiers as a gate,
+  // which is why it reports instead — proving observability is a judgment call.
+  const dir = fixture({ 'docs/pdr/001-a.md': ACCEPTED('- [ ] Revisit when the thing settles down') });
+  const { code, out } = run('check-pdr-falsifiers.mjs', dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /WARN/);
+  assert.match(out, /R3/);
+});
+
+test('pdr-falsifiers: R4 reports a revisit date that has passed', () => {
+  const dir = fixture({ 'docs/pdr/001-a.md': ACCEPTED('- [ ] Revisit by 2020-01-01 when the pilot renews') });
+  const { code, out } = run('check-pdr-falsifiers.mjs', dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /DUE/);
+  assert.match(out, /2020-01-01/);
+});
+
+test('pdr-falsifiers: a checked-off falsifier is resolved, not due', () => {
+  const dir = fixture({ 'docs/pdr/001-a.md': ACCEPTED('- [x] Revisit by 2020-01-01 when the pilot renews') });
+  const { code, out } = run('check-pdr-falsifiers.mjs', dir);
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /DUE/);
+});
+
+test('pdr-falsifiers: the blank form is not a record', () => {
+  const dir = fixture({
+    'docs/pdr/_template.md': '**Status:** Proposed | Accepted | Superseded\n\n- [ ] Revisit by YYYY-MM-DD when <condition>\n',
+    'docs/pdr/001-a.md': ACCEPTED('- [ ] Revisit by 2099-01-01 when the pilot renews'),
+  });
+  const { code, out } = run('check-pdr-falsifiers.mjs', dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /1 record/);
+});
+
+test('pdr-falsifiers: a repo with no docs/pdr/ passes silently', () => {
+  const { code, out } = run('check-pdr-falsifiers.mjs', fixture({ 'README.md': '# x\n' }));
+  assert.equal(code, 0, out);
+});
+
+// ---------------------------------------------------------- adr-readme-sync
+
+test('adr-readme-sync: an unregistered PDR fails', () => {
+  const dir = fixture({
+    'docs/pdr/001-a.md': '# A\n',
+    'docs/pdr/README.md': '# Index\n\nNo rows.\n',
+  });
+  const { code, out } = run('check-adr-readme-sync.mjs', dir);
+  assert.equal(code, 1, out);
+});
+
+test('adr-readme-sync: a registered PDR passes', () => {
+  const dir = fixture({
+    'docs/pdr/001-a.md': '# A\n',
+    'docs/pdr/README.md': '# Index\n\n| [001](001-a.md) | A | Accepted |\n',
+  });
+  const { code, out } = run('check-adr-readme-sync.mjs', dir);
+  assert.equal(code, 0, out);
+});
