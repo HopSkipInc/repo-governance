@@ -33,15 +33,18 @@
  * (`docs/agent-routing.md`) and template-relative names (`agent-routing.md`,
  * `skills/routing-triage/SKILL.md`). Resolution accepts both — try the declaration
  * as repo-relative, then map it through the template key to the client-side
- * install location. Which dialect is canonical is a decision deferred to the
- * routing backlog; this lint is correct under either outcome. A declaration may
+ * install location. The canonical dialect is **repo-relative** (decided 2026-08-02,
+ * shipped in governance-sync-claude-section.md v1.2.0): the template-relative
+ * dialect's inference is what produced months of false positives. A declaration may
  * carry one trailing parenthetical annotation (`routing-classifier.md (Claude
  * Code)`), stripped before resolving. Two install locations resolve specially:
  * `agents/*.opencode.md` templates install globally under
- * ~/.config/opencode/agents/ (OPENCODE_AGENTS_DIR overrides, used by the fixture
- * tests), and `governance-sync-claude-section.md` installs as a section of the
- * repo's CLAUDE.md — a present section means installed, and a section carries no
- * stamp, so it can only ever report NOSTAMP.
+ * ~/.config/opencode/agents/ — declared by that absolute path in the canonical
+ * dialect, `~` expanded (OPENCODE_AGENTS_DIR overrides, used by the fixture
+ * tests) — and `governance-sync-claude-section.md` installs as a section of the
+ * repo's CLAUDE.md. A section carrying the inline stamp line (added in template
+ * v1.2.0) is verified like a file; without it, the declaration can only report
+ * NOSTAMP.
  *
  * Read-only. It never writes to a governed repo.
  *
@@ -114,6 +117,10 @@ function cleanDecl(raw) {
 
 /** Map a declared path back to a templates/ key, in either dialect. */
 function toTemplateKey(d) {
+  // The opencode global install, declared by absolute path in the repo-relative
+  // dialect: (~/)**.config/opencode/agents/<name>.md -> agents/<name>.opencode.md
+  const oc = d.replace(/\\/g, '/').match(/\.config\/opencode\/agents\/([\w.-]+)\.md$/);
+  if (oc && current.has(`agents/${oc[1]}.opencode.md`)) return `agents/${oc[1]}.opencode.md`;
   for (const p of PREFIXES) {
     if (d.startsWith(p)) {
       const tail = d.slice(p.length);
@@ -135,8 +142,28 @@ function toTemplateKey(d) {
 /** Where `agents/*.opencode.md` templates install: globally, off the repo tree. */
 const OPENCODE_AGENTS = process.env.OPENCODE_AGENTS_DIR || join(homedir(), '.config/opencode/agents');
 
-/** Templates whose installed artifact is a section of the repo's CLAUDE.md, not a file. */
-const SECTION_INSTALLED = new Map([['governance-sync-claude-section.md', /###\s*Synced templates/i]]);
+/**
+ * Expand a declaration's leading `~`. The opencode-agents path resolves through
+ * OPENCODE_AGENTS so the fixture tests can redirect it; any other tilde path goes
+ * to the real home directory.
+ */
+function expandDeclared(d) {
+  const oc = d.match(/^~\/\.config\/opencode\/agents\/(.+)$/);
+  if (oc) return join(OPENCODE_AGENTS, oc[1]);
+  return d.replace(/^~/, homedir());
+}
+
+/**
+ * Templates whose installed artifact is a section of the repo's CLAUDE.md, not a
+ * file: `present` detects the section, `stamp` reads the inline stamp the section
+ * carries since governance-sync-claude-section.md v1.2.0.
+ */
+const SECTION_INSTALLED = new Map([
+  ['governance-sync-claude-section.md', {
+    present: /###\s*Synced templates/i,
+    stamp: /template:\s*governance-sync-claude-section\.md\s+v(\d+\.\d+\.\d+)/,
+  }],
+]);
 
 /**
  * Candidate on-disk locations for a declaration, in resolution order: the
@@ -201,17 +228,39 @@ for (const { repo, path } of repos) {
     const declaredVer = m[2].trim();
     if (declaredVer === '—' || declaredVer === '-') continue;
 
-    const key = toTemplateKey(declaredPath);
+    const expanded = expandDeclared(declaredPath);
+    const key = toTemplateKey(expanded);
     if (!key) continue; // adapted/local artifact, not a tracked template
 
-    const cand = installCandidates(declaredPath, key).find((c) => existsSync(c.startsWith('/') ? c : join(path, c)));
+    const cand = installCandidates(expanded, key).find((c) => existsSync(c.startsWith('/') ? c : join(path, c)));
     if (!cand) {
-      if (SECTION_INSTALLED.has(key) && SECTION_INSTALLED.get(key).test(md)) {
-        findings.push({
-          sev: 'NOSTAMP',
-          repo,
-          msg: `declares ${declaredPath} v${declaredVer} — installed as a CLAUDE.md section, which carries no version stamp; the declaration cannot be verified`,
-        });
+      if (SECTION_INSTALLED.has(key)) {
+        const sec = SECTION_INSTALLED.get(key);
+        if (!sec.present.test(md)) {
+          findings.push({
+            sev: 'MISMATCH',
+            repo,
+            msg: `declares ${declaredPath} v${declaredVer} but the ${key} section is absent from CLAUDE.md — a clean bill of health it has not got`,
+          });
+          continue;
+        }
+        const stamped = md.match(sec.stamp)?.[1] ?? null;
+        if (!stamped) {
+          findings.push({
+            sev: 'NOSTAMP',
+            repo,
+            msg: `declares ${declaredPath} v${declaredVer} — installed as a CLAUDE.md section, which carries no version stamp; the declaration cannot be verified`,
+          });
+          continue;
+        }
+        if (stamped !== declaredVer) {
+          findings.push({ sev: 'MISMATCH', repo, msg: `declares ${declaredPath} v${declaredVer} but the installed CLAUDE.md section stamps v${stamped}` });
+          continue;
+        }
+        const latest = current.get(key);
+        if (latest && latest !== declaredVer) {
+          findings.push({ sev: 'BEHIND', repo, msg: `${declaredPath} at v${declaredVer}, template is v${latest}` });
+        }
         continue;
       }
       findings.push({

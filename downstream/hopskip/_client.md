@@ -79,6 +79,16 @@ decomposed, then set a target.
 | HopSkipInc/ai-fleet | [2026-07-27 quality + coverage layers](2026-07-27-quality-coverage-layers.md) | pending |
 | HopSkipInc/analytics-infrastructure | [2026-07-27 quality + coverage layers](2026-07-27-quality-coverage-layers.md) | pending |
 | HopSkipInc/enrichment-pipeline | [2026-07-27 quality + coverage layers](2026-07-27-quality-coverage-layers.md) | pending |
+| HopSkipInc/ai-fleet | [2026-08-02 Synced-declarations reconciliation](ai-fleet/2026-08-02-synced-declarations.md) | pending — dialect rewrite + 2 rows to Adapted note + inline stamp |
+| HopSkipInc/analytics-infrastructure | [2026-08-02 Synced-declarations reconciliation](analytics-infrastructure/2026-08-02-synced-declarations.md) | pending — version-cell hygiene + inline stamp |
+| HopSkipInc/enrichment-pipeline | [2026-08-02 Synced-declarations reconciliation](enrichment-pipeline/2026-08-02-synced-declarations.md) | pending — dialect rewrite + section inline stamp |
+
+The 2026-08-02 prompts come from the downstream-drift disposition (#14): the corrected
+lint's surviving findings were 13 BEHIND (all already carried by the pending 2026-07-27
+prompt — no duplicate generated) and 3 NOSTAMP (reconciled here: ai-fleet's two files
+are adapted, owner's call; enrichment's section gets the inline stamp). The canonical
+first-column dialect — repo-relative installed paths — is named in
+`templates/governance-sync-claude-section.md` v1.2.0.
 
 The 2026-07-27 prompt also carries the routing re-sync to policy 1.10.0 (the coverage lever).
 A repo doing both at once should do the coverage interview **before** backfilling R8 records —
