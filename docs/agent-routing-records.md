@@ -1,7 +1,7 @@
 <!-- template: agent-routing-records.md v1.0.0 · updated 2026-07-26 -->
 # Agent Routing — Records for repo-governance
 
-**Policy version these records were written against:** 1.9.0
+**Policy version these records were written against:** 1.10.0
 **Last reviewed:** 2026-07-26
 **Policy:** [`docs/agent-routing.md`](agent-routing.md)
 
