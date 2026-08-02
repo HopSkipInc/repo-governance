@@ -57,7 +57,23 @@ Two commit-message conventions, both load-bearing:
 
 ### 5.0 Pre-flight: check pending prompts from prior sync-reviews
 
-Before generating new prompts, open `downstream/<client>/_client.md` and read the Maintenance Log table. For each repo with status `pending` or `partial`:
+**Run both hand-run lints first — this step is their trigger.** They read local client checkouts, so they cannot run in CI, and this pre-flight is the one ritual where the operator already has those checkouts open. CLAUDE.md's "two scripts shouting into the void" note binds them here.
+
+```bash
+node scripts/check-downstream-drift.mjs
+node scripts/check-lens-promotion.mjs
+```
+
+Dispositions for `check-downstream-drift` findings:
+
+- **MISMATCH and NOSTAMP block the sync review.** Do not generate prompts until each is accounted for: a human reads the finding against the client tree and decides what it is (stale declaration, missing install, unstamped copy). Prompting on top of an unaccounted finding ships the disagreement it reports. What to *do* with real findings is deliberately not decided in this step.
+- **BEHIND generates or refreshes the client's maintenance prompt** under `downstream/<client>/<repo>/` — a BEHIND finding is exactly the drift a sync-review exists to fix, so it feeds Step 5.1 rather than blocking.
+- **UNDECLARED** is reported, not blocking — if the repo is in scope for this review, note it in the new prompt.
+- **SKIPPED** (no client checkout reachable) is reported, never read as a pass.
+
+`check-lens-promotion` is a sweep, not a gate: report its findings to the operator. **PROMOTE** findings are cross-repo lens extensions — candidates for the sync review's proposal list; **RESIDUALS** and **NO-RECORDS** are noted for the client's next audit.
+
+Then open `downstream/<client>/_client.md` and read the Maintenance Log table. For each repo with status `pending` or `partial`:
 
 1. Note the prior prompt path and its `## Verifiable outcomes` section.
 2. If the repo is accessible locally (path is in the Governed Repos table), run each verification command. Report what has landed and what hasn't.
