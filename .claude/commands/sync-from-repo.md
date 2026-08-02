@@ -216,7 +216,7 @@ Scan `gtm/` for two things:
 
 **Do not edit `gtm/` files directly.** Frame each candidate change as a proposal — the claim in ICP vocabulary, why it lands for the buyer, where it goes, and draft copy — and present them **one at a time**, waiting for the user's feedback before applying each and presenting the next.
 
-Vocabulary rules for proposals (from `gtm/positioning.md` and team-state):
+Vocabulary rules for proposals (from `gtm/positioning.md`):
 - Founder ICP collateral: no "ADR," no "DORA," no "governance debt" — translate to founder vocabulary ("architecture rules written down with an automatic check each")
 - Metrics: report trends, never raw scores (per the governance-health spec)
 - Honest-wrinkle framing: a measured failure in the source repo is usually a *stronger* story than a clean chart — propose the honest version
@@ -275,7 +275,7 @@ The marker review itself is a separate skill, run in a later session with fresh 
 - **governance-health.md:** Live in ai-fleet since 2026-05 with 8+ audit cycles of data — the sync-back condition in `docs/governance-health-spec.md` is met. Propose `templates/governance-health.md` from the live structure, and reconcile the spec where the implementation diverged from it.
 - **Audit mechanism evolution:** `templates/workflows/scheduled-audit.yml` reflects the GHA-workflow shape. ai-fleet outgrew it (in-platform machine + dead-man probe). Both shapes are valid for template consumers — keep the workflow template, and propose the dead-man probe as a companion template (`templates/workflows/audit-deadman.yml`); it is deliberately generic (watches repo artifacts only, no platform dependencies).
 - **issue-authoring.md:** Candidate for `templates/issue-authoring.md` — propose once its schema has survived at least one backlog sweep cycle in the source repo.
-- **Open question (2026-07-18, unresolved): lint portability across languages.** Every `templates/scripts/*` lint added so far is a single-language reference implementation (TypeScript source-scanning, or npm-script-scanning). That's fine while ai-fleet is the only fully-TS governed repo, but analytics-infrastructure is pure C#, and future clients will bring other stacks. "Copy this `.mjs` file" doesn't work for a lint that has to parse source code in a language it wasn't written for. Before templating the next source-scanning lint, consider whether it needs a **concept doc** (the invariant + detection strategy, language-neutral) alongside — or instead of — the single reference implementation, so a port to another language is a translation exercise, not a rewrite from the original incident. Not yet decided; see `team-state.md` session 12 for full context.
+- **Open question (2026-07-18, unresolved): lint portability across languages.** Every `templates/scripts/*` lint added so far is a single-language reference implementation (TypeScript source-scanning, or npm-script-scanning). That's fine while ai-fleet is the only fully-TS governed repo, but analytics-infrastructure is pure C#, and future clients will bring other stacks. "Copy this `.mjs` file" doesn't work for a lint that has to parse source code in a language it wasn't written for. Before templating the next source-scanning lint, consider whether it needs a **concept doc** (the invariant + detection strategy, language-neutral) alongside — or instead of — the single reference implementation, so a port to another language is a translation exercise, not a rewrite from the original incident. Not yet decided.
 
 ---
 

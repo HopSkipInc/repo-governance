@@ -70,6 +70,6 @@ Source: `docs/code-conventions.md` §5 (two rows).
 - No enumeration rule — the rows above were read by hand from three cited sections of
   one file. How claims are enumerated from artifacts mechanically is the #13 residue.
 - No score — "coverage" as a fraction is a formula, and formulas are the #13 residue.
-- No claims beyond the recorded rows — CLAUDE.md gotchas, team-state, and lint headers
-  all carry claims, but they were not part of the recorded-claims corpus this example
+- No claims beyond the recorded rows — CLAUDE.md gotchas and lint headers
+  carry claims, but they were not part of the recorded-claims corpus this example
   was bounded to (#18's scope: §1, §4, §5 rows only).
