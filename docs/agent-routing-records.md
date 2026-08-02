@@ -2,7 +2,9 @@
 # Agent Routing — Records for repo-governance
 
 **Policy version these records were written against:** 1.10.0
-**Last reviewed:** 2026-07-26
+**Last reviewed:** 2026-07-26 — full pin/class review against 1.9.0. The pointer above moved to
+1.10.0 on 2026-08-02 (re-sync, commit d897351) *without* a fresh pin/class review; the 1.10.0
+delta is the coverage rule, which touches neither. Next full review resets this line.
 **Policy:** [`docs/agent-routing.md`](agent-routing.md)
 
 > **This file never syncs.** It is the per-repo counterpart to the policy, which is
