@@ -1,4 +1,4 @@
-<!-- template: governance-sync-claude-section.md v1.1.0 · updated 2026-07-24 -->
+<!-- template: governance-sync-claude-section.md v1.2.0 · updated 2026-08-02 -->
 # Governance sync — CLAUDE.md section
 
 When a downstream repo's CLAUDE.md includes this section, the agent can reliably find
@@ -8,10 +8,13 @@ discover the repo-governance path, the client name, or the prompt convention.
 ## Template
 
 Add this section to the repo's CLAUDE.md. Replace `<CLIENT>` and `<REPO-SLUG>` with
-the actual values (e.g., `hopskip` and `enrichment-pipeline`).
+the actual values (e.g., `hopskip` and `enrichment-pipeline`). Keep the stamp comment
+under `## Governance` when you install — it is how the drift check verifies the section.
 
 ```markdown
 ## Governance
+
+<!-- template: governance-sync-claude-section.md v1.2.0 · updated 2026-08-02 -->
 
 This repo is governed by repo-governance at `~/repos/greg/repo-governance`.
 The client identifier is `<CLIENT>` and the repo slug is `<REPO-SLUG>`.
@@ -62,6 +65,18 @@ Every governance template carries a version stamp. Record what this repo install
 both sides can tell when a local copy has fallen behind — without this, a repo is running
 some unknown vintage and neither it nor repo-governance can detect the drift.
 
+The first column is the **repo-relative installed path** — `docs/agent-routing.md`,
+`.claude/skills/routing-triage/SKILL.md`, `scripts/check-issue-routing.mjs`,
+`~/.config/opencode/agents/routing-classifier.md` for a global install. A path verifies
+with zero inference; naming the template instead means the drift check has to know where
+every template installs, and that mapping failed in the field. (Canonical dialect:
+repo-relative, decided 2026-08-02.) One exception: a template that installs as a section
+of this file (`governance-sync-claude-section.md`) is declared by template name — its
+location is CLAUDE.md by definition — and this section carries its stamp on the comment
+line under `## Governance` above. Adapted files (copied from a template, then customized
+— not auto-synced) do not declare a version; note them as "Adapted" below the table
+instead.
+
 | Template | Installed version | Synced on |
 |---|---|---|
 | — | — | — |
@@ -95,6 +110,14 @@ templates, and watch-list conventions. When in doubt, check the template first.
   is stale, the agent skips the refresh step entirely — no wasted effort.
 - The template path is included so the agent can self-serve on conventions without
   needing a prompt for every question.
+- **Canonical declaration dialect (2026-08-02): repo-relative installed paths.** Two
+  dialects grew in the field — ai-fleet and enrichment-pipeline declared template-relative
+  names, analytics-infrastructure declared repo-relative paths — and the drift check
+  reported 10 false MISMATCHes against the first dialect for months, because it had to
+  infer install locations. A declared path verifies with zero inference; an inferred one
+  fails open. The lint accepts both during transition; new declarations are repo-relative.
+- **The section carries its stamp inline** (the comment under `## Governance`). Without
+  it, the drift check can only report the section as unverifiable — NOSTAMP — forever.
 - This replaces the pattern of generating detailed per-repo downstream prompts with
   repo-governance knowing every ADR filename. The agent reads the prompt, the prompt
   tells it what to do, and the agent discovers the repo's specifics at runtime.

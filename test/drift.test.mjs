@@ -162,6 +162,43 @@ test('drift: a section-installed template can only report NOSTAMP — a section 
   assert.doesNotMatch(out, /^MISMATCH \(/m);
 });
 
+test('drift: a section with an inline stamp verifies like a file (canonical since template v1.2.0)', () => {
+  const dir = fixture({
+    ...templateTree,
+    'clones/repo-a/CLAUDE.md':
+      '# Client repo\n\n## Governance\n\n<!-- template: governance-sync-claude-section.md v2.0.0 · updated 2026-08-02 -->\n\n' +
+      claudeMd([['governance-sync-claude-section.md', '2.0.0']]),
+  });
+  addLedger(dir, [['acme/repo-a', join(dir, 'clones/repo-a')]]);
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
+test('drift: a section whose inline stamp disagrees with the declaration reports MISMATCH', () => {
+  const dir = fixture({
+    ...templateTree,
+    'clones/repo-a/CLAUDE.md':
+      '# Client repo\n\n## Governance\n\n<!-- template: governance-sync-claude-section.md v1.0.0 · updated 2026-07-24 -->\n\n' +
+      claudeMd([['governance-sync-claude-section.md', '2.0.0']]),
+  });
+  addLedger(dir, [['acme/repo-a', join(dir, 'clones/repo-a')]]);
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MISMATCH/);
+  assert.match(out, /installed CLAUDE\.md section stamps v1\.0\.0/);
+});
+
+test('drift: the canonical global declaration (~/.config/opencode/agents/...) resolves', () => {
+  const dir = repoFixture([['`~/.config/opencode/agents/routing-classifier.md`', 'v2.0.0']]);
+  const agentsDir = join(dir, 'opencode/agents');
+  mkdirSync(agentsDir, { recursive: true });
+  writeFileSync(join(agentsDir, 'routing-classifier.md'), fm('2.0.0'));
+  const { code, out } = run(dir, { OPENCODE_AGENTS_DIR: agentsDir });
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
 test('drift: BEHIND reports but does not block', () => {
   const dir = repoFixture(
     [['agent-routing.md', '1.0.0']],

@@ -82,13 +82,17 @@ Real and intentional; a violation is not a defect and never blocks a PR.
 
 | Check | Where wired | Convention it implies | Disposition |
 |---|---|---|---|
-| `scripts/check-downstream-drift.mjs` | **nowhere** — runs on no trigger | Downstream repos' declared template versions must match their files, and must not lag the templates | See §5 — it reports 10 blocking findings today and nothing surfaces them |
+| — | — | — | — |
+
+_Last row removed 2026-08-02: `check-downstream-drift.mjs` is wired to `/review-sync`
+Step 5.0 (#21) and its implied convention is told there — no longer enforcement without
+a record._
 
 ## 5. Contradictions on the record
 
 | Contradiction | Side A | Side B | Tracking |
 |---|---|---|---|
-| `check-downstream-drift.mjs` exits non-zero on 10 MISMATCH findings and is wired to no trigger. It cannot run in CI — it reads local client checkouts — so it is a gate with no gate | The script: "MISMATCH always blocks: a wrong declaration is worse than a stale one" | No workflow, no hook, and no skill step invokes it | unfiled — needs a home in `/review-sync` Step 5.0, which is where a human already has the client checkouts open |
+| `check-downstream-drift.mjs` exits non-zero on 10 MISMATCH findings and is wired to no trigger. It cannot run in CI — it reads local client checkouts — so it is a gate with no gate | The script: "MISMATCH always blocks: a wrong declaration is worse than a stale one" | No workflow, no hook, and no skill step invokes it | **resolved 2026-08-02** — wired to `/review-sync` Step 5.0 (#21). The 10 MISMATCHes were declaration-dialect false positives, fixed with a fail-closed NOSTAMP class (#19, #20); the surviving findings (3 NOSTAMP, 13 BEHIND) were disposed in the 2026-08-02 pass (#14) — BEHINDs already queued by the pending 2026-07-27 prompt, NOSTAMPs reconciled by the 2026-08-02 client prompts, canonical dialect named in `templates/governance-sync-claude-section.md` v1.2.0 |
 | `.github/workflows/issue-routing.yml` ran `templates/scripts/check-issue-routing.mjs` in place while every client copies it to `scripts/` | The template's own header: "CONFIGURE BEFORE USE" | This repo never configured it and could not, without editing what ships | **resolved 2026-07-27** — copied to `scripts/`, workflow repointed |
 
 ## Review log
@@ -98,3 +102,4 @@ Real and intentional; a violation is not a defect and never blocks a PR.
 | 2026-07-27 | bootstrap | 5 enforced (2 new: blank-form naming, lint fixture tests), 5 documented, 5 dropped. One §5 contradiction resolved in the same pass, one left open. Recorded that this repo has no ADR corpus, so the lint is the record |
 | 2026-07-27 | agent-instructions refresh | CLAUDE.md reconciled: `[N]` placeholder in the diff-size stop condition filled (10 files), the `docs/agent-routing.md` reference corrected for the 1.9.0 records split, and commands / records-file rules / gotchas added. All paths and commands verified to resolve |
 | 2026-07-27 | PDR bootstrap | Rows 6–7 added — record-index sync and PDR falsifier enforcement, both gates. The PDR corpus now exists (`docs/pdr/`), so this repo runs 4 of the 5 layers on itself; the ADR layer is still the outstanding one |
+| 2026-08-02 | drift-lint disposition (#14) | §5's drift contradiction resolved — the gate has a trigger (Step 5.0, #21), its false positives are fixed (#19/#20), and its surviving findings are disposed on the record. §4 emptied for the first time |
