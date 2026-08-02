@@ -1,6 +1,6 @@
 # vCTO Positioning — Working Notes
 
-Last updated: 2026-06-14
+Last updated: 2026-08-02
 
 A working doc, not finished collateral. Captures positioning assumptions so they don't have to be re-derived every conversation.
 
@@ -39,6 +39,14 @@ Three things that distinguish this from existing vCTO / engineering-advisory off
    The differentiated half is not the routing — it's that our tiers key on **loud vs. silent failure**, not difficulty. Cost-to-outcome optimization presumes a trustworthy eval; the dangerous cases in a codebase are exactly the ones where the eval is green and wrong. The `inherent`-tier population is a map of a repo's eval gaps, and coverage is what closes them. See `docs/watch-items/2026-07-24-microsoft-mai-hill-climbing.md`.
 
    **Commoditization risk, stated plainly:** Microsoft's incentive is to give this layer away (Foundry) to drive model consumption. "Route by task class" will not stay a differentiator. What survives is the per-repo, non-inheritable part — the risk-surface map, the calibration set, and the judgment about which direction of change is dangerous. Position on those, not on the mechanism.
+
+6. **Borrowed-discipline design review, at agent prices (Design Lenses).** Every big design decision claims something a mature discipline has spent a century learning to distrust — "this measurement is trustworthy" (sampling theory), "a human will act on this alert" (human factors), "this boundary holds" (security economics). The policy (`templates/design-lenses.md`) makes that borrowing one required, falsifiable line per architecture decision, checked against the actual code before the decision is accepted.
+
+   **The timing story is the pitch.** This idea is not new — the industry has reinvented "structured interrogation of design claims" roughly once a decade (design-rationale capture in the '90s, ATAM, premortems) and every version died of the same disease: the capture problem. The person who pays the cost at design time is not the person who collects the benefit later, and no tool ever beat that gradient. Agents just inverted the economics: the expensive half — trace the concept into the code, open the files, check the prediction — is now nearly free, and what's left for the human is one sentence of judgment. We are the first generation that can afford a forty-year-old good idea, and the offering operationalizes it before that observation becomes common knowledge.
+
+   Live demo from the reference repo: a human question backed by sampling theory found that the eval harness structurally could not represent a failing tool — every eval ever run was green in a world where nothing failed. Two research agents reading 61 ADRs had missed it; the policy turns that catch from luck into process. Founder-facing phrasing: *a second set of eyes from a century-old discipline, on every big decision, for the cost of one sentence.* Never say "epistemics" or name the disciplines unprompted — the mechanism ("the check asks what your dashboard structurally can't see") lands better than the taxonomy.
+
+   The moat mirrors the routing story: the policy syncs everywhere and will commoditize; the per-repo records file — which lessons this repo bought the expensive way, which claim classes its domain earned, which predictions came back negative — is the non-inheritable part. And the cross-repo promotion sweep (`scripts/check-lens-promotion.mjs`) is a retainer artifact by construction: which extensions generalize across a client's repos is a question only the governance side can answer, because only it sees every records file.
 
 ## Sales motion
 
