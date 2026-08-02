@@ -41,8 +41,8 @@ it never proposes anything in §3.
 
 **No ADR column entries on rows 1–6, and that is not an omission.** This repo has no `docs/adr/`. It
 governs an ADR *practice* without running one on itself, because its own load-bearing
-decisions are recorded in `templates/agent-routing.md`'s changelog, in `.claude/team-state.md`,
-and in the lint headers — every lint here opens with the incident that caused it. Whether
+decisions are recorded in `templates/agent-routing.md`'s changelog, in the governance
+activity ledger, and in the lint headers — every lint here opens with the incident that caused it. Whether
 that is sufficient or whether this repo owes itself an ADR corpus is an open question for
 `adr-interview`, which has not been run here.
 

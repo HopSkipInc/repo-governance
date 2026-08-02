@@ -82,19 +82,18 @@ the mechanical checks only.
 
 ## Session State Protocol
 
-**At session start (REQUIRED):**
-1. Read `~/.claude/global-state.md` — preferences, active projects, memory file manifest
-2. Read `.claude/team-state.md` in this repo — shared team context: architecture decisions, conventions, sprint focus, gotchas
-3. Read `.claude/personal-state.md` in this repo — your personal context: current focus, working notes, opinions
-4. Check the Memory Files table in global-state.md — load any `~/.claude/memory/` files relevant to this session's topic
+The write path is the organizational activity ledger (fleet-host MCP), not files in this repo.
+
+**At session start (REQUIRED):** call `session_context(project="leizerowicz/repo-governance", query="<what this session is about>")`. It returns recent decisions, completions, and blockers plus relevant past context. The first user message is the goal — do not ask for one.
+
+**During the session:** call `record_activity` at natural checkpoints — decisions, completions, blockers, discoveries. Don't wait for end-of-session.
 
 **At session end (when user says stop/done/pause/tomorrow):**
-1. Update `.claude/team-state.md` with shared context: architecture decisions, conventions, gotchas the team should know
-2. Update `.claude/personal-state.md` with personal context: your next steps, working notes, opinions
-3. Do NOT update `~/.claude/global-state.md` — its Active Projects table is rebuilt automatically by `wayfind status`.
-4. If significant new cross-repo context was created (patterns, strategies, decisions), create or update a file in `~/.claude/memory/` and add it to the Memory Files manifest in global-state.md
+1. Record any final completions or decisions with `record_activity`.
+2. Optionally write a journal entry to `~/.claude/memory/journal/YYYY-MM-DD.md` for cross-session lessons — retrospective insights, not live work.
+3. `.claude/personal-state.md` (gitignored) is optional local scratch. Nothing the team needs goes there — the ledger carries it.
 
-**Do NOT use ruvector/claude-flow memory CLI for state storage.** Use plain markdown files only.
+**Do NOT use ruvector/claude-flow memory CLI for state storage.** The ledger for work state, plain markdown for journals.
 
 ## Agent routing
 
