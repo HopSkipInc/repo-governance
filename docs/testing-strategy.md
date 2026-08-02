@@ -41,6 +41,7 @@ produce identical CI output, which is what makes this the right floor for this r
 |---|---|---|---|
 | 2026-07-27 | fixture test per own-lint | 4 of 5 scripts covered | `check-downstream-drift.mjs` is the exception — see §2 |
 | 2026-07-27 | fixture test per own-lint | 6 of 7 scripts covered | PDR bootstrap added two lints, both covered on arrival. The rule held on its first test: `check-pdr-falsifiers` R2 was wrong about 5 of 7 real falsifiers and the fixtures pinned the corrected split |
+| 2026-08-02 | fixture test per own-lint | 7 of 7 scripts covered | `check-downstream-drift.mjs` covered (#20) — the "hard to test" note was defeated by the `lens.test.mjs` fixture shape: throwaway git repo, fake client checkouts at absolute paths inside it |
 
 ## 2. Coverage map
 
@@ -52,7 +53,7 @@ produce identical CI output, which is what makes this the right floor for this r
 | `scripts/check-issue-routing.mjs` | fixture (6 cases, `gh` stubbed on PATH) | covered | yes | — |
 | `scripts/check-pdr-falsifiers.mjs` | fixture (9 cases, all 4 rules) | covered | yes | — |
 | `scripts/check-adr-readme-sync.mjs` | fixture (2 cases) | covered | no | — |
-| `scripts/check-downstream-drift.mjs` | none | **hard to test** — needs fake client checkouts at the local paths in `_client.md` | yes | unfiled |
+| `scripts/check-downstream-drift.mjs` | fixture (10 cases, `test/drift.test.mjs`) | covered — both declared-path dialects, all four finding classes, SKIPPED | yes | #20 |
 | `templates/scripts/*.mjs` (8 files) | none | deliberate — see §3 | yes | — |
 | `templates/**/*.md`, `docs/`, `downstream/` | bootstrap smoke test | **partial** — see §6 | yes | — |
 

@@ -18,7 +18,7 @@ There is no `package.json` — deliberately, since this repo is not a publishabl
 Everything runs directly under Node.
 
 ```bash
-node --test test/*.test.mjs          # the test suite (52 cases)
+node --test test/*.test.mjs          # the test suite (62 cases)
 
 node scripts/check-template-versions.mjs --base <ref>   # stamps + bump-on-change
 node scripts/check-analyze-repo-coverage.mjs            # every template in the matrix
