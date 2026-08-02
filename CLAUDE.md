@@ -18,7 +18,7 @@ There is no `package.json` — deliberately, since this repo is not a publishabl
 Everything runs directly under Node.
 
 ```bash
-node --test test/*.test.mjs          # the test suite (36 cases)
+node --test test/*.test.mjs          # the test suite (52 cases)
 
 node scripts/check-template-versions.mjs --base <ref>   # stamps + bump-on-change
 node scripts/check-analyze-repo-coverage.mjs            # every template in the matrix
@@ -27,6 +27,7 @@ node scripts/check-adr-readme-sync.mjs                  # records registered in 
 node scripts/check-pdr-falsifiers.mjs                   # accepted PDRs carry a falsifier
 node scripts/check-issue-routing.mjs                    # backlog sweep; needs gh auth
 node scripts/check-downstream-drift.mjs                 # client version drift; run by hand
+node scripts/check-lens-promotion.mjs                   # cross-repo lens extensions; run by hand
 ```
 
 **Quote the glob and the tests silently do not run.** `node --test 'test/*.test.mjs'` is
@@ -34,9 +35,11 @@ Node 22+; CI pins Node 20, where the quoted form is read as a literal path. Leav
 unquoted so bash expands it.
 
 CI is `.github/workflows/governance-lints.yml` (push to master + every PR) and
-`.github/workflows/issue-routing.yml`. Everything above except the last two runs there.
-`scripts/check-downstream-drift.mjs` runs **nowhere** — it reads local client checkouts, so it
-cannot run in CI, and it is currently reporting findings nobody sees.
+`.github/workflows/issue-routing.yml`. Everything above except the last three runs there.
+`scripts/check-downstream-drift.mjs` and `scripts/check-lens-promotion.mjs` run **nowhere** —
+they read local client checkouts, so they cannot run in CI, and they are currently reporting
+findings nobody sees. Bind both to the same governance-sync ritual; two scripts shouting into
+the void is becoming its own watch item.
 
 ## Working on templates
 

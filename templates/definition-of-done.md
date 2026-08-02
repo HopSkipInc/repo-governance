@@ -1,4 +1,4 @@
-<!-- template: definition-of-done.md v1.1.0 · updated 2026-07-27 -->
+<!-- template: definition-of-done.md v1.2.0 · updated 2026-08-02 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit
@@ -18,6 +18,7 @@ Every piece of work has a type. A thing is done when the row for its type is ful
 - [ ] Status moves to **Accepted** only after the above; reviewer confirms enforcement exists before approving
 - [ ] If the ADR defines its own inline acceptance criteria (beyond the lint requirement), and a PR satisfies those criteria: flip Status to **Accepted** in that same PR
 - [ ] If the ADR's Decision section names implementation prerequisites or sequencing constraints: each prerequisite cites a tracking issue number before the PR merges — prerequisites without tracking issues are invisible to the backlog
+- [ ] <!-- delete if no docs/design-lenses.md --> **Lens line present in the Proposed draft** — `lint:design-lens` passes; the line was produced by `/lens-sweep` in a separate session from the authoring session, and the PR links the sweep's evidence trail. Reviewer confirms the prediction could have come back negative — a Lens line arriving for the first time at Accepted is a review finding (see `docs/design-lenses.md` §5–§7)
 
 > **Why this rule exists:** [Fill in with your own incident. Example: "An ADR promised a lint and moved to Accepted without it. The violation it was meant to prevent shipped anyway and caused a production outage; a recheck audit found the same violation still live. Separately, an ADR documented four implementation prerequisites with no tracking issues — the work was invisible to the backlog until a human happened to re-read the ADR."]
 
@@ -196,7 +197,7 @@ catch drift. Run the refresh skill for any layer whose staleness trigger has fir
 | Layer | Stale when… | Refresh skill |
 |---|---|---|
 | PDRs | Any `Last confirmed` > 90 days, or a falsifier condition has fired | `pdr-interview refresh` |
-| ADRs | Lints exist without ADRs, or ADRs are Proposed for 3+ audit cycles, or audit finds module contradictions | `adr-interview refresh` |
+| ADRs | Lints exist without ADRs, or ADRs are Proposed for 3+ audit cycles, or audit finds module contradictions, or the lens-hygiene probe finds ritual-compliance drift | `adr-interview refresh` |
 | Clean code | Lint/formatter config changed since last refresh, or new modules violate existing conventions, or audit finds convention drift, or `docs/code-conventions.md` §4 has an unresolved row | `clean-code-interview refresh` |
 | Test coverage | Coverage dropped below the floor in `docs/testing-strategy.md` §1, or a new module has no row in the coverage map, or a false-green test was found, or a §3 exemption no longer holds | `test-coverage-interview refresh` |
 | Agent instructions | Commands or paths in CLAUDE.md/AGENTS.md don't match repo reality, or tooling migrated, or directory structure changed | `agent-instructions-interview refresh` |
@@ -250,6 +251,9 @@ See `docs/personas.md` for the role definitions. When one person holds all perso
 **Dead-man probe.** A separate workflow watches for audit artifacts and goes red — and files a P1 issue — if none has appeared within a few days. A dead audit produces *nothing*, and nothing turns red on its own; the probe is the watchdog's watchdog, deliberately outside the mechanism it watches. It must depend only on repo artifacts — never on production credentials or upstream services.
 
 **Future items section.** The audit report includes a `## Future items` section from the watch-list sweep. It lists unchecked watch-list items from `docs/watch-items/*.md` and unchecked PDR falsifiers from `docs/pdr/*.md` with their source, date, and revisit condition — a product bet with a check condition is structurally a watch item. This section is informational — items whose revisit condition has arrived are escalated to P2 findings, but items with future conditions are tracked here without filing backlog issues. See `templates/watch-items.md` for the watch-list format and escalation rules.
+
+<!-- Delete this paragraph if your repo has no docs/design-lenses.md -->
+**Lens hygiene is a probe, not a gate.** The audit's design-lens domain reads every Lens line written since the last audit and the records file's lens log, and flags three drifts, all judgment-from-prose and therefore findings, never merge gates: **ritual compliance** — lines naming a discipline but no prediction that could have come back negative (the policy's most likely death, §6; below half falsifiable is a P1 against the policy's operation, not against any author); **survivorship in the log** — all confirmations after a dozen entries means the lens is only applied where someone already suspected trouble; and **accumulated residue** — three or more forced fits pending is the trigger to propose a new claim class ("what row would make these entries stop being awkward?"), filed as a P2 with the proposed extension for human confirmation in `docs/design-lenses-records.md` §3.
 
 <!-- Delete this paragraph if your repo has no docs/pdr/ -->
 **PDR coherence is a probe, not a gate.** The audit's PDR domain checks that accepted bets carry observable falsifiers, that nobody has left a bet unconfirmed for a quarter, that features name what they serve, and that shipped work doesn't contradict a stated non-goal. These read intent from prose, so they will occasionally be wrong — which is exactly why they are audit findings and never merge gates. A judgment call belongs in a probe; only deterministic checks belong in gates.

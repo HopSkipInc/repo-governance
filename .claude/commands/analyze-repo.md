@@ -220,6 +220,10 @@ enforces that every template appears here or is excluded on the record.
 | **`scripts/check-magic-strings.mjs`** | TypeScript repo | P2 | Value duplicating an exported alias without importing it |
 | **`scripts/check-inline-type-unions.mjs`** | TypeScript repo | P2 | Type-level sibling of the above |
 | **`scripts/check-duplicated-sql.mjs`** | TypeScript repo **and** inline SQL | P2 | Same query inlined in 2+ files instead of a registry |
+| `design-lenses.md` | ADR corpus is being applied | P1 | One required falsifiable line per ADR — borrows a mature discipline's failure-mode check at the moment the claim is made. The §2 filter (prediction or drop it) is the whole policy |
+| `design-lenses-records.md` | design-lenses is applied | P1 | The per-repo evidence file — retroactive naming pass, lens log with forced fits, local claim-class extensions. Never syncs after install; extensions feed the upstream promotion sweep |
+| `skills/lens-sweep/` | design-lenses is applied | P1 | The application pass, run in a separate session from the ADR's authoring session — proposes Lens lines with evidence trails; proposes, never applies |
+| `scripts/check-design-lens.mjs` | design-lenses is applied | P1 | Mechanical floor — Lens line present, class valid against table + extensions, `checked:` paths exist, confirmations carry a consequence |
 
 **Bolded rows were added 2026-07-24**, when `check-analyze-repo-coverage.mjs` found the matrix
 named 13 of 36 templates. Everything bold was previously unreachable via `/analyze-repo`.
