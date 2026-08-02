@@ -58,7 +58,7 @@ produce identical CI output, which is what makes this the right floor for this r
 | `scripts/check-downstream-drift.mjs` | fixture (10 cases, `test/drift.test.mjs`) | covered — both declared-path dialects, all four finding classes, SKIPPED | yes | #20 |
 | `scripts/check-mothership-drift.mjs` | fixture (7 cases, `test/mothership.test.mjs`) | covered — STALE (drifted and missing), UNREGISTERED reported, exemption silence, fail-closed register | yes | #23 |
 | `scripts/check-claim-coverage.mjs` | fixture (7 cases, `test/coverage.test.mjs`) | covered — scoring, gate shapes, and all three SKIPPED paths | yes | #13 |
-| `templates/scripts/*.mjs` (8 files) | none | deliberate — see §3 | yes | — |
+| `templates/scripts/*.mjs` (10 files) | none | deliberate — see §3 | yes | — |
 | `templates/**/*.md`, `docs/`, `downstream/` | bootstrap smoke test | **partial** — see §6 | yes | — |
 
 **R3 is the untested rule that matters most.** It is the one that already failed silently,
@@ -70,7 +70,7 @@ recorded as one rather than being quietly folded into "covered".
 
 | Path | Why it is not tested | Would we notice if it broke? | Reviewed |
 |---|---|---|---|
-| `templates/scripts/*.mjs` (the 8 downstream lint templates) | They parse other repos' source trees. A fixture would be a synthetic TypeScript/SQL tree per lint, and would test the fixture's shape more than the lint | **Partly, and late.** A client's first run surfaces it — which is the same "found by a human reading output" path that let two bugs ship here. Honest status: this is a gap being accepted on cost, not a property that cannot be verified | 2026-07-27 |
+| `templates/scripts/*.mjs` (the 10 downstream lint templates) | They parse other repos' source trees. A fixture would be a synthetic TypeScript/SQL tree per lint, and would test the fixture's shape more than the lint | **Partly, and late.** A client's first run surfaces it — which is the same "found by a human reading output" path that let two bugs ship here. Honest status: this is a gap being accepted on cost, not a property that cannot be verified | 2026-07-27 |
 | `templates/**/*.md` prose | Prose correctness is not mechanically checkable | No — this is what the audit and `/review-sync` exist for | 2026-07-27 |
 | `gtm/` | Sales collateral, not shipped artifacts | Not applicable | 2026-07-27 |
 
@@ -116,7 +116,7 @@ correct — the exact condition that pushes an issue above `standard`.
 | Property not verified | Surface | What a silent failure looks like | Tracking |
 |---|---|---|---|
 | **A template is *correct* when applied** — only that it exists (`check-template-versions`), is listed (`check-analyze-repo-coverage`), and that the guide's copies land and the copied lints pass (`bootstrap-smoke`) | `templates/**` | A client bootstraps, CI is green, and the artifact is subtly wrong — a sweep globbing a renamed directory reports nothing, which is indistinguishable from "nothing to report" | partially closed 2026-07-27 by `test/bootstrap-smoke.test.mjs`; the residue is prose correctness and conditional (DB/TypeScript) template paths |
-| **The 8 downstream lint templates run at all** before reaching a client | `templates/scripts/` | A client installs a lint that crashes, or worse, one that passes because its regex silently matches nothing | unfiled — see §3 row 1 |
+| **The 10 downstream lint templates run at all** before reaching a client | `templates/scripts/` | A client installs a lint that crashes, or worse, one that passes because its regex silently matches nothing | unfiled — see §3 row 1 |
 | **Rule 3 of `check-template-versions` still detects a bump-less change** | `scripts/check-template-versions.mjs` | The stamp drift rule stops firing and every template reads as current | unfiled — see §2 |
 | **`check-downstream-drift` findings reach a human** | client sync boundary | 10 blocking findings sit in a script nobody runs; a client is reported as governed at a version it does not have | see `docs/code-conventions.md` §5 |
 

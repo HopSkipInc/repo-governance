@@ -78,8 +78,47 @@ Local deviations from the agent template, preserved deliberately:
 |---|---|---|---|---|---|
 | Baseline | 2026-07-26 | 5/6 (83%) | Bootstrap | record only | 0 split, 0 declared, 5 undeclared |
 | Sweep 2 | 2026-08-02 | 3/9 (33%) post-split; 3/3 (100%) pre-split | Adopting | record only — set after a general-backlog reading | 3 split (#13→#17,#18 · #14→#19,#20,#21 · #15→#22), 0 declared not splittable at parent level, 0 undeclared |
+| Sweep 3 | 2026-08-02 | 0/4 post-responses; 1/1 (100%) pre-split | Adopting | record only | 1 split (#33→#36,#37 + residue), 1 coverage gap filed (#38), 0 declared not splittable, 0 undeclared |
 
 Measured across all states — the backlog is fully closed, so an open-issue sweep reads zero.
+
+**Sweep 3 run note (refresh mode, sample of one).** Candidate set was exactly #33, the only
+untiered open issue; no ratio is reported from a sample of one. Delegation confirmed:
+separately-spawned `routing-classifier` (opencode global pin → `opencode/claude-opus-5` →
+frontier per §1). The installed global agent was v1.1.0 against template v1.2.0 — the delta
+is the 1.10.0 coverage output schema, supplied verbatim in the delegation prompt; the global
+re-sync is queued in the pending client prompts rather than done unilaterally from here,
+because bumping it would create MISMATCH churn against three client declarations.
+
+**The headline: the first run where the decomposition and coverage rules produced zero
+frontier.** #33 classified `frontier (spec)`; the split moved both mechanical halves to
+standard children (#36, #37); the two-sentence spec fix (binding demonstration with control
+run, register-completeness rule) landed in the same edit as the tier per the anti-gaming
+ordering; the coverage record was filed as a gap (#38), not a not-testable — the property is
+verifiable at the live level, merely not in CI. Residue: `standard`. Spec-escalation ratio
+on the classification: 1/1 (100%) — resolved by split + rewrite combined, none left standing.
+
+**Provenance caution, second instance.** #33 was authored by the same session that wrote the
+research note it implements — the same shape as the sweep-2 caution. The classifier's §7
+finding is the calibration insight worth keeping: *the spec debt was a missing criterion, not
+a missing section.* The issue was structurally complete (Context / Work / four Verifiable
+outcomes) and still missed two sentences — "verify by reading the template" where a binary
+assertion belonged, and a capability cited to documentation where a demonstration was
+required. Same-session authoring produces complete-looking specs with exactly this blind
+spot; a structural validator would not catch either gap.
+
+**Kind dispute, settled by the owner: `spec` over `both`.** The losing case — a stanza
+demonstrated binding at one harness version can silently stop binding at the next while the
+assertion lint stays green — was declined as an `inherent` remainder because the research
+note's own "What would change this recommendation" section already carries the re-inventory
+trigger. Recorded so a future dispute reads both sides.
+
+**Intent decisions (owner, 2026-08-02):** self-install the enforcement pair on this repo
+(lint at `templates/scripts/`, fixtures here, CI wiring, stanza installed locally); the
+register's authoritative source is the repo's CLAUDE.md records-files paragraph; the
+migration-hook deferral stands (the ai-fleet PreToolUse hook exists at `1cbaa74b` but no
+audit-cycle measurement is visible — a trigger is not fired until observed); the PDR-007
+boundary review was the #34 merge itself.
 
 **Sweep 2 sample caution (per the classifier's own composition check):** all three parents were
 filed together in session 18 (2026-07-31) from one competitive scan of `tacoda/open-refinery` —
@@ -124,6 +163,15 @@ outcome proved.
 **Spec-escalation ratio (frozen at classification): 3 of 4 (75%)** — `#1` both, `#2` both
 (corrected from spec), `#4` both. Resolved by rewrite: 1 (`#1` — acceptance criteria written).
 Resolved by split: 0.
+
+### Calibration addition (sweep 3, 2026-08-02 — provenance-marked)
+
+Same-session-authored issue, per the §4 caution — do not read this row as a second
+calibration cycle.
+
+| # | Tier | Kind | Why (frozen at triage) | Status | Outcome evidence |
+|---|---|---|---|---|---|
+| 33 | frontier → **standard** post-responses | spec | The template's value rested on a path-globbed permission deny actually blocking an edit, cited to documentation and an allow-side config — never observed to deny. A stanza that installs, stamps green, and does not bind is invisible to every structural gate. | **resolved by split + rewrite** | Split into #36, #37 (both standard); two-sentence spec fix in the same edit as the tier; coverage gap #38 filed (live level, not "not testable"). The kind dispute (`spec` vs `both` on harness-version staleness) was settled `spec` by the owner — the re-inventory trigger already lives in the research note. First run in this repo where decomposition + coverage rules produced zero frontier. |
 
 **Corrections history.** The bootstrap run reported 25%; review moved it to 75%; the outcome
 pass leaves it at 75% but changes *which* rows carry the spec component. Every correction has
