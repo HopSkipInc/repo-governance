@@ -75,8 +75,20 @@ Local deviations from the agent template, preserved deliberately:
 | Reading | Date | Escalations / tiered | Stage | Target | Decomposition record |
 |---|---|---|---|---|---|
 | Baseline | 2026-07-26 | 5/6 (83%) | Bootstrap | record only | 0 split, 0 declared, 5 undeclared |
+| Sweep 2 | 2026-08-02 | 3/9 (33%) post-split; 3/3 (100%) pre-split | Adopting | record only — set after a general-backlog reading | 3 split (#13→#17,#18 · #14→#19,#20,#21 · #15→#22), 0 declared not splittable at parent level, 0 undeclared |
 
 Measured across all states — the backlog is fully closed, so an open-issue sweep reads zero.
+
+**Sweep 2 sample caution (per the classifier's own composition check):** all three parents were
+filed together in session 18 (2026-07-31) from one competitive scan of `tacoda/open-refinery` —
+3 of 3 from a single provenance, far past the half-the-set threshold. The 100% pre-split rate
+and 100% spec-component rate measure that session's authoring, not this repo's backlog. Do not
+treat this as a second calibration cycle, and do not add these rows to §5 without marking the
+provenance. Delegation was confirmed: classification ran as a separately-spawned
+`routing-classifier` agent (Claude Code pin), 2026-08-02. The sweep's standout finding — the
+10 standing `check-downstream-drift` MISMATCHes are false positives (declared-path dialect,
+line 151) — came from the classifier *running the read-only lint* during surface-mapping,
+which is the probe-before-classify rule paying out.
 
 **Decomposition debt:** 5 escalations ÷ ~4 distinct surfaces (bootstrap fidelity, template
 version drift, downstream distribution, the taxonomy itself) ≈ 1.25. Low, and expected: this
