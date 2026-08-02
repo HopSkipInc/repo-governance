@@ -85,7 +85,7 @@ the mechanical checks only.
 
 The write path is the organizational activity ledger (fleet-host MCP), not files in this repo.
 
-**At session start (REQUIRED):** call `session_context(project="leizerowicz/repo-governance", query="<what this session is about>")`. It returns recent decisions, completions, and blockers plus relevant past context. The first user message is the goal — do not ask for one.
+**At session start (REQUIRED):** call `session_context(project="HopSkipInc/repo-governance", query="<what this session is about>")`. It returns recent decisions, completions, and blockers plus relevant past context. The first user message is the goal — do not ask for one. Activity records from before the 2026-08-02 transfer into HopSkipInc are keyed under the old slug `leizerowicz/repo-governance`.
 
 **During the session:** call `record_activity` at natural checkpoints — decisions, completions, blockers, discoveries. Don't wait for end-of-session.
 
@@ -133,11 +133,14 @@ the policy is `diff -q`-verified against the template and the records are not.
 
 ## Gotchas
 
-- **Git push to `leizerowicz/*` 403s** with the default account. Use the inline token with
-  an explicit account: `TOKEN=$(gh auth token -u gleizerowicz)` then
-  `git push https://gleizerowicz:${TOKEN}@github.com/leizerowicz/<repo>.git <branch>`.
+- **Git push to this repo 403s with the default account.** The default gh account here is
+  `gleizerowicz` (GH_TOKEN), which is not a HopSkipInc member. Use the inline token with an
+  explicit account: `TOKEN=$(gh auth token -u greghopskip)` then
+  `git push https://greghopskip:${TOKEN}@github.com/HopSkipInc/repo-governance.git <branch>`.
   Afterwards, reset the branch's tracking remote to `origin` — git writes the tokenised URL
-  into `.git/config`.
+  into `.git/config`. This gotcha ran the other way before 2026-08-02, when the repo lived at
+  `leizerowicz/repo-governance` and `gleizerowicz` was the working account — it still does for
+  other `leizerowicz/*` repos (e.g. wayfind), so check the remote before reaching for a token.
 - **Closing keywords auto-close issues from anywhere in a commit message, including inside
   quoted text.** Never start a subject with `<type>: #N`; put references later or in the
   body; mask them (`#<N>`) when quoting an offending message. This has fired twice, once in
