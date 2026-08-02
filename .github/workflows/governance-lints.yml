@@ -68,3 +68,11 @@ jobs:
         # Every template must be offered by the bootstrap command or excluded on
         # the record. A bootstrap that omits templates looks like one that worked.
         run: node scripts/check-analyze-repo-coverage.mjs
+
+      - name: Check mothership drift
+        # This repo enforces template sync in every governed repo; this is the check
+        # on its own installed copies. The register (docs/mothership-drift-register.md)
+        # names the docs/ files required byte-identical to their templates; every other
+        # name collision must be registered or exempted on the record. Pure repo-local
+        # reads — unlike the two ledger-reading scripts, this one genuinely runs in CI.
+        run: node scripts/check-mothership-drift.mjs

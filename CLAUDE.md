@@ -18,13 +18,14 @@ There is no `package.json` — deliberately, since this repo is not a publishabl
 Everything runs directly under Node.
 
 ```bash
-node --test test/*.test.mjs          # the test suite (62 cases)
+node --test test/*.test.mjs          # the test suite (69 cases)
 
 node scripts/check-template-versions.mjs --base <ref>   # stamps + bump-on-change
 node scripts/check-analyze-repo-coverage.mjs            # every template in the matrix
 node scripts/check-blank-form-naming.mjs                # forms are _-prefixed
 node scripts/check-adr-readme-sync.mjs                  # records registered in their index
 node scripts/check-pdr-falsifiers.mjs                   # accepted PDRs carry a falsifier
+node scripts/check-mothership-drift.mjs                 # docs/ copies match templates/ (register-driven)
 node scripts/check-issue-routing.mjs                    # backlog sweep; needs gh auth
 node scripts/check-downstream-drift.mjs                 # client version drift; run by hand
 node scripts/check-lens-promotion.mjs                   # cross-repo lens extensions; run by hand
