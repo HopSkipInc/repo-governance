@@ -18,7 +18,7 @@ There is no `package.json` — deliberately, since this repo is not a publishabl
 Everything runs directly under Node.
 
 ```bash
-node --test test/*.test.mjs          # the test suite (72 cases)
+node --test test/*.test.mjs          # the test suite (79 cases)
 
 node scripts/check-template-versions.mjs --base <ref>   # stamps + bump-on-change
 node scripts/check-analyze-repo-coverage.mjs            # every template in the matrix
@@ -29,6 +29,7 @@ node scripts/check-mothership-drift.mjs                 # docs/ copies match tem
 node scripts/check-issue-routing.mjs                    # backlog sweep; needs gh auth
 node scripts/check-downstream-drift.mjs                 # client version drift; run by hand
 node scripts/check-lens-promotion.mjs                   # cross-repo lens extensions; run by hand
+node scripts/check-claim-coverage.mjs                   # claim-coverage enumerator; health-report input, run by hand
 ```
 
 **Quote the glob and the tests silently do not run.** `node --test 'test/*.test.mjs'` is
@@ -36,7 +37,7 @@ Node 22+; CI pins Node 20, where the quoted form is read as a literal path. Leav
 unquoted so bash expands it.
 
 CI is `.github/workflows/governance-lints.yml` (push to master + every PR) and
-`.github/workflows/issue-routing.yml`. Everything above except the last three runs there.
+`.github/workflows/issue-routing.yml`. Everything above except the last four runs there.
 `scripts/check-downstream-drift.mjs` and `scripts/check-lens-promotion.mjs` run **nowhere** —
 they read local client checkouts, so they cannot run in CI, and they are currently reporting
 findings nobody sees. Bind both to the same governance-sync ritual; two scripts shouting into
