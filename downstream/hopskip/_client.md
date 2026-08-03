@@ -11,6 +11,7 @@
 | HopSkipInc/ai-fleet | `~/repos/HopSkipInc/ai-fleet` | 2026-05 | High — 8+ audit cycles, governance-health live | Primary reference implementation; source for most template improvements |
 | HopSkipInc/analytics-infrastructure | `~/repos/HopSkipInc/analytics-infrastructure` | 2026-06 | Early — inaugural audit done, code-hygiene not yet wired | Recent adopter; surface onboarding friction as a template signal |
 | HopSkipInc/enrichment-pipeline | `~/repos/HopSkipInc/enrichment-pipeline` | 2026-06 | Early-mid — first audit cycle done | Code-hygiene / slop-detection most complete here; reference for that artifact class |
+| HopSkipInc/infra-ops | `~/repos/HopSkipInc/infra-ops` | 2026-08 | Bootstrap — **class: core** | First `core`-class adopter (PDR-009 dogfood; falsifier revisit 2026-11-03). Solo-maintained IaC; deploy gates already exceed the full framework's machinery |
 
 ## Routing ratio targets
 
@@ -82,6 +83,7 @@ decomposed, then set a target.
 | HopSkipInc/ai-fleet | [2026-08-02 Synced-declarations reconciliation](ai-fleet/2026-08-02-synced-declarations.md) | pending — dialect rewrite + 2 rows to Adapted note + inline stamp |
 | HopSkipInc/analytics-infrastructure | [2026-08-02 Synced-declarations reconciliation](analytics-infrastructure/2026-08-02-synced-declarations.md) | pending — version-cell hygiene + inline stamp |
 | HopSkipInc/enrichment-pipeline | [2026-08-02 Synced-declarations reconciliation](enrichment-pipeline/2026-08-02-synced-declarations.md) | pending — dialect rewrite + section inline stamp |
+| HopSkipInc/infra-ops | [2026-08-03 core onboarding](infra-ops/2026-08-03-core-onboarding.md) | pending — first `core`-class adoption (PDR-009); also carries the governance-sync section bump to v1.3.1 for the other three repos via the sync ritual |
 
 The 2026-08-02 prompts come from the downstream-drift disposition (#14): the corrected
 lint's surviving findings were 13 BEHIND (all already carried by the pending 2026-07-27
