@@ -17,6 +17,7 @@ We're adopting the governance framework from `~/repos/greg/repo-governance`. You
 - Existing CI: [FILL IN — GitHub Actions / Azure Pipelines / none]
 - Existing docs: [FILL IN — summarize what's in docs/ already, or "none"]
 - Existing ADRs: [FILL IN — highest existing ADR number, or "none"]
+- Adoption class: [FILL IN — `full` or `core` (PDR-009). `core` = single maintainer, no agent-worked backlog: apply steps 1, 2, and 6 only, plus the CLAUDE.md Governance section from `templates/governance-sync-claude-section.md`; steps 3–5 are excluded on the record, not deferred. Definitions live in the adoption-classes preamble of `.claude/commands/analyze-repo.md`]
 
 **What to apply (in order):**
 
@@ -38,7 +39,7 @@ We're adopting the governance framework from `~/repos/greg/repo-governance`. You
 - Drop "Why this rule exists" placeholders only if there is genuinely no incident to cite — never invent one
 - Don't add DoD rules without an enforcement plan — every rule is a promise, and an unenforced promise erodes the whole doc
 
-**After applying:**
+**After applying** (`full` class only — a `core` repo installs no audit workflow, so skip this block except the DoD-enforcement bullet):
 - Confirm `ANTHROPIC_API_KEY` is set as a GitHub Actions secret (the audit workflow needs it)
 - Verify each DoD row has a gating CI step, not just a manual checkbox — enforcement ships with the promise
 - Run the first audit: `gh workflow run scheduled-audit.yml` (or wait for the next scheduled run)

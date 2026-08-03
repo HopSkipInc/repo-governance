@@ -72,7 +72,7 @@ migration order matters: move records out first, then copy the policy.
 
 | Layer | State |
 |---|---|
-| Product (PDRs) | `docs/pdr/` — 7 records, falsifiers lint-enforced |
+| Product (PDRs) | `docs/pdr/` — 9 records, falsifiers lint-enforced |
 | Architecture (ADRs) | **not run here.** No `docs/adr/`; the lint headers are the record |
 | Clean code | `docs/code-conventions.md` |
 | Test coverage | `docs/testing-strategy.md` |

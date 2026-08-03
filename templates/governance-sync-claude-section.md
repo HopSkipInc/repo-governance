@@ -1,4 +1,4 @@
-<!-- template: governance-sync-claude-section.md v1.2.0 · updated 2026-08-02 -->
+<!-- template: governance-sync-claude-section.md v1.3.0 · updated 2026-08-03 -->
 # Governance sync — CLAUDE.md section
 
 When a downstream repo's CLAUDE.md includes this section, the agent can reliably find
@@ -7,17 +7,21 @@ discover the repo-governance path, the client name, or the prompt convention.
 
 ## Template
 
-Add this section to the repo's CLAUDE.md. Replace `<CLIENT>` and `<REPO-SLUG>` with
-the actual values (e.g., `hopskip` and `enrichment-pipeline`). Keep the stamp comment
-under `## Governance` when you install — it is how the drift check verifies the section.
+Add this section to the repo's CLAUDE.md. Replace `<CLIENT>`, `<REPO-SLUG>`, and
+`<CLASS>` with the actual values (e.g., `hopskip`, `enrichment-pipeline`, `full`).
+Keep the stamp comment under `## Governance` when you install — it is how the drift
+check verifies the section.
 
 ```markdown
 ## Governance
 
-<!-- template: governance-sync-claude-section.md v1.2.0 · updated 2026-08-02 -->
+<!-- template: governance-sync-claude-section.md v1.3.0 · updated 2026-08-03 -->
 
 This repo is governed by repo-governance at `~/repos/greg/repo-governance`.
 The client identifier is `<CLIENT>` and the repo slug is `<REPO-SLUG>`.
+The adoption class is `<CLASS>` (`full` or `core` — PDR-009): it names which
+templates this repo intentionally runs. A template not installed is excluded by the
+class, not silently absent.
 
 To check for and apply pending governance updates:
 
@@ -121,6 +125,13 @@ templates, and watch-list conventions. When in doubt, check the template first.
 - This replaces the pattern of generating detailed per-repo downstream prompts with
   repo-governance knowing every ADR filename. The agent reads the prompt, the prompt
   tells it what to do, and the agent discovers the repo's specifics at runtime.
+- **The class line declares adoption depth** (`full` / `core`, PDR-009, 2026-08-03).
+  Template absence was always free — the drift check reads only declared rows — but it
+  was illegible: a deliberately skipped template looked identical to an unfinished
+  bootstrap. The declaration makes the exclusion a record, and it costs one line. The
+  class definitions live in the `/analyze-repo` applicability-matrix preamble, not
+  here, so the section stays small and the matrix stays the single place classes are
+  defined.
 - **The five layers have independent staleness clocks.** A tooling migration makes agent
   instructions stale but doesn't make PDRs stale. A product pivot makes PDRs stale but
   doesn't make clean code conventions stale. The refresh check tests each layer
