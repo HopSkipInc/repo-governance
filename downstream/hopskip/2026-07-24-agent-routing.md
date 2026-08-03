@@ -37,7 +37,7 @@ ls docs/agent-routing.md 2>/dev/null && grep -m1 '^\*\*Version:' docs/agent-rout
 Compare it against the template's stamp:
 
 ```bash
-head -1 ~/repos/greg/repo-governance/templates/agent-routing.md
+head -1 ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md
 ```
 
 - **No file** → you are **bootstrapping**. Do steps 1–8.
@@ -55,7 +55,7 @@ repo* and reads it at Step 0. Copy it fresh — do not trust a copy already sitt
 
 ```bash
 mkdir -p docs
-cp ~/repos/greg/repo-governance/templates/agent-routing.md docs/agent-routing.md
+cp ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md docs/agent-routing.md
 grep -m2 -E '^\*\*Version:|^\*\*Last updated' docs/agent-routing.md
 ```
 
@@ -70,20 +70,20 @@ different paths, same body):
 ```bash
 # Skill (per-repo, both harnesses)
 mkdir -p .claude/skills/routing-triage .claude/agents
-cp ~/repos/greg/repo-governance/templates/skills/routing-triage/SKILL.md \
+cp ~/repos/HopSkipInc/repo-governance/templates/skills/routing-triage/SKILL.md \
    .claude/skills/routing-triage/SKILL.md
 
 # Claude Code classifier (per-repo)
-cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.md \
+cp ~/repos/HopSkipInc/repo-governance/templates/agents/routing-classifier.md \
    .claude/agents/routing-classifier.md
 
 # opencode classifier (global — one agent serves every repo on the machine)
 mkdir -p ~/.config/opencode/agents
-cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.opencode.md \
+cp ~/repos/HopSkipInc/repo-governance/templates/agents/routing-classifier.opencode.md \
    ~/.config/opencode/agents/routing-classifier.md
 
 # Records form (per-repo, never syncs after this — it is where YOUR records go)
-cp ~/repos/greg/repo-governance/templates/agent-routing-records.md \
+cp ~/repos/HopSkipInc/repo-governance/templates/agent-routing-records.md \
    docs/agent-routing-records.md
 ```
 
@@ -166,7 +166,7 @@ implementation. It queries the GitHub API rather than parsing source, so it drop
 repo unchanged regardless of language:
 
 ```bash
-cp ~/repos/greg/repo-governance/templates/scripts/check-issue-routing.mjs scripts/
+cp ~/repos/HopSkipInc/repo-governance/templates/scripts/check-issue-routing.mjs scripts/
 node scripts/check-issue-routing.mjs
 ```
 
@@ -235,10 +235,10 @@ Your existing tiers were assigned under rules that have since changed. Four pass
    grep -n '^### Calibration set\|^| Class | Approved models' docs/agent-routing.md
 
    # Install the records form, move the blocks into it verbatim, THEN overwrite the policy.
-   cp ~/repos/greg/repo-governance/templates/agent-routing-records.md docs/agent-routing-records.md
+   cp ~/repos/HopSkipInc/repo-governance/templates/agent-routing-records.md docs/agent-routing-records.md
    # ... move blocks by hand ...
-   cp ~/repos/greg/repo-governance/templates/agent-routing.md docs/agent-routing.md
-   diff -q docs/agent-routing.md ~/repos/greg/repo-governance/templates/agent-routing.md
+   cp ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md docs/agent-routing.md
+   diff -q docs/agent-routing.md ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md
    ```
 
    Read `/tmp/agent-routing-combined.md` once more before deleting it. Anything in it that is
@@ -272,7 +272,7 @@ Your existing tiers were assigned under rules that have since changed. Four pass
 ```bash
 # Policy is present and byte-identical to the template. This check is only meaningful
 # from policy 1.9.0 on — before that, records lived in this file and it could never pass.
-diff -q docs/agent-routing.md ~/repos/greg/repo-governance/templates/agent-routing.md && echo OK
+diff -q docs/agent-routing.md ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md && echo OK
 
 # Records live in their own file and carry no template text
 test -f docs/agent-routing-records.md && echo OK
