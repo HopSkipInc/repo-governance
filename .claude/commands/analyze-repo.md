@@ -184,53 +184,70 @@ For each template in `~/repos/greg/repo-governance/templates/`, determine whethe
 skills share the basename `SKILL.md`, so a bare name matches the wrong thing. `scripts/check-analyze-repo-coverage.mjs`
 enforces that every template appears here or is excluded on the record.
 
-| Template | Applicable if | Priority | Rationale |
-|---|---|---|---|
-| `definition-of-done.md` | Always | P0 | Core artifact — everything else scaffolds off it |
-| `pdr/` + `adr/023-product-decision-records.md` | Always | P0 | The only artifact recording *why* the software exists. Cannot be bootstrapped by reading the repo — requires interviewing the decision-maker (`skills/pdr-interview/`). Flag in the prompt that this step needs a human, not an agent working alone |
-| `pull_request_template.md` | Always | P0 | Enforces DoD at PR submission |
-| `issue-authoring.md` | Backlog has >10 open issues or issue quality is a concern | P1 | Structure for backlog hygiene |
-| `workflows/scheduled-audit.yml` | Always (after DoD + PR template) | P0 | Compounding dynamic requires the audit loop |
-| `workflows/audit-deadman.yml` | scheduled-audit is applied | P0 | Required companion — audit without deadman is unverifiable |
-| `db-migration-governance.md` | DB detected (migrations dir, DbUp, Flyway, Alembic, etc.) | P1 | Migration safety is a DoD gate |
-| `workflows/db-migration-harness-postgres.yml` | DB migration governance applied **and** Postgres | P2 | CI gate for the migration policy |
-| `workflows/db-migration-harness-sqlserver.yml` | DB migration governance applied **and** SQL Server | P2 | CI gate for the migration policy |
-| `watch-items.md` | Always (informational) | P2 | Watch-list format — low urgency, high compound value |
-| `governance-health.md` | After 3+ audit cycles | P2 (deferred) | Metrics need data to be meaningful |
-| `governance-sync-claude-section.md` | CLAUDE.md or AGENTS.md exists | P0 | Tells downstream agents about repo-governance; carries the Synced-templates table drift detection reads |
-| `adr/README.md` + `adr/_template.md` | ADR corpus is being applied | P0 | The index and the blank form — an ADR directory without both drifts immediately |
-| `scripts/check-adr-readme-sync.mjs` | ADR directory **or** PDR directory exists | P1 | Prevents index drift in both corpora — one script covers both |
-| **`agent-routing.md`** | Backlog is worked by coding agents | P1 | `impl:` tiers keep work a weak model would botch away from it. Skip only if all implementation is human |
-| **`agent-routing-records.md`** | agent-routing is applied | P1 | The per-repo records file — model→class, pin resolutions, ratio readings, calibration set. Never syncs after install. Without it the repo appends records to the policy, which the adoption check requires to be identical to the template |
-| **`skills/routing-triage/`** | agent-routing is applied | P1 | How tiers actually get assigned; installs a `agents/routing-classifier*` variant as its dependency |
-| **`agents/routing-classifier.opencode.md`** | agent-routing is applied **and** the team runs opencode | P1 | opencode does not read `.claude/agents/`, so the Claude Code pin does not bind there. Installs globally to `~/.config/opencode/agents/`. Install instead of — not alongside — the Claude Code variant on an opencode-only team |
-| **`scripts/check-issue-routing.mjs`** | agent-routing is applied | P1 | Mechanical enforcement of the routing rules; queries the GitHub API, so language-agnostic |
-| **`skills/adr-interview/`** | Repo has load-bearing patterns and no ADRs, or ADRs without enforcement | P1 | Five-layer sweep — layer 2 |
-| **`skills/clean-code-interview/`** | Always | P2 | Five-layer sweep — layer 3 |
-| **`code-conventions.md`** | clean-code-interview is applied | P2 | The layer-3 records file — enforced / documented / **not codified**. Never syncs after install. Without it the interview's output disperses into ADRs and CLAUDE.md and no audit domain has anything to measure against, and the next refresh re-proposes every pattern the last one dropped |
-| **`skills/test-coverage-interview/`** | Always | P1 | Five-layer sweep — layer 4. Coverage is what keeps issues cheap to route |
-| **`testing-strategy.md`** | test-coverage-interview is applied | P1 | The layer-4 records file — coverage floor, coverage map, deliberate exemptions, false-green register, and §6 (properties nothing verifies). §6 is a routing input: `agent-routing.md`'s coverage rule reads it instead of guessing at the suite. Never syncs after install |
-| **`skills/agent-instructions-interview/`** | CLAUDE.md or AGENTS.md exists | P1 | Five-layer sweep — layer 5 |
-| `skills/competitive-analysis/` | Team values competitive intel | P2 | Self-discovering skill — adds capability |
-| `skills/pdr-interview/` | PDR corpus is being applied | P0 | How the PDR corpus actually gets written — the interview is the work, the record is the output |
-| **`scripts/check-root-clutter.mjs`** | Always | P2 | Directory listing, zero language dependency; converged independently in three repos before being templated |
-| **`scripts/check-breaking-migrations.mjs`** | DB migration governance applied | P1 | A migration dropping/renaming a column must have zero remaining code references. Driven by a real outage |
-| **`scripts/check-schema-promises.mjs`** | DB migration governance applied | P1 | Sibling of the above — enforcement-bearing schema must have a consumer or a dormant register entry |
-| **`scripts/lint-stub-tests.mjs`** | npm `test`/`test:*` scripts exist | P2 | Catches false-green CI. Ships in report mode; promote to gate once clean |
-| **`scripts/check-magic-strings.mjs`** | TypeScript repo | P2 | Value duplicating an exported alias without importing it |
-| **`scripts/check-inline-type-unions.mjs`** | TypeScript repo | P2 | Type-level sibling of the above |
-| **`scripts/check-duplicated-sql.mjs`** | TypeScript repo **and** inline SQL | P2 | Same query inlined in 2+ files instead of a registry |
-| `design-lenses.md` | ADR corpus is being applied | P1 | One required falsifiable line per ADR — borrows a mature discipline's failure-mode check at the moment the claim is made. The §2 filter (prediction or drop it) is the whole policy |
-| `design-lenses-records.md` | design-lenses is applied | P1 | The per-repo evidence file — retroactive naming pass, lens log with forced fits, local claim-class extensions. Never syncs after install; extensions feed the upstream promotion sweep |
-| `skills/lens-sweep/` | design-lenses is applied | P1 | The application pass, run in a separate session from the ADR's authoring session — proposes Lens lines with evidence trails; proposes, never applies |
-| `scripts/check-design-lens.mjs` | design-lenses is applied | P1 | Mechanical floor — Lens line present, class valid against table + extensions, `checked:` paths exist, confirmations carry a consequence |
+**Adoption classes (PDR-009, 2026-08-03).** The framework ships two named depths,
+declared on the `class:` line of the repo's CLAUDE.md Governance section:
+
+- **full** — every row below whose condition is met. The three current governed repos
+  run this.
+- **core** — only rows marked `core` in the Class column: the smallest set that makes a
+  repo legibly governed (decisions recorded, DoD gated at PR submission, sync
+  discoverable). For repos with a single maintainer and no agent-worked backlog.
+
+A template outside the declared class is **excluded on the record, not silently
+absent** — the downstream-drift check only ever reads declared rows, so absence was
+always free; the class line makes it legible. Upgrading core → full is installing the
+remaining applicable rows and editing one line: the class is a depth, not an identity.
+
+| Template | Applicable if | Priority | Rationale | Class |
+|---|---|---|---|---|
+| `definition-of-done.md` | Always | P0 | Core artifact — everything else scaffolds off it | core |
+| `pdr/` + `adr/023-product-decision-records.md` | Always | P0 | The only artifact recording *why* the software exists. Cannot be bootstrapped by reading the repo — requires interviewing the decision-maker (`skills/pdr-interview/`). Flag in the prompt that this step needs a human, not an agent working alone | full |
+| `pull_request_template.md` | Always | P0 | Enforces DoD at PR submission | core |
+| `issue-authoring.md` | Backlog has >10 open issues or issue quality is a concern | P1 | Structure for backlog hygiene | full |
+| `workflows/scheduled-audit.yml` | Always (after DoD + PR template) | P0 | Compounding dynamic requires the audit loop | full |
+| `workflows/audit-deadman.yml` | scheduled-audit is applied | P0 | Required companion — audit without deadman is unverifiable | full |
+| `db-migration-governance.md` | DB detected (migrations dir, DbUp, Flyway, Alembic, etc.) | P1 | Migration safety is a DoD gate | full |
+| `workflows/db-migration-harness-postgres.yml` | DB migration governance applied **and** Postgres | P2 | CI gate for the migration policy | full |
+| `workflows/db-migration-harness-sqlserver.yml` | DB migration governance applied **and** SQL Server | P2 | CI gate for the migration policy | full |
+| `watch-items.md` | Always (informational) | P2 | Watch-list format — low urgency, high compound value | full |
+| `governance-health.md` | After 3+ audit cycles | P2 (deferred) | Metrics need data to be meaningful | full |
+| `governance-sync-claude-section.md` | CLAUDE.md or AGENTS.md exists | P0 | Tells downstream agents about repo-governance; carries the Synced-templates table drift detection reads | core |
+| `adr/README.md` + `adr/_template.md` | ADR corpus is being applied | P0 | The index and the blank form — an ADR directory without both drifts immediately | core |
+| `scripts/check-adr-readme-sync.mjs` | ADR directory **or** PDR directory exists | P1 | Prevents index drift in both corpora — one script covers both | core |
+| **`agent-routing.md`** | Backlog is worked by coding agents | P1 | `impl:` tiers keep work a weak model would botch away from it. Skip only if all implementation is human | full |
+| **`agent-routing-records.md`** | agent-routing is applied | P1 | The per-repo records file — model→class, pin resolutions, ratio readings, calibration set. Never syncs after install. Without it the repo appends records to the policy, which the adoption check requires to be identical to the template | full |
+| **`skills/routing-triage/`** | agent-routing is applied | P1 | How tiers actually get assigned; installs a `agents/routing-classifier*` variant as its dependency | full |
+| **`agents/routing-classifier.opencode.md`** | agent-routing is applied **and** the team runs opencode | P1 | opencode does not read `.claude/agents/`, so the Claude Code pin does not bind there. Installs globally to `~/.config/opencode/agents/`. Install instead of — not alongside — the Claude Code variant on an opencode-only team | full |
+| **`scripts/check-issue-routing.mjs`** | agent-routing is applied | P1 | Mechanical enforcement of the routing rules; queries the GitHub API, so language-agnostic | full |
+| **`skills/adr-interview/`** | Repo has load-bearing patterns and no ADRs, or ADRs without enforcement | P1 | Five-layer sweep — layer 2 | full |
+| **`skills/clean-code-interview/`** | Always | P2 | Five-layer sweep — layer 3 | full |
+| **`code-conventions.md`** | clean-code-interview is applied | P2 | The layer-3 records file — enforced / documented / **not codified**. Never syncs after install. Without it the interview's output disperses into ADRs and CLAUDE.md and no audit domain has anything to measure against, and the next refresh re-proposes every pattern the last one dropped | full |
+| **`skills/test-coverage-interview/`** | Always | P1 | Five-layer sweep — layer 4. Coverage is what keeps issues cheap to route | full |
+| **`testing-strategy.md`** | test-coverage-interview is applied | P1 | The layer-4 records file — coverage floor, coverage map, deliberate exemptions, false-green register, and §6 (properties nothing verifies). §6 is a routing input: `agent-routing.md`'s coverage rule reads it instead of guessing at the suite. Never syncs after install | full |
+| **`skills/agent-instructions-interview/`** | CLAUDE.md or AGENTS.md exists | P1 | Five-layer sweep — layer 5 | full |
+| `skills/competitive-analysis/` | Team values competitive intel | P2 | Self-discovering skill — adds capability | full |
+| `skills/pdr-interview/` | PDR corpus is being applied | P0 | How the PDR corpus actually gets written — the interview is the work, the record is the output | full |
+| **`scripts/check-root-clutter.mjs`** | Always | P2 | Directory listing, zero language dependency; converged independently in three repos before being templated | full |
+| **`scripts/check-breaking-migrations.mjs`** | DB migration governance applied | P1 | A migration dropping/renaming a column must have zero remaining code references. Driven by a real outage | full |
+| **`scripts/check-schema-promises.mjs`** | DB migration governance applied | P1 | Sibling of the above — enforcement-bearing schema must have a consumer or a dormant register entry | full |
+| **`scripts/lint-stub-tests.mjs`** | npm `test`/`test:*` scripts exist | P2 | Catches false-green CI. Ships in report mode; promote to gate once clean | full |
+| **`scripts/check-magic-strings.mjs`** | TypeScript repo | P2 | Value duplicating an exported alias without importing it | full |
+| **`scripts/check-inline-type-unions.mjs`** | TypeScript repo | P2 | Type-level sibling of the above | full |
+| **`scripts/check-duplicated-sql.mjs`** | TypeScript repo **and** inline SQL | P2 | Same query inlined in 2+ files instead of a registry | full |
+| `design-lenses.md` | ADR corpus is being applied | P1 | One required falsifiable line per ADR — borrows a mature discipline's failure-mode check at the moment the claim is made. The §2 filter (prediction or drop it) is the whole policy | full |
+| `design-lenses-records.md` | design-lenses is applied | P1 | The per-repo evidence file — retroactive naming pass, lens log with forced fits, local claim-class extensions. Never syncs after install; extensions feed the upstream promotion sweep | full |
+| `skills/lens-sweep/` | design-lenses is applied | P1 | The application pass, run in a separate session from the ADR's authoring session — proposes Lens lines with evidence trails; proposes, never applies | full |
+| `scripts/check-design-lens.mjs` | design-lenses is applied | P1 | Mechanical floor — Lens line present, class valid against table + extensions, `checked:` paths exist, confirmations carry a consequence | full |
 
 **Bolded rows were added 2026-07-24**, when `check-analyze-repo-coverage.mjs` found the matrix
 named 13 of 36 templates. Everything bold was previously unreachable via `/analyze-repo`.
 
 ### 2.3 Priority-ordered action plan
 
-Consolidate the matrix into an ordered list of concrete actions:
+Consolidate the matrix into an ordered list of concrete actions. If the repo declares
+an adoption class (or the user picks one now), restrict the list to that class's rows —
+a `core` repo gets the `core` rows whose conditions are met, and everything else is
+recorded as excluded-by-class, not as a gap:
 
 ```
 ## What to apply (in order)

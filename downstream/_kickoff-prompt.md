@@ -17,6 +17,7 @@ We're adopting the governance framework from `~/repos/greg/repo-governance`. You
 - Existing CI: [FILL IN — GitHub Actions / Azure Pipelines / none]
 - Existing docs: [FILL IN — summarize what's in docs/ already, or "none"]
 - Existing ADRs: [FILL IN — highest existing ADR number, or "none"]
+- Adoption class: [FILL IN — `full` or `core` (PDR-009). `core` = single maintainer, no agent-worked backlog: apply steps 1, 2, and 6 only, plus the CLAUDE.md Governance section from `templates/governance-sync-claude-section.md`; steps 3–5 are excluded on the record, not deferred. Definitions live in the adoption-classes preamble of `.claude/commands/analyze-repo.md`]
 
 **What to apply (in order):**
 

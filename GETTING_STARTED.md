@@ -10,6 +10,26 @@ Apply this practice to any repo — new or existing. The steps below take about 
 
 ---
 
+## Step 0 — Pick the adoption class
+
+The framework ships two depths (PDR-009):
+
+- **full** — this guide, end to end. For repos with multiple contributors or a backlog
+  worked by coding agents.
+- **core** — from step 1, copy `definition-of-done.md` and `pull_request_template.md`
+  only; do step 2 (customize the DoD); add the ADR corpus (`templates/adr/README.md` +
+  `templates/adr/_template.md`, with `scripts/check-adr-readme-sync.mjs` wired into CI);
+  install the CLAUDE.md Governance section from
+  `templates/governance-sync-claude-section.md`. For single-maintainer repos with no
+  agent-worked backlog. Steps 3–10 are excluded on the record, not deferred — the
+  `class:` line in the Governance section carries the declaration.
+
+A `core` repo upgrades to `full` later by continuing from step 3 and editing one line —
+the class is a depth, not an identity. Definitions live in the adoption-classes preamble
+of `.claude/commands/analyze-repo.md`.
+
+---
+
 ## Step 1 — Copy the templates
 
 ```bash

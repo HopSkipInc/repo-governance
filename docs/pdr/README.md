@@ -16,10 +16,11 @@ Every file in this directory must appear in the table below. `lint:adr-readme-sy
 | [006](006-no-premature-infrastructure.md) | Non-goal — no infrastructure before the practice needs it | Accepted | 2026-07-27 |
 | [007](007-not-a-security-practice.md) | Non-goal — not a security or compliance practice | Accepted | 2026-07-27 |
 | [008](008-claim-coverage-is-a-health-metric.md) | Claim coverage is a health metric, not an audit domain | Accepted | 2026-08-02 |
+| [009](009-two-adoption-depths.md) | Two adoption depths — `full` and `core` | Accepted | 2026-08-03 |
 
 ## Notes on this corpus
 
-**Eight records, against the template's guidance of five or fewer.** The guidance is about not over-producing, and it is right — but four of these are non-goals, which the same guidance calls the highest-signal artifact in the set and the least likely to be written down anywhere. Seven were drafted from evidence already in the repo and confirmed in a single interview on 2026-07-27; the eighth records the claim-coverage compute-location decision (#13's `gate:decision`, 2026-08-02); none were invented to fill the corpus. If the count is wrong, the excess is in 001–003, not in the non-goals.
+**Nine records, against the template's guidance of five or fewer.** The guidance is about not over-producing, and it is right — but four of these are non-goals, which the same guidance calls the highest-signal artifact in the set and the least likely to be written down anywhere. Seven were drafted from evidence already in the repo and confirmed in a single interview on 2026-07-27; the eighth records the claim-coverage compute-location decision (#13's `gate:decision`, 2026-08-02); the ninth records the two adoption depths (`full` / `core`, 2026-08-03, from the infra-ops candidacy); none were invented to fill the corpus. If the count is wrong, the excess is in 001–003, not in the non-goals.
 
 **What this corpus fixed.** Before it existed, the ICP was recorded two contradictory ways in two live files (`.claude/team-state.md` said non-technical founders, `gtm/positioning.md` said CTOs and VPEs) and had been for two months, through several edits to both. Nothing could detect that, because purpose had no counterpart in the repo to be compared against — which is the exact argument that produced PDRs in the first place, applied to the repo that ships them.
 
