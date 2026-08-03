@@ -1,4 +1,4 @@
-<!-- template: governance-sync-claude-section.md v1.3.0 · updated 2026-08-03 -->
+<!-- template: governance-sync-claude-section.md v1.3.1 · updated 2026-08-03 -->
 # Governance sync — CLAUDE.md section
 
 When a downstream repo's CLAUDE.md includes this section, the agent can reliably find
@@ -15,9 +15,9 @@ check verifies the section.
 ```markdown
 ## Governance
 
-<!-- template: governance-sync-claude-section.md v1.3.0 · updated 2026-08-03 -->
+<!-- template: governance-sync-claude-section.md v1.3.1 · updated 2026-08-03 -->
 
-This repo is governed by repo-governance at `~/repos/greg/repo-governance`.
+This repo is governed by repo-governance at `~/repos/HopSkipInc/repo-governance`.
 The client identifier is `<CLIENT>` and the repo slug is `<REPO-SLUG>`.
 The adoption class is `<CLASS>` (`full` or `core` — PDR-009): it names which
 templates this repo intentionally runs. A template not installed is excluded by the
@@ -25,7 +25,7 @@ class, not silently absent.
 
 To check for and apply pending governance updates:
 
-1. Read `~/repos/greg/repo-governance/downstream/<CLIENT>/_client.md`
+1. Read `~/repos/HopSkipInc/repo-governance/downstream/<CLIENT>/_client.md`
 2. Find rows for `<REPO-SLUG>` with status `pending`
 3. Read each pending prompt at the linked file path
 4. Apply the changes described in the prompt
@@ -44,7 +44,7 @@ To check for stale governance layers (run during governance sync, skip if nothin
    - **Clean code:** lint/formatter config changed since last refresh? new modules violating conventions?
    - **Test coverage:** coverage dropped? new modules with no tests? false-green tests in last audit?
    - **Agent instructions:** do the commands in this CLAUDE.md actually work? do the referenced paths exist? did tooling change?
-3. For each stale layer, run the matching refresh skill from `~/repos/greg/repo-governance/templates/skills/`:
+3. For each stale layer, run the matching refresh skill from `~/repos/HopSkipInc/repo-governance/templates/skills/`:
    - `pdr-interview refresh` / `adr-interview refresh` / `clean-code-interview refresh` / `test-coverage-interview refresh` / `agent-instructions-interview refresh`
 4. Skip layers that are not stale — refresh what's stale, not everything
 5. Update the `### Layer refresh log` table below with today's date for each refreshed layer
@@ -89,15 +89,15 @@ Read a template's current version from its stamp:
 
 ```bash
 # markdown templates carry an HTML comment on line 1; skills use frontmatter
-head -1 ~/repos/greg/repo-governance/templates/<name>.md
-grep -m2 -E '^version:|^updated:' ~/repos/greg/repo-governance/templates/skills/<name>/SKILL.md
+head -1 ~/repos/HopSkipInc/repo-governance/templates/<name>.md
+grep -m2 -E '^version:|^updated:' ~/repos/HopSkipInc/repo-governance/templates/skills/<name>/SKILL.md
 ```
 
 Before running any skill that reads a policy doc, compare the installed version against
 the template. **A run split across two versions of a policy is not internally consistent,
 and the person running it cannot tell from the inside.**
 
-Governance templates live in `~/repos/greg/repo-governance/templates/` and are
+Governance templates live in `~/repos/HopSkipInc/repo-governance/templates/` and are
 the source of truth for ADR format, DoD, issue authoring, audit structure, PR
 templates, and watch-list conventions. When in doubt, check the template first.
 ```

@@ -9,8 +9,8 @@ description: >
   a human, applies the labels and tier lines, and writes the repo's calibration set to
   docs/agent-routing-records.md. Every escalation is decomposed before it is tiered — a split
   proposal or a non-splittability statement is required, not suggested.
-version: 1.6.0
-updated: 2026-07-27
+version: 1.6.1
+updated: 2026-08-03
 triggers:
   - /routing-triage
   - /routing-triage refresh
@@ -177,7 +177,7 @@ it proposes, you apply.
 
   ```bash
   mkdir -p ~/.config/opencode/agents
-  cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.opencode.md \
+  cp ~/repos/HopSkipInc/repo-governance/templates/agents/routing-classifier.opencode.md \
      ~/.config/opencode/agents/routing-classifier.md
   ```
 

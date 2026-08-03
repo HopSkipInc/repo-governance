@@ -99,7 +99,7 @@ Each prompt is a self-contained Claude Code instruction — paste it into the ta
 **Client:** <client name>
 **Source:** greg/repo-governance sync-review <date>
 
-You are updating this repo's governance to match the latest template improvements from `~/repos/greg/repo-governance`.
+You are updating this repo's governance to match the latest template improvements from `~/repos/HopSkipInc/repo-governance`.
 
 ## What changed in the templates (this sync-review)
 [For each accepted proposal: one sentence on what changed and why it matters]

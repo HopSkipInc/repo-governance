@@ -20,7 +20,7 @@ Personas are now defined (repo owner, reviewer, auditor, remediator) so template
 ### 1. Copy `docs/personas.md`
 
 ```bash
-cp ~/repos/greg/repo-governance/docs/personas.md docs/personas.md
+cp ~/repos/HopSkipInc/repo-governance/docs/personas.md docs/personas.md
 git add docs/personas.md
 ```
 
@@ -49,7 +49,7 @@ See `docs/personas.md` for the role definitions. When one person holds all perso
 
 ### 3. Add the "Audit remediation" work type to the DoD
 
-Insert this section before the `## The single underlying rule` section (or wherever it fits naturally in this repo's DoD ordering — match the template in `~/repos/greg/repo-governance/templates/definition-of-done.md`):
+Insert this section before the `## The single underlying rule` section (or wherever it fits naturally in this repo's DoD ordering — match the template in `~/repos/HopSkipInc/repo-governance/templates/definition-of-done.md`):
 
 ```markdown
 ### Audit remediation

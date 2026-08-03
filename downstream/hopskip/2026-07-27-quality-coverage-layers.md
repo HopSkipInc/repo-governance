@@ -35,7 +35,7 @@ measures; 7 decides what to do about it.
 ```bash
 ls docs/code-conventions.md docs/testing-strategy.md 2>/dev/null
 grep -m1 '^\*\*Version:' docs/agent-routing.md 2>/dev/null
-head -1 ~/repos/greg/repo-governance/templates/agent-routing.md
+head -1 ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md
 ```
 
 - **Neither records file** → bootstrapping. Do steps 1–6.
@@ -50,10 +50,10 @@ head -1 ~/repos/greg/repo-governance/templates/agent-routing.md
 
 ```bash
 mkdir -p docs .claude/skills
-cp ~/repos/greg/repo-governance/templates/code-conventions.md docs/code-conventions.md
-cp ~/repos/greg/repo-governance/templates/testing-strategy.md docs/testing-strategy.md
-cp -r ~/repos/greg/repo-governance/templates/skills/clean-code-interview .claude/skills/
-cp -r ~/repos/greg/repo-governance/templates/skills/test-coverage-interview .claude/skills/
+cp ~/repos/HopSkipInc/repo-governance/templates/code-conventions.md docs/code-conventions.md
+cp ~/repos/HopSkipInc/repo-governance/templates/testing-strategy.md docs/testing-strategy.md
+cp -r ~/repos/HopSkipInc/repo-governance/templates/skills/clean-code-interview .claude/skills/
+cp -r ~/repos/HopSkipInc/repo-governance/templates/skills/test-coverage-interview .claude/skills/
 ```
 
 > **`cp` these two files exactly once.** They are records files. Once an interview has filled
@@ -116,11 +116,11 @@ advisory.
 **5. Re-sync routing to 1.10.0** (skip if this repo has no `docs/agent-routing.md`):
 
 ```bash
-cp ~/repos/greg/repo-governance/templates/agent-routing.md docs/agent-routing.md
-cp ~/repos/greg/repo-governance/templates/skills/routing-triage/SKILL.md .claude/skills/routing-triage/SKILL.md
-cp ~/repos/greg/repo-governance/templates/scripts/check-issue-routing.mjs scripts/check-issue-routing.mjs
+cp ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md docs/agent-routing.md
+cp ~/repos/HopSkipInc/repo-governance/templates/skills/routing-triage/SKILL.md .claude/skills/routing-triage/SKILL.md
+cp ~/repos/HopSkipInc/repo-governance/templates/scripts/check-issue-routing.mjs scripts/check-issue-routing.mjs
 # whichever classifier variant this repo's harness uses:
-cp ~/repos/greg/repo-governance/templates/agents/routing-classifier.md .claude/agents/routing-classifier.md
+cp ~/repos/HopSkipInc/repo-governance/templates/agents/routing-classifier.md .claude/agents/routing-classifier.md
 # opencode teams instead: ~/.config/opencode/agents/routing-classifier.md (global; restart after)
 ```
 

@@ -178,7 +178,7 @@ Present the score with a label:
 
 ### 2.2 Template applicability matrix
 
-For each template in `~/repos/greg/repo-governance/templates/`, determine whether it applies.
+For each template in `~/repos/HopSkipInc/repo-governance/templates/`, determine whether it applies.
 
 **Templates are named by their path relative to `templates/`** — not by bare filename. Seven
 skills share the basename `SKILL.md`, so a bare name matches the wrong thing. `scripts/check-analyze-repo-coverage.mjs`
@@ -324,10 +324,10 @@ Paste this into Claude Code in the <TARGET> repo.
 
 ---
 
-We're adopting the governance framework from `~/repos/greg/repo-governance`. Your job is to set up governance for this repo by following GETTING_STARTED there.
+We're adopting the governance framework from `~/repos/HopSkipInc/repo-governance`. Your job is to set up governance for this repo by following GETTING_STARTED there.
 
 **Before starting:**
-1. Read `~/repos/greg/repo-governance/GETTING_STARTED.md` in full.
+1. Read `~/repos/HopSkipInc/repo-governance/GETTING_STARTED.md` in full.
 2. Read this repo's current state: check what's in `docs/`, `.github/workflows/`, and `CLAUDE.md` (or whatever session instruction file this repo uses).
 
 **Repo context** (pre-filled from static analysis):
@@ -368,7 +368,7 @@ We're adopting the governance framework from `~/repos/greg/repo-governance`. You
 - Treat the first audit as inventory, not a grade — work P0s this week, P1s next sprint, track P2s
 - Add the governance sync section to CLAUDE.md by applying `templates/governance-sync-claude-section.md`
 
-**Reference files (in `~/repos/greg/repo-governance`):**
+**Reference files (in `~/repos/HopSkipInc/repo-governance`):**
 - `GETTING_STARTED.md` — full step-by-step guide with context
 - `templates/` — all template files
 - `docs/governance-health-spec.md` — add health metrics tracking after 3+ audit cycles
