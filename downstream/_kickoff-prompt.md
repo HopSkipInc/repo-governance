@@ -39,7 +39,7 @@ We're adopting the governance framework from `~/repos/greg/repo-governance`. You
 - Drop "Why this rule exists" placeholders only if there is genuinely no incident to cite — never invent one
 - Don't add DoD rules without an enforcement plan — every rule is a promise, and an unenforced promise erodes the whole doc
 
-**After applying:**
+**After applying** (`full` class only — a `core` repo installs no audit workflow, so skip this block except the DoD-enforcement bullet):
 - Confirm `ANTHROPIC_API_KEY` is set as a GitHub Actions secret (the audit workflow needs it)
 - Verify each DoD row has a gating CI step, not just a manual checkbox — enforcement ships with the promise
 - Run the first audit: `gh workflow run scheduled-audit.yml` (or wait for the next scheduled run)
