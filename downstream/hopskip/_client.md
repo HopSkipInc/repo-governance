@@ -97,4 +97,9 @@ A repo doing both at once should do the coverage interview **before** backfillin
 the records are read out of `docs/testing-strategy.md` §2/§6, and backfilling first means
 guessing at coverage, which is the thing the lever exists to stop.
 
-Prompts are dated files in each repo's subdirectory. Run them in the respective repo's Claude Code context. Update status to `applied YYYY-MM-DD` once run, or `partial — <note>` if only some steps landed.
+Prompts are dated files in each repo's subdirectory. Run them in the respective
+repo's Claude Code context. The downstream agent records the outcome in its own
+CLAUDE.md under `### Applied governance updates` and never writes here. The status
+column above is updated only in this repo, during the governance sync — `/review-sync`
+Step 5.0 verifies each `pending`/`partial` row against the client checkout and marks
+it `applied YYYY-MM-DD` or `partial — <note>`.
