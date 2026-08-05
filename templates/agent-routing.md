@@ -507,6 +507,15 @@ shapes, and the same duties attach to each:
 - **A fleet dispatcher** — anything that launches workers without a human reading each
   row. Here the filter is the entire product.
 
+One correction to the picture those bullets draw: a fleet run today is almost always the
+first shape, not the third — a human writes the goal and the fleet is the execution arm.
+The rules in *Fleet dispatch* below are the manifest contract between that launcher and
+the workers, binding the human holding the launcher now and an automated orchestrator
+unchanged later. A fleet *worker*, by contrast, is never a dispatcher of issues: its
+routing decision was made at launch. When a worker delegates at all, it delegates
+subtasks within its issue, and the subtask rule in *Delegation is dispatch* is the one
+that applies.
+
 ### Delegation is dispatch
 
 > **The instant a driver hands work to another agent, the driver becomes the Layer-1
@@ -537,8 +546,18 @@ capability budget *Self-identification* promised — five fields:
    fix. A subagent's helpfulness has no tripwire otherwise, and scope creep by a helpful
    agent is the same failure shape whether it costs a turn or a fleet dollar.
 5. **The class check, run before spawning.** The subagent's capability class must meet
-   the tier; the driver's class does not transfer. If the check fails, the driver does
-   the work inline, asks the human, or does not start.
+   the tier of the work it will hold — the issue's tier, when the whole issue is
+   delegated; the subtask's own risk, when a piece of it is (see the next paragraph).
+   The driver's class does not transfer. If the check fails, the driver does the work
+   inline, asks the human, or does not start.
+
+**Subtask delegation is the split response, one level down.** A worker or driver holding
+a tiered issue never re-routes the issue — that decision was made upstream — but it can
+still misroute the work inside it. Lifting the mechanical half to a cheaper subagent
+(renames, fixtures, wiring) is exactly the decomposition this policy asks for on every
+tiered surface. Routing the residue down is the anti-pattern: "it's just a subtask" does
+not launder a boundary change into standard-tier work, or every frontier issue becomes
+routable to the cheapest model in the room one delegation at a time.
 
 Concurrent delegation is the lane-collision problem one level down. Two subagents
 editing the same file conflict exactly the way two sessions do, so the disjointness rule
