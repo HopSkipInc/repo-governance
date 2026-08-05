@@ -123,6 +123,14 @@ Before implementing an issue:
    that drops or renames; no existing test covers the surface you are changing; the diff
    exceeds **10 files**; or you are about to overwrite a records file listed above.
 
+Delegating is dispatching. When you hand implementation work on a tiered issue to a
+subagent, you become the dispatcher for that unit of work: check the subagent's
+capability class against the tier (your own class does not transfer), and put the tier,
+kind, reason, stop conditions, and a scope ceiling in the delegation prompt — the
+subagent sees nothing of this conversation. Concurrent subagents need disjoint file
+surfaces or separate worktree lanes, exactly as concurrent sessions do. Subagents
+prepare; you review and merge.
+
 You may escalate an issue's tier at any time. You may never downgrade one — least of all
 on an issue you are about to implement.
 

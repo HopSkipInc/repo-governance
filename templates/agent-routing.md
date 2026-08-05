@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.10.0 · updated 2026-07-27 -->
+<!-- template: agent-routing.md v1.11.0 · updated 2026-08-05 -->
 # Agent Routing
 
-**Version:** 1.10.0 · **Last updated:** 2026-07-27
+**Version:** 1.11.0 · **Last updated:** 2026-08-05
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -27,6 +27,7 @@
 | 1.8.0 | 2026-07-26 | **Decompose before tiering.** An escalation now requires a split proposal or a non-splittability statement. Frontier *ratio* separated from inherent *population*; decomposition debt added as a signal; per-repo target ramp (20% → 10%). Measured across three live backlogs: 76% above-standard, 2 splits in 38 escalations, zero `both` in 33 client-repo calls |
 | 1.9.0 | 2026-07-26 | **Policy and records split into two files** — `docs/agent-routing.md` (syncs, `diff -q`-verifiable) and `docs/agent-routing-records.md` (never syncs). The old single-file shape told repos to append records to the file the checklist verified was identical to the template; every repo that ran a triage failed it permanently and the obvious fix was deleting its own calibration set. Model→class mapping split into class←model and model→harness-route, so a slug rename stops reading as a capability change |
 | 1.10.0 | 2026-07-27 | **Coverage is the fourth response.** An escalation resting on the uncovered-surface signal now requires a coverage record — a linked gap issue or a statement that the property is not testable. Ties the tier to `docs/testing-strategy.md` §2/§6 instead of to a triager's impression of the test suite. The one response that lowers the tier of every *future* issue on the surface, not just this one |
+| 1.11.0 | 2026-08-05 | **Delegation is dispatch.** Layer 1's duties made second-person for the two dispatch shapes that already exist: an interactive driver spawning subagents (the driver is the dispatcher; the delegation prompt is the launch, and it carries the capability budget — tier, kind, reason, stop conditions, scope ceiling) and fleet dispatch (enumerated rows, claim-of-record on the issue, waves from the epic table, deploy gates as wave boundaries, `Not splittable:` as a parallelism constraint). The policy spoke about dispatchers in the third person while every task-tool harness was already dispatching |
 
 ## Purpose
 
@@ -493,6 +494,91 @@ Same defence-in-depth posture as issue authoring — **label and comment, never 
 Start with Layer 4 — it's a line in the audit prompt. Add Layer 1 the moment anything
 dispatches work automatically. Layer 5 last, and only escalate-only.
 
+## Dispatch workflows: delegation and fleets
+
+Layer 1 names the dispatcher without saying who that is. There are three dispatch
+shapes, and the same duties attach to each:
+
+- **A human dispatching** — a Slack message, an admin UI, a hand-picked issue. The
+  human runs the filter; the policy's only ask is that the handoff carries the payload
+  below.
+- **An agent driver delegating to a subagent** — the driver is the dispatcher for that
+  unit of work, whether it thinks of itself that way or not.
+- **A fleet dispatcher** — anything that launches workers without a human reading each
+  row. Here the filter is the entire product.
+
+### Delegation is dispatch
+
+> **The instant a driver hands work to another agent, the driver becomes the Layer-1
+> dispatcher for that unit of work, and the Layer-1 duties land on it — nobody else is
+> in a position to carry them.**
+
+Both launch paths this policy describes — dispatcher and interactive — assumed the agent
+doing the work is the agent somebody chose to launch. A subagent breaks the assumption
+from both sides. It is launched by the driver, not the human, so the human-knows
+fallback does not cover it: the human knows the driver's class and has never even seen
+the subagent's. And it sees nothing of the session — no issue body, no tier line, no
+stop conditions — so the agent contract does not cover it either: the subagent never saw
+the contract's inputs. What it knows is exactly and only what the delegation prompt
+says.
+
+The trigger is narrow: **delegating implementation work on a tiered issue.** Read-only
+research and search delegation carries no implementation risk and needs nothing from
+this section.
+
+When the trigger fires, the delegation prompt is the launch, and it carries the
+capability budget *Self-identification* promised — five fields:
+
+1. **Issue and tier.** The number, the `impl:` tier, the kind.
+2. **The reason, verbatim.** The `## Impl tier` line. The why has to travel with the
+   work; the subagent cannot go back and read it.
+3. **Stop conditions.** The same observable list the driver holds.
+4. **Scope ceiling.** This issue, these files; anything adjacent is a comment, not a
+   fix. A subagent's helpfulness has no tripwire otherwise, and scope creep by a helpful
+   agent is the same failure shape whether it costs a turn or a fleet dollar.
+5. **The class check, run before spawning.** The subagent's capability class must meet
+   the tier; the driver's class does not transfer. If the check fails, the driver does
+   the work inline, asks the human, or does not start.
+
+Concurrent delegation is the lane-collision problem one level down. Two subagents
+editing the same file conflict exactly the way two sessions do, so the disjointness rule
+is the same one: check surfaces before spawning — a shared file means a shared worker,
+or serialize — and give concurrent editing subagents separate worktree lanes under the
+same protocol as concurrent sessions.
+
+The driver owns the irreversible. Subagents prepare; the driver reviews, merges, pushes,
+and runs anything deploy-gated.
+
+### Fleet dispatch
+
+A fleet dispatcher is Layer 1 with a manifest. Its two failure modes are **overpromise**
+— a worker reporting work done that it was never scoped to hold — and **collision** —
+two workers editing the same surface in ignorance of each other. The rules address those
+two and nothing else:
+
+1. **The goal enumerates rows, not ambitions.** "Implement these three issues and
+   nothing else" is a dispatch; "make progress on the epic" is an overpromise generator.
+   A worker that finishes its list reports completion and stops. It does not go shopping
+   in the backlog.
+2. **The claim-of-record lives on the issue.** A comment or an assignment before work
+   starts. Run-scoped coordination — worker messaging, fleet memory — is invisible to
+   the next run, the next session, and the human; the issue is the only surface every
+   participant can read.
+3. **Waves come from the epic tier table, and completion gates the next wave.** A wave
+   dispatches only rows whose dependencies are merged. "Done" means the acceptance
+   criteria passed, not that a worker emitted a completion event — the wave gate is what
+   makes those the same thing.
+4. **Deploy gates are wave boundaries.** The dispatcher must know the repo's
+   irreversible-on-merge surfaces — schema that reaches production on push, append-only
+   files, dispatch-only workflows, infrastructure parameters that need a separate deploy
+   — and sequence waves around them. The gates themselves are per-repo records; the duty
+   to know them is policy.
+5. **A `Not splittable:` statement is a dispatch constraint.** An issue declared
+   inseparable goes to exactly one worker, whole — never divided across workers or PRs.
+   Note what this makes the decomposition record: dispatch metadata that triage already
+   wrote. `Split from #NNN` names the siblings; `Not splittable` names the parallelism
+   limit. Nobody maintains a second format.
+
 ## Downgrades
 
 The one operation that needs a rule of its own, because the incentive runs the wrong way:
@@ -673,6 +759,14 @@ Before implementing an issue:
    that drops or renames; no existing test covers the surface you are changing; the diff
    exceeds [N] files.
 
+Delegating is dispatching. When you hand implementation work on a tiered issue to a
+subagent, you become the dispatcher for that unit of work: check the subagent's
+capability class against the tier (your own class does not transfer), and put the tier,
+kind, reason, stop conditions, and a scope ceiling in the delegation prompt — the
+subagent sees nothing of this conversation. Concurrent subagents need disjoint file
+surfaces or separate worktree lanes, exactly as concurrent sessions do. Subagents
+prepare; you review and merge.
+
 You may escalate an issue's tier at any time. You may never downgrade one — least of all
 on an issue you are about to implement. An escalation you raise must carry the same
 decomposition record as any other: either lift the mechanical half into a new `standard`
@@ -736,3 +830,9 @@ calibration examples are in `docs/agent-routing-records.md`.
     a mechanism, or nothing. "It's hard to test" is not a mechanism. A `not testable` record
     that does not appear in `docs/testing-strategy.md` §6 is a triager's opinion that never
     met the coverage layer.
+
+12. **Delegating below tier because the driver is frontier.** The driver's class does not
+    transfer to the subagent it spawns. Every delegation of tiered work is a dispatch
+    decision — the driver makes it, filtered or not. The unfiltered version routes the
+    boundary to the cheapest model in the room, with a frontier model signing the
+    receipt.
