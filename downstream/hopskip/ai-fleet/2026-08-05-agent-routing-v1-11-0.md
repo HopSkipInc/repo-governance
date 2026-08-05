@@ -3,10 +3,30 @@
 **Client:** hopskip
 **Source:** greg/repo-governance agent-routing v1.11.0 (repo-governance PR #47, merged 2026-08-05)
 
+> **CORRECTED 2026-08-05 after application.** Three errors in the enforcement half, found
+> while applying it in ai-fleet (PR #1653). Steps 5 and 6 below are amended in place and the
+> `## Verifiable outcomes` lines are updated to match. Read the amended text, not the
+> original intent, if you are applying this now.
+>
+> 1. **Step 6 named a dead directory.** `runtime/templates/base/` is read by nothing in
+>    ai-fleet, and step 6's verification line grepped that same dead path — so applying it
+>    as written passed verification while delivering no behaviour change to any worker. The
+>    live worker prompt is `docs/fleet-worker-doctrine.md`, inlined into `.claude/agents/*.md`
+>    and a DB migration by `host/scripts/generate-fleet-prompts.mjs`.
+> 2. **"No schema changes" was wrong.** Applied in the right place, step 6 necessarily ships
+>    a migration, because the doctrine reaches DB-backed roles as `agents.system_prompt`.
+> 3. **Step 6's last bullet contradicted the doctrine it sat beside.** It forbade workers to
+>    push; that doctrine's §7 tells them to get the smallest correct change "committed and
+>    pushed" and §4 tells them to verify "Branch pushed, PR open". Workers push; they do not
+>    merge.
+>
+> The generalized lesson is now a gotcha in this repo's `CLAUDE.md`.
+
 Two halves: a policy re-sync (mechanical) and the first enforcement of the fleet-dispatch
 contract in the platform itself. The sync half is byte copies and one paragraph; the
-enforcement half is contract text in the spawn tool and worker rules in the runtime
-templates — no schema changes, no new fields, no new code paths.
+enforcement half is contract text in the dispatch tools and worker rules in the live worker
+prompt — no new fields and no new code paths, but the worker-prompt half does ship a
+migration wherever that prompt is DB-backed.
 
 ## What changed in the templates (this sync-review)
 
@@ -66,9 +86,17 @@ templates — no schema changes, no new fields, no new code paths.
 
 ### Enforcement half
 
-5. **`host/src/mcp-server/tools/spawn-fleet-tool.ts` — the goal contract.** Extend the
-   `goal` parameter description (and the tool description, if there is a natural home)
-   with the manifest contract. Adapt to the file's voice, but keep the five rules intact:
+5. **The goal contract — on every dispatch surface.** Extend the goal parameter description
+   (and the tool description, if there is a natural home) with the manifest contract.
+   ai-fleet has **two** live dispatch surfaces and both need it — the original prompt named
+   only the first:
+   - `host/src/mcp-server/tools/spawn-fleet-tool.ts` — the `goal` parameter (MCP surface)
+   - `host/src/registry/tools/impl-dispatch-fleet.ts` — the `description` parameter (the
+     in-platform surface an assistant calls; it is the path in the architecture diagram)
+
+   Before you start, enumerate the dispatch entry points rather than trusting this list:
+   `grep -rln "dispatch_fleet\|spawn_fleet" host/src/` . A contract on one of two surfaces
+   is not a contract. Adapt to each file's voice, but keep the five rules intact:
 
    > The goal enumerates issue rows, not ambitions ("implement these issues and nothing
    > else"). A worker that finishes its rows reports completion and stops; it does not
@@ -83,11 +111,25 @@ templates — no schema changes, no new fields, no new code paths.
 
    `spawn-fleet-tool.test.ts` may snapshot the description — update fixtures to match,
    and keep the host test suite green.
-6. **Worker instructions — `runtime/templates/base/` — add a scope-and-delegation
-   block.** Put it in the single place every worker role inherits: check how
-   `base/engineer.md`, `base/architect.md`, and `base/redteam.md` compose and how
-   `eng1.md` / `qa1.md` override, and choose the one home — not per-role copies. There
-   is no orchestrator role coordinating workers: the worker's main agent delegates to
+6. **Worker instructions — add a scope-and-delegation block to the LIVE worker prompt.**
+
+   In ai-fleet that is `docs/fleet-worker-doctrine.md`, as a new numbered section. Its
+   §1–§7 are inlined into every role prompt by `host/scripts/generate-fleet-prompts.mjs`,
+   which writes both `.claude/agents/<slug>.md` and a migration setting
+   `agents.system_prompt` for DB-backed roles; `host/scripts/check-fleet-worker-context.mjs`
+   gates the outputs against drift. So the step is: edit the doctrine, bump its
+   `<!-- doctrine-version: -->` stamp, bump `MIGRATION_NAME` **at the generator** to the next
+   free number, and re-run it. Do not hand-edit the generated files — the drift check
+   re-runs the generator and reverts them — and do not reuse the previous migration name: it
+   is already journaled in production, so DbUp never re-runs it and the new prompt silently
+   never arrives.
+
+   ~~`runtime/templates/base/`~~ — **do not use.** Those files are read by nothing in this
+   repo: not `COPY`'d in the Dockerfile, zero code consumers, and `docs/fleet-runtime.md`
+   states it. They are convincing (real role names, plausible bodies, a `cd-runtime.yml`
+   path filter), which is why the original prompt named them.
+
+   There is no orchestrator role coordinating workers: the worker's main agent delegates to
    subagents by prompting, and these duties are what make that safe:
 
    ```markdown
@@ -104,7 +146,9 @@ templates — no schema changes, no new fields, no new code paths.
      prompt — the subagent sees nothing of your session. Mechanical subtasks may route
      below the issue's tier; the boundary residue may not. Concurrent subagents need
      disjoint file surfaces.
-   - You prepare changes; you never merge, push, or run deploy-gated steps.
+   - You prepare changes; you never merge and never run deploy-gated steps. Pushing the
+     branch and opening the PR *is* the deliverable — check the receiving doctrine before
+     restating this, because forbidding the push contradicts it.
    ```
 
 7. **File the follow-up issue for the structural fence.** Today's contract is text; the
@@ -139,9 +183,12 @@ Run from the repo root. Each line is an independent check.
 - `head -1 docs/agent-routing.md | grep -c "v1.11.0"` — policy re-synced (expect 1)
 - `diff -q docs/agent-routing.md ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md >/dev/null && echo OK` — byte-identical to the template (expect OK)
 - `grep -c "Delegating is dispatching" CLAUDE.md` — delegation paragraph present (expect 1)
-- `grep -A12 "### Synced templates" CLAUDE.md | grep "docs/agent-routing.md" | grep -c "1.11.0"` — table row bumped (expect 1)
+- `awk '/### Synced templates/,0' CLAUDE.md | grep "docs/agent-routing.md" | grep -c "1.11.0"` — table row bumped (expect 1). Scans to EOF rather than a fixed `-A12` window: v1.3.1 of the governance section inserts a paragraph between that heading and the table, which pushes the row out of a 12-line window and reports 0 on a correctly-applied repo.
 - `grep -c "<!-- template: governance-sync-claude-section.md v1.3.1" CLAUDE.md` — governance section re-installed (expect 1)
-- `grep -c "enumerates issue rows" host/src/mcp-server/tools/spawn-fleet-tool.ts` — goal contract present (expect ≥1)
-- `grep -rl "Delegating to a subagent is dispatching" runtime/templates/base/ | wc -l` — scope-and-delegation block in exactly one base template (expect 1)
+- `grep -c "enumerates issue rows" host/src/mcp-server/tools/spawn-fleet-tool.ts` — goal contract on the MCP surface (expect ≥1)
+- `grep -c "enumerates issue rows" host/src/registry/tools/impl-dispatch-fleet.ts` — goal contract on the in-platform surface (expect ≥1)
+- `grep -c "Delegating to a subagent is dispatching" docs/fleet-worker-doctrine.md` — block in the live worker prompt (expect 1)
+- `node host/scripts/generate-fleet-prompts.mjs --check` — generated role prompts regenerated, not stale (expect exit 0)
+- `grep -rl "Delegating to a subagent is dispatching" .claude/agents/ | wc -l` — the block actually reached the generated subagent prompts (expect ≥1). This is the check that matters: it observes the *effect* of the edit rather than the file the edit was typed into.
 - Host test suite green after the description change (`spawn-fleet-tool.test.ts` fixtures updated if snapshotted)
 - `gh issue list --repo HopSkipInc/ai-fleet --search "spawn_fleet issues array claim" --limit 5 | grep -c .` — follow-up issue filed (expect ≥1)
