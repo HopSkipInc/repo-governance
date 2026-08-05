@@ -133,14 +133,14 @@ the policy is `diff -q`-verified against the template and the records are not.
 
 ## Gotchas
 
-- **Git push to this repo 403s with the default account.** The default gh account here is
-  `gleizerowicz` (GH_TOKEN), which is not a HopSkipInc member. Use the inline token with an
-  explicit account: `TOKEN=$(gh auth token -u greghopskip)` then
-  `git push https://greghopskip:${TOKEN}@github.com/HopSkipInc/repo-governance.git <branch>`.
-  Afterwards, reset the branch's tracking remote to `origin` — git writes the tokenised URL
-  into `.git/config`. This gotcha ran the other way before 2026-08-02, when the repo lived at
-  `leizerowicz/repo-governance` and `gleizerowicz` was the working account — it still does for
-  other `leizerowicz/*` repos (e.g. wayfind), so check the remote before reaching for a token.
+- **GitHub auth is per-org via the `gh` wrapper — plain `git push` and `gh` commands just
+  work.** `~/.local/bin/gh` resolves the org from the git remote, maps it to an account via
+  `~/.config/gh/org-accounts.json` (HopSkipInc → `greghopskip`, leizerowicz/usemeridian →
+  `gleizerowicz`), and injects that account's token. Git-level https auth uses
+  `gh-real auth git-credential` under the global active account (`greghopskip`). If a push
+  403s, the remote's org is missing from the mapping or expects the other account — fix the
+  mapping; never paste tokens into remote URLs. The pre-2026-08-02 inline-token dance (this
+  repo lived at `leizerowicz/repo-governance`) is retired.
 - **Closing keywords auto-close issues from anywhere in a commit message, including inside
   quoted text.** Never start a subject with `<type>: #N`; put references later or in the
   body; mask them (`#<N>`) when quoting an offending message. This has fired twice, once in
