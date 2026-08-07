@@ -238,9 +238,12 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | `design-lenses-records.md` | design-lenses is applied | P1 | The per-repo evidence file — retroactive naming pass, lens log with forced fits, local claim-class extensions. Never syncs after install; extensions feed the upstream promotion sweep | full |
 | `skills/lens-sweep/` | design-lenses is applied | P1 | The application pass, run in a separate session from the ADR's authoring session — proposes Lens lines with evidence trails; proposes, never applies | full |
 | `scripts/check-design-lens.mjs` | design-lenses is applied | P1 | Mechanical floor — Lens line present, class valid against table + extensions, `checked:` paths exist, confirmations carry a consequence | full |
+| **`system-map.md`** | Always | P2 | Generated system-map policy — CI owns `graphify-out/`, humans own prose; publishing rules (never anonymous static hosting); pinned supply chain; the estate merge contract | core |
+| **`workflows/graphify-report.yml`** | `system-map.md` is applied | P2 | GENERATOR companion — keeps `graphify-out/` fresh on push; pinned `graphifyy` install, code-only extraction, serialized bot commit-back | core |
 
 **Bolded rows were added 2026-07-24**, when `check-analyze-repo-coverage.mjs` found the matrix
 named 13 of 36 templates. Everything bold was previously unreachable via `/analyze-repo`.
+The two `graphify` rows were added 2026-08-07 alongside the templates they ship.
 
 ### 2.3 Priority-ordered action plan
 
