@@ -32,9 +32,11 @@ A small, portable practice built around five observations:
 | `templates/workflows/scheduled-audit.yml` | Automation | Daily weekday Claude-powered staleness audit → PR |
 | `templates/workflows/audit-deadman.yml` | Automation | Dead-man probe — goes red and files a P1 if the audit itself silently dies |
 | `templates/workflows/db-migration-harness-*.yml` | Automation | Ephemeral-DB migration harness as a required PR gate (Postgres + SQL Server) |
+| `templates/workflows/graphify-report.yml` | Automation | Per-repo generated system map — graphify code-only extraction, commits `graphify-out/` to the default branch |
 | `templates/issue-authoring.md` | Policy | Issue schema + label taxonomy so every issue is born actionable |
 | `templates/db-migration-governance.md` | Standard | DbUp mandate, append-only discipline, squash triggers, audit checklist |
 | `templates/watch-items.md` | Policy | Watch-list format — anything deferred on a condition, swept by the audit |
+| `templates/system-map.md` | Policy | Generated system-map conventions — authorship separation, publishing rules, pin discipline, estate contract |
 | `templates/governance-health.md` | Measurement | Output shape for the auto-generated DORA-proxy metrics doc |
 | `templates/scripts/check-adr-readme-sync.mjs` | Lint (GATE) | Every ADR and PDR must be registered in its index — catches numbering collisions |
 | `templates/scripts/check-breaking-migrations.mjs` | Lint (GATE) | A dropped/renamed migration column or table must have zero remaining code references |
