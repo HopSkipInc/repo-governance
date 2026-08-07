@@ -1,0 +1,90 @@
+name: Supply Chain Sweep (org-wide)
+
+# Weekly detection layer (#54) for npm supply-chain campaigns like the Aug
+# 2026 keyv/cacheable Shai-Hulud worm. Checks out every HopSkipInc repo and
+# runs osv-scanner recursively over all lockfiles against the OSV database,
+# which ingests the OpenSSF malicious-packages feed. A leg fails if any pinned
+# version matches a known-malicious or vulnerable package; failures post to
+# Slack.
+#
+# This is the retroactive net. The preventive layers live in each repo:
+# ignore-scripts / release-age cooldowns in package-manager config, and
+# per-repo PR scans (osv-scanner reusable workflow).
+#
+# Prerequisites (repo secrets, both must exist before enabling the schedule):
+#   - ORG_SWEEP_PAT: fine-grained PAT with contents:read on every repo in the
+#     matrix below (needed to check out private repos; GITHUB_TOKEN is scoped
+#     to this repo only).
+#   - SLACK_WEBHOOK_URL_ALERTS: incoming webhook for the alerts channel
+#     (same secret name ai-fleet and analytics-infrastructure use).
+#
+# This workflow intentionally has no pull_request trigger: it handles a
+# powerful read PAT, so it must never run untrusted code.
+
+on:
+  schedule:
+    - cron: "30 13 * * 1" # Mondays 13:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - ai-fleet
+          - analytics-infrastructure
+          - browser-app-v2
+          - compliance
+          - dns-infrastructure
+          - enrichment-pipeline
+          - fin-mcp-server
+          - infra-ops
+          - research
+          - team-context
+          - ui-lib
+    name: scan ${{ matrix.repo }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: HopSkipInc/${{ matrix.repo }}
+          token: ${{ secrets.ORG_SWEEP_PAT }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      # Pinned by tag and verified through the Go checksum database — the
+      # supply-chain-sound way to install a Go CLI.
+      - name: Install osv-scanner
+        run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.5.0
+
+      - name: Scan lockfiles
+        run: osv-scanner scan source --recursive .
+
+  notify:
+    needs: scan
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post failure to Slack
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": ":rotating_light: *Supply chain sweep FAILED*\nOne or more repos have a lockfile matching a known-malicious or vulnerable package (OSV).\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+                  }
+                }
+              ]
+            }
