@@ -163,3 +163,21 @@ the policy is `diff -q`-verified against the template and the records are not.
   that did not know about `## Verifiable outcomes`, and a falsifier check that rejected five
   of seven valid falsifiers for containing no digit. Run a new rule against the real corpus
   before gating on it.
+- **A prompt that names an install target must establish that the target is live, and its
+  verification line must not be the only thing that checks.** The 2026-08-05 ai-fleet prompt
+  told the repo to add worker instructions to `runtime/templates/base/` and verified with
+  `grep -rl … runtime/templates/base/`. That directory is read by nothing in that repo — not
+  `COPY`'d into the image, zero code consumers, and the repo's own `docs/fleet-runtime.md`
+  says so outright. The instruction and its check were mutually consistent and jointly
+  wrong: applying it as written would have produced a green verification, a clean diff, and
+  no behaviour change whatsoever. That is worse than omitting the step, because the ledger
+  would then record it as applied.
+
+  A path that looks alive is not evidence: those files had real role names, plausible prompt
+  bodies, git history, and a CI path filter pointing at them. Before naming a target, prove
+  a consumer reads it (grep for loaders, check the Dockerfile/packaging, look for a
+  drift-check or generator that owns the file), and prefer verification that observes the
+  *effect* over verification that greps the *file you just wrote*. When the target is
+  generated or DB-backed, the prompt owes the downstream repo a warning that the step may
+  carry a migration — that one claimed "no schema changes, no new code paths" and its
+  correct application required both.
