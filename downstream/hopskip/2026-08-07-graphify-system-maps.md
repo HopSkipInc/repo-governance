@@ -8,6 +8,8 @@ it, do not assume. This prompt deliberately does not name a version.
 **Templates:** `templates/system-map.md`, `templates/workflows/graphify-report.yml`
 **Status of this policy:** candidate, designed in one session and not yet run anywhere.
 Report friction rather than working around it.
+**GETTING_STARTED:** deliberately not in step 1 for new adoptions — this install wave is
+the proving ground. Revisit once it has run clean across the estate for a few cycles.
 
 ## Why
 
