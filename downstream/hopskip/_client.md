@@ -91,6 +91,10 @@ decomposed, then set a target.
 | HopSkipInc/analytics-infrastructure | [2026-08-07 generated system maps](2026-08-07-graphify-system-maps.md) | pending — graphify install |
 | HopSkipInc/enrichment-pipeline | [2026-08-07 generated system maps](2026-08-07-graphify-system-maps.md) | pending — graphify install |
 | HopSkipInc/infra-ops | [2026-08-07 generated system maps](2026-08-07-graphify-system-maps.md) | pending — graphify install (core class); the [runtime-edge-collector](infra-ops/2026-08-07-runtime-edge-collector.md) design-first prompt rides with it |
+| HopSkipInc/ai-fleet | [2026-08-08 enforcement stanzas](2026-08-08-enforcement-stanzas.md) | pending — stanza pair + assertion lint in one PR; **merge** into existing `.claude/settings.json` (hooks-only today); records paths at **ask** (daily paired records work), secrets at deny; lint home is `host/scripts/`, wired into `run-tests.yml` |
+| HopSkipInc/analytics-infrastructure | [2026-08-08 enforcement stanzas](2026-08-08-enforcement-stanzas.md) | pending — stanza pair + lint; both configs created fresh; `scripts/` + `code-hygiene.yml` clutter job |
+| HopSkipInc/enrichment-pipeline | [2026-08-08 enforcement stanzas](2026-08-08-enforcement-stanzas.md) | pending — stanza pair + lint; **append** to the existing 13-rule `permissions.deny`, never replace (Bash-deny survival assertion in the prompt); ADRs live at root `adr/`; `tools/` + `code-hygiene.yml`. Apply after the 2026-08-07 re-sync (both touch CLAUDE.md) |
+| HopSkipInc/infra-ops | [2026-08-08 enforcement stanzas](2026-08-08-enforcement-stanzas.md) | pending — stanza pair + lint; records census is `docs/adr/` only; `scripts/` + `ci.yml` governance job |
 
 The 2026-08-02 prompts come from the downstream-drift disposition (#14): the corrected
 lint's surviving findings were 13 BEHIND (all already carried by the pending 2026-07-27

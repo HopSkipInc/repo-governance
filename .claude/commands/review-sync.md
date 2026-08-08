@@ -73,6 +73,8 @@ Dispositions for `check-downstream-drift` findings:
 
 `check-lens-promotion` is a sweep, not a gate: report its findings to the operator. **PROMOTE** findings are cross-repo lens extensions — candidates for the sync review's proposal list; **RESIDUALS** and **NO-RECORDS** are noted for the client's next audit.
 
+**Binding check, on a trigger:** if a `harness-enforcement*` template version changed since the last sync review — or a harness on this machine was upgraded — run the harness-binding smoke check (`docs/harness-binding-smoke-check.md`, issue #38) before prompting any client to install the new stanza. The install-assertion lint proves presence; this proves behaviour. Paste the run record (versions, both directions, both harnesses) into the sync-review notes.
+
 Then open `downstream/<client>/_client.md` and read the Maintenance Log table. For each repo with status `pending` or `partial`:
 
 1. Note the prior prompt path and its `## Verifiable outcomes` section.
