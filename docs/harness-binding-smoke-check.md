@@ -72,3 +72,17 @@ Versions: **Claude Code 2.1.226**, **opencode 1.18.15**. Both newer than the inv
   — file unchanged. Control: EDIT-SUCCEEDED, marker appended. `.env` read: READ-BLOCKED;
   refusal text confirms the built-in defaults (`*.env → ask`, `*.env.example → allow`)
   and the explicit deny winning on last-match.
+
+**`ask`-mode headless demonstration** (same day, prompted by PR #64 review — the cell
+the per-repo downgrade decision rests on): with the records path at `ask` instead of
+`deny`, the headless denied run still blocks, both harnesses:
+
+- Claude Code: EDIT-BLOCKED — `permission_denials` carries the Edit call ("Claude
+  requested permissions to write to … but you haven't granted it yet"), file unchanged.
+- opencode: `permission requested: edit (docs/records/test-record.md); auto-rejecting`
+  — file unchanged.
+
+`ask` is a human checkpoint interactively and a hard wall unattended. (Note for future
+runs: Claude Code headless may auto-enter plan mode when a write is asked-for —
+`"defaultMode": "default"` in the scratch settings keeps the refusal in the permission
+layer, where the property under test lives.)

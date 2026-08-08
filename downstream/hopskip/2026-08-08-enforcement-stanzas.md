@@ -8,12 +8,19 @@ issue #37), #66 (binding smoke check, issue #38) — closing the #33 pre-action
 enforcement cluster from the 2026-08-02 recommendation
 (`docs/pre-action-enforcement-recommendation.md`).
 
-| Repo | Harness configs | Records paths (verified on disk 2026-08-08) | Lint home | CI wiring |
-|---|---|---|---|---|
-| HopSkipInc/ai-fleet | **merge** into existing `.claude/settings.json` (has `hooks`, no `permissions` key) + create `opencode.json` | `docs/code-conventions.md`, `docs/testing-strategy.md`, `docs/agent-routing-records.md`, `docs/adr/` | `host/scripts/` (not `scripts/` — the lint cluster in `run-tests.yml` runs with `working-directory: host`) | `run-tests.yml` lint cluster, beside the `check-adr-readme-sync` step |
-| HopSkipInc/analytics-infrastructure | create `.claude/settings.json` + `opencode.json` | same four | `scripts/` | `code-hygiene.yml`, `clutter` job (already runs `node scripts/lint-*.mjs` with setup-node) |
-| HopSkipInc/enrichment-pipeline | **merge** into existing `.claude/settings.json` — it has a `permissions.deny` array with 13 live `Bash(...)` rules; **append the new rules, never replace the array** — + create `opencode.json` | `docs/code-conventions.md`, `docs/testing-strategy.md`, `docs/agent-routing-records.md`, **`adr/`** (ADRs live at repo root, not `docs/adr/`) | `tools/` (not `scripts/`) | `code-hygiene.yml`, `clutter` job (runs `node tools/lint-*.mjs`) |
-| HopSkipInc/infra-ops | create `.claude/settings.json` + `opencode.json` | `docs/adr/` only — no code-conventions / testing-strategy / routing-records on disk | `scripts/` | `ci.yml`, `governance` job (already runs `node scripts/check-adr-readme-sync.mjs`) |
+| Repo | Harness configs | Records paths (verified on disk 2026-08-08) | Records mode | Lint home | CI wiring |
+|---|---|---|---|---|---|
+| HopSkipInc/ai-fleet | **merge** into existing `.claude/settings.json` (has `hooks`, no `permissions` key) + create `opencode.json` | `docs/code-conventions.md`, `docs/testing-strategy.md`, `docs/agent-routing-records.md`, `docs/adr/` | **ask** — records maintenance is a daily paired activity there; the human is the checkpoint | `host/scripts/` (not `scripts/` — the lint cluster in `run-tests.yml` runs with `working-directory: host`) | `run-tests.yml` lint cluster, beside the `check-adr-readme-sync` step |
+| HopSkipInc/analytics-infrastructure | create `.claude/settings.json` + `opencode.json` | same four | deny (default) | `scripts/` | `code-hygiene.yml`, `clutter` job (already runs `node scripts/lint-*.mjs` with setup-node) |
+| HopSkipInc/enrichment-pipeline | **merge** into existing `.claude/settings.json` — it has a `permissions.deny` array with 13 live `Bash(...)` rules; **append the new rules, never replace the array** — + create `opencode.json` | `docs/code-conventions.md`, `docs/testing-strategy.md`, `docs/agent-routing-records.md`, **`adr/`** (ADRs live at repo root, not `docs/adr/`) | deny (default) | `tools/` (not `scripts/`) | `code-hygiene.yml`, `clutter` job (runs `node tools/lint-*.mjs`) |
+| HopSkipInc/infra-ops | create `.claude/settings.json` + `opencode.json` | `docs/adr/` only — no code-conventions / testing-strategy / routing-records on disk | deny (default) | `scripts/` | `ci.yml`, `governance` job (already runs `node scripts/check-adr-readme-sync.mjs`) |
+
+**Records mode** is per the stanza templates' Modes section: `deny` is the default;
+`ask` is a per-repo downgrade recorded in that repo's
+`docs/enforcement-stanzas-register.md`, for repos where records edits are a daily
+paired activity. `ask` is a human checkpoint interactively and **auto-rejects headless
+in both harnesses** (demonstrated 2026-08-08, Claude Code 2.1.226 / opencode 1.18.15)
+— a fleet worker has nobody to ask. Secrets paths run at `deny` in every repo, always.
 
 ## What changed upstream
 
@@ -47,7 +54,9 @@ for f in docs/code-conventions.md docs/testing-strategy.md docs/agent-routing-re
 
 **2. Install the Claude Code stanza** per `templates/harness-enforcement.md`, register
 filled from step 1 (directories take the `/**` glob form: `docs/adr/` →
-`Edit(docs/adr/**)`). Keep the `governance-install` stamp comment.
+`Edit(docs/adr/**)`), records rules at the repo's **Records mode** from the table
+(`deny` array, or `ask` array where the table says ask). Keep the
+`governance-install` stamp comment.
 
 - *ai-fleet:* the file exists with a `hooks` key and no `permissions` key — add
   `permissions` alongside, change nothing else.
@@ -58,8 +67,9 @@ filled from step 1 (directories take the `/**` glob form: `docs/adr/` →
   `python3 -c "import json; d=json.load(open('.claude/settings.json')); assert sum(1 for r in d['permissions']['deny'] if r.startswith('Bash(')) == 13"`.
 
 **3. Install the opencode stanza** per `templates/harness-enforcement.opencode.md` —
-`opencode.json`, `"*": "allow"` **first**, denies after (last-match-wins; a deny listed
-before the catch-all reads correctly and does not bind). Keep the stamp comment.
+`opencode.json`, `"*": "allow"` **first**, records rules at the repo's Records mode,
+secrets rules always `"deny"` (last-match-wins; a rule listed before the catch-all
+reads correctly and does not bind). Keep the stamp comment.
 
 **4. Add the records paragraph to CLAUDE.md if absent** — the lint's completeness rule
 reads it as the authoritative source. As of 2026-08-08 none of the four repos carries
@@ -78,9 +88,13 @@ to recover from.
 **5. Install the lint + register.** Copy
 `templates/scripts/check-enforcement-stanzas.mjs` byte-identical to the repo's lint
 home (table above), and create `docs/enforcement-stanzas-register.md` naming both
-harnesses and step 1's records paths. If the repo's CLAUDE.md paragraph mentions a
-non-records path (a contrast clause like "forms live in `templates/`"), carry it in
-`## Paragraph exemptions` with a reason — a reasonless row fails closed.
+harnesses and step 1's records paths — **with the repo's records mode and its reason
+recorded** (the register's Mode paragraph; see repo-governance's own register for the
+shape). The lint accepts `ask` or `deny` for records rules and requires `deny` for
+secrets, so a repo running `ask` passes only when the register says so. If the repo's
+CLAUDE.md paragraph mentions a non-records path (a contrast clause like "forms live in
+`templates/`"), carry it in `## Paragraph exemptions` with a reason — a reasonless row
+fails closed.
 
 **6. Wire the lint into CI** at the row in the table. Run it locally first:
 `node <lint-home>/check-enforcement-stanzas.mjs` must print OK before the PR opens.
