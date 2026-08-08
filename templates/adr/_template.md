@@ -1,7 +1,7 @@
-<!-- template: adr/_template.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: adr/_template.md v1.1.0 · updated 2026-08-08 -->
 # ADR-NNN: <Title>
 
-**Status:** Proposed | Accepted | Superseded by ADR-NNN | Retired
+**Status:** Proposed | Accepted | Rejected | Superseded by ADR-NNN | Retired
 **Date:** YYYY-MM-DD
 
 ---
@@ -115,4 +115,25 @@ one's Status to `Superseded by ADR-NNN`, and leave its Context intact. The recor
 what you believed and why you changed it is the most valuable thing in the corpus.
 
 A superseded ADR is not an embarrassment; it is evidence the mechanism works.
+
+## Deciding against it — Rejected
+
+A proposal that is argued down is a decision, and it needs a record for the same reason
+an accepted one does: without it, deletion is the only option, and a deleted proposal
+comes back. Six months later nobody remembers the argument, someone re-proposes it, and
+it gets re-litigated from scratch.
+
+Set Status to **Rejected** and leave Context and Decision **intact** — the proposal has
+to still be readable, or the record cannot stop the re-proposal it exists to stop. State
+in Consequences **what would reopen it**: the observable change in the world that would
+make this worth revisiting. That line is the mirror of a falsifier. A Rejected record
+without one is not a decision, it is a mood, and it will be overturned by whoever argues
+hardest next time.
+
+Replace the Enforcement section with a single line — `Enforcement: n/a — Rejected` — and
+do not delete the heading. A Rejected record promises nothing, so it needs no lint; the
+audit's Proposed-for-3-cycles sweep does not see it, which is the point.
+
+Rejected records stay in the index and are never pruned. The corpus of what was refused
+and why is what makes the next proposal cheaper to evaluate.
 -->

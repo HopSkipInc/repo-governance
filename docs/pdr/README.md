@@ -35,8 +35,11 @@ now enforces the convention directly.
 Status values:
   Proposed             — written, no falsifier yet, or falsifier not yet wired
   Accepted             — live bet, falsifier present and observable
+  Rejected             — proposed and argued down; Context and Decision left intact,
+                         with a "What would reopen this" condition in place of a falsifier
   Superseded by PDR-N  — we changed our mind; the new record cites this one
   Retired              — the falsifier fired and we decided not to replace it
 
 Never edit a Decision in place. Supersede it and leave the old Context intact.
+Rejected and Superseded records stay indexed and are never pruned.
 -->

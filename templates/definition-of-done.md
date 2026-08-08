@@ -1,4 +1,4 @@
-<!-- template: definition-of-done.md v1.2.0 · updated 2026-08-02 -->
+<!-- template: definition-of-done.md v1.3.0 · updated 2026-08-08 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit
@@ -54,6 +54,18 @@ Every piece of work has a type. A thing is done when the row for its type is ful
 - [ ] Any work authorized only by the old bet is re-checked against the new one, or filed with a tracking issue
 
 > **Why this rule exists:** [Fill in with your own incident. Example: "The ICP changed and the strategy doc was quietly rewritten to match. Six months later nobody could reconstruct what the original bet was or what evidence had killed it, so the same rejected idea came back twice and got re-litigated from scratch both times."]
+
+### Record rejection (deciding against a proposed ADR or PDR)
+
+- [ ] Status set to **Rejected** — the record is not deleted, and the file keeps its number
+- [ ] Context and Decision left **intact**; the proposal is still readable as proposed
+- [ ] **A reopen condition is written** and observable: what change in the world would make this worth revisiting. On a PDR, as `- [ ] Reopen when <condition>` under `## What would reopen this`; on an ADR, in Consequences
+- [ ] The reason it was rejected is in the record, not only in the PR thread that rejected it — a review thread is not a corpus and nobody greps it in six months
+- [ ] ADR only: Enforcement section reads `n/a — Rejected`, heading kept
+- [ ] Record stays registered in its README index; `lint:adr-readme-sync` passes
+- [ ] Named person on the call — `Confirmed by` on a PDR, PR approver on an ADR. Refusing is as much a signature as accepting
+
+> **Why this rule exists:** [Fill in with your own incident. Example: "A proposal was argued down in a PR thread and the branch was deleted. Eleven months later the same idea was proposed again by someone who had not been in that thread, and the team spent two days rebuilding an argument it had already had. Nothing in the repo could have told them — the only record was a closed PR nobody thought to search."]
 
 ---
 

@@ -1,7 +1,7 @@
-<!-- template: pdr/_template.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: pdr/_template.md v1.1.0 · updated 2026-08-08 -->
 # PDR-NNN: <Title>
 
-**Status:** Proposed | Accepted | Superseded by PDR-NNN | Retired
+**Status:** Proposed | Accepted | Rejected | Superseded by PDR-NNN | Retired
 **Date:** YYYY-MM-DD
 **Confirmed by:** <the person whose call this actually is — a name, not a role>
 **Last confirmed:** YYYY-MM-DD
@@ -103,6 +103,31 @@ Never edit a Decision in place. Write a new PDR that supersedes the old one, set
 one's Status to `Superseded by PDR-NNN`, and leave its Context intact — the record of
 what you believed and why you were wrong is the most valuable thing in the corpus.
 A superseded PDR is not an embarrassment; it is evidence the mechanism works.
+
+## Deciding against it — Rejected
+
+A bet that is proposed and argued down is a decision, and it needs a record for the same
+reason an accepted one does. Deletion is not an option: the deleted proposal comes back,
+and it gets re-litigated from scratch because nobody can reconstruct what killed it.
+
+Set Status to **Rejected** and leave Context and Decision **intact** — the proposal must
+stay readable or the record cannot stop the re-proposal it exists to stop. In place of a
+falsifier, write **what would reopen it**:
+
+    ## What would reopen this
+    - [ ] Reopen when <observable condition — a named event, a threshold, a date>
+
+This is the falsifier inverted. An Accepted PDR names the condition that would prove the
+bet wrong; a Rejected one names the condition that would make it right after all. Both
+are the same discipline: a decision nobody can check is not a decision.
+
+`lint:pdr-falsifiers` does not fire on Rejected records — it gates Accepted only — so
+this line is held by review and by the audit, not by CI. Write it anyway. A Rejected
+record with no reopen condition is not a decision, it is a mood, and it will be
+overturned by whoever argues hardest next time.
+
+Rejected records stay in the index and are never pruned. `Confirmed by` still names the
+person who made the call — refusing is as much a signature as accepting.
 
 ## Last confirmed
 
