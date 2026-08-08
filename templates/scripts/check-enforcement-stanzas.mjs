@@ -30,8 +30,11 @@
  *   MISSING        a registered harness's config file does not exist
  *   UNSTAMPED      the config carries no governance-install stamp for the stanza
  *   MALFORMED      the config does not parse
- *   MISSING-RULE   a required deny rule (records path or secrets path) is absent
- *   NOT-BINDING    (opencode) a required deny is listed before the "*" catch-all —
+ *   MISSING-RULE   a required rule is absent — records paths accept `deny` or `ask`
+ *                  (the register records which mode the repo runs; ask auto-rejects
+ *                  headless, demonstrated 2026-08-08 both harnesses); secrets paths
+ *                  must be `deny` — there is no legitimate agent-reads-.env workflow
+ *   NOT-BINDING    (opencode) a required rule is listed before the "*" catch-all —
  *                  last-match-wins means the catch-all silently overwrites it
  *   UNREGISTERED   a path in the CLAUDE.md records paragraph has no register entry
  *
@@ -193,15 +196,24 @@ for (const harness of harnesses) {
       findings.push({ sev: 'MALFORMED', msg: `${HARNESS_CONFIG[harness]} has no permissions.deny array` });
       continue;
     }
-    const required = [
-      ...recordsPaths.flatMap((p) => requiredPatterns(harness, p).deny),
-      ...SECRETS['claude-code'].patterns,
-    ];
-    for (const rule of required) {
+    const ask = config?.permissions?.ask;
+    // Records rules accept deny or ask — ask is a human checkpoint interactively
+    // and auto-rejects headless; the register records the repo's mode. Secrets
+    // rules must be deny: there is no legitimate agent-reads-.env workflow.
+    for (const p of recordsPaths) {
+      const rule = requiredPatterns(harness, p).deny[0];
+      if (!deny.includes(rule) && !(Array.isArray(ask) && ask.includes(rule))) {
+        findings.push({
+          sev: 'MISSING-RULE',
+          msg: `${HARNESS_CONFIG[harness]} has no "${rule}" in permissions.deny or permissions.ask — the stanza is incomplete; reinstall from templates/harness-enforcement.md`,
+        });
+      }
+    }
+    for (const rule of SECRETS['claude-code'].patterns) {
       if (!deny.includes(rule)) {
         findings.push({
           sev: 'MISSING-RULE',
-          msg: `${HARNESS_CONFIG[harness]} permissions.deny lacks "${rule}" — the stanza is incomplete; reinstall from templates/harness-enforcement.md`,
+          msg: `${HARNESS_CONFIG[harness]} permissions.deny lacks "${rule}" — secrets rules must be deny, never ask; reinstall from templates/harness-enforcement.md`,
         });
       }
     }
@@ -219,27 +231,30 @@ for (const harness of harnesses) {
         findings.push({ sev: 'MALFORMED', msg: `${HARNESS_CONFIG[harness]} has no permission.${kind} object` });
         continue;
       }
+      // Records rules accept deny or ask (edit kind only — records are protected
+      // from writes; reads of records are legitimate work). Secrets rules must be
+      // deny in both kinds.
       const required = [
-        ...(kind === 'edit' ? recordsPaths.flatMap((p) => requiredPatterns(harness, p).edit) : []),
-        ...SECRETS.opencode[kind],
+        ...(kind === 'edit' ? recordsPaths.flatMap((p) => requiredPatterns(harness, p).edit.map((rule) => ({ rule, modes: ['deny', 'ask'] }))) : []),
+        ...SECRETS.opencode[kind].map((rule) => ({ rule, modes: ['deny'] })),
       ];
       const keys = Object.keys(rules);
       const catchAllIdx = keys.indexOf('*');
-      for (const rule of required) {
-        if (rules[rule] !== 'deny') {
+      for (const { rule, modes } of required) {
+        if (!modes.includes(rules[rule])) {
           findings.push({
             sev: 'MISSING-RULE',
-            msg: `${HARNESS_CONFIG[harness]} permission.${kind} lacks "${rule}": "deny" — the stanza is incomplete; reinstall from templates/harness-enforcement.opencode.md`,
+            msg: `${HARNESS_CONFIG[harness]} permission.${kind} lacks "${rule}": ${modes.length > 1 ? '"deny" or "ask"' : '"deny" (secrets never run at ask)'} — the stanza is incomplete; reinstall from templates/harness-enforcement.opencode.md`,
           });
           continue;
         }
-        // Last match wins: a deny listed before the "*" catch-all is dead config —
+        // Last match wins: a rule listed before the "*" catch-all is dead config —
         // it reads correctly and does not bind. That is the one install mistake
         // this lint exists to catch statically.
         if (catchAllIdx !== -1 && keys.indexOf(rule) < catchAllIdx) {
           findings.push({
             sev: 'NOT-BINDING',
-            msg: `${HARNESS_CONFIG[harness]} permission.${kind} lists "${rule}": "deny" BEFORE the "*" catch-all — last-match-wins means the catch-all overwrites it. Catch-all first, denies after.`,
+            msg: `${HARNESS_CONFIG[harness]} permission.${kind} lists "${rule}" BEFORE the "*" catch-all — last-match-wins means the catch-all overwrites it. Catch-all first, denies after.`,
           });
         }
       }

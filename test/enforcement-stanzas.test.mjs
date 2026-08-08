@@ -211,6 +211,63 @@ test('enforcement: a paragraph exemption without a reason fails closed — a rea
   assert.match(out, /no reason/);
 });
 
+test('enforcement: records paths at ask clear — the recorded per-repo downgrade', () => {
+  // ask is a human checkpoint interactively and auto-rejects headless
+  // (demonstrated 2026-08-08, both harnesses) — the lint accepts it for records.
+  const claudeAsk = CLAUDE_CFG.replace(
+    '"deny": [\n      "Edit(docs/pdr/**)",\n      "Edit(docs/code-conventions.md)",\n',
+    '"deny": [\n',
+  ).replace(
+    '    ]\n  }\n}',
+    '    ],\n    "ask": [\n      "Edit(docs/pdr/**)",\n      "Edit(docs/code-conventions.md)"\n    ]\n  }\n}',
+  );
+  const ocCfg = JSON.parse(OPENCODE_CFG.replace(/^\s*\/\/.*$/gm, ''));
+  ocCfg.permission.edit['docs/pdr/**'] = 'ask';
+  ocCfg.permission.edit['docs/code-conventions.md'] = 'ask';
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS),
+    '.claude/settings.json': claudeAsk,
+    'opencode.json': '// governance-install: harness-enforcement.opencode.md v1.0.0 · updated 2026-08-08\n' + JSON.stringify(ocCfg, null, 2),
+    'CLAUDE.md': CLAUDE_MD,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK: every registered harness/);
+});
+
+test('enforcement: secrets at ask is a blocking MISSING-RULE — secrets never run at ask', () => {
+  const ocCfg = JSON.parse(OPENCODE_CFG.replace(/^\s*\/\/.*$/gm, ''));
+  ocCfg.permission.read['.env'] = 'ask';
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': '// governance-install: harness-enforcement.opencode.md v1.0.0 · updated 2026-08-08\n' + JSON.stringify(ocCfg, null, 2),
+    'CLAUDE.md': CLAUDE_MD,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MISSING-RULE/);
+  assert.match(out, /secrets never run at ask/);
+});
+
+test('enforcement: records at ask listed before the catch-all is still NOT-BINDING', () => {
+  const ocCfg = JSON.parse(OPENCODE_CFG.replace(/^\s*\/\/.*$/gm, ''));
+  const edit = ocCfg.permission.edit;
+  const reordered = { 'docs/pdr/**': 'ask', '*': 'allow' };
+  for (const k of Object.keys(edit)) if (k !== '*' && k !== 'docs/pdr/**') reordered[k] = edit[k];
+  ocCfg.permission.edit = reordered;
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': '// governance-install: harness-enforcement.opencode.md v1.0.0 · updated 2026-08-08\n' + JSON.stringify(ocCfg, null, 2),
+    'CLAUDE.md': CLAUDE_MD,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /NOT-BINDING/);
+  assert.match(out, /docs\/pdr\/\*\*/);
+});
+
 test('enforcement: no records paragraph is a loud SKIPPED, never a silent pass', () => {
   const dir = fixture({
     'docs/enforcement-stanzas-register.md': register(BOTH, PATHS),

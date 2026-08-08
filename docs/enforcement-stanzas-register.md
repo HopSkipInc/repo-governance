@@ -40,10 +40,13 @@ clause. Reason required per row; a reasonless row fails closed.
 |---|---|
 | `templates/` | The paragraph's contrast clause — "The blank forms live in `templates/`". Forms are the product, not records; gating them is check-template-versions' job, not this stanza's |
 
-**Operational consequence, on the record:** a hard `deny` gates amendment as well as
-destruction — an agent session in this repo cannot edit these files (a §6 row
-addition, a PDR status bump) without a human making the edit or granting a local
-override. That is the design intent (the permission layer is the only stop-rule that
-has held in the wild), and the pain point is the signal: if amendment flow here is too
-frequent for the gate, the remedy is moving this repo's rules from `deny` to `ask` —
-recorded in this register — never deleting the rules.
+**Mode, on the record:** this repo runs its records paths at **`ask`**, not `deny`
+(decision 2026-08-08, review feedback on PR #64). Records maintenance here is a daily
+paired activity — a §6 row, a PDR status bump, a calibration append — and a hard deny
+hands every one of those edits to the human to type. `ask` keeps the human as the
+checkpoint (the harness prompts, the diff is on screen) while remaining a hard wall
+unattended: a headless run against an `ask`-listed path auto-rejects in both harnesses
+(demonstrated 2026-08-08, Claude Code 2.1.226 / opencode 1.18.15 — runbook:
+`docs/harness-binding-smoke-check.md`). Secrets paths run at `deny`, always. The
+downgrade moves a rule from `deny` to `ask` — it never deletes one. If the checkpoint
+proves noisy in practice, the remedy is recorded here before the mode moves back.

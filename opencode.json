@@ -1,12 +1,15 @@
 {
   // governance-install: harness-enforcement.opencode.md v1.0.0 · updated 2026-08-08
+  // Mode: records paths run at ask (daily paired records work — the human is the
+  // checkpoint); secrets paths at deny, always. Recorded in
+  // docs/enforcement-stanzas-register.md.
   "permission": {
     "edit": {
       "*": "allow",
-      "docs/agent-routing-records.md": "deny",
-      "docs/code-conventions.md": "deny",
-      "docs/testing-strategy.md": "deny",
-      "docs/pdr/**": "deny",
+      "docs/agent-routing-records.md": "ask",
+      "docs/code-conventions.md": "ask",
+      "docs/testing-strategy.md": "ask",
+      "docs/pdr/**": "ask",
       ".env": "deny",
       ".env.*": "deny",
       "**/.env": "deny",
