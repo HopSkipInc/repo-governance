@@ -1,0 +1,22 @@
+{
+  // governance-install: harness-enforcement.md v1.0.0 · updated 2026-08-08
+  // Mode: records paths run at ask (daily paired records work — the human is the
+  // checkpoint); secrets paths at deny, always. Recorded in
+  // docs/enforcement-stanzas-register.md.
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Edit(./.env)",
+      "Edit(./.env.*)"
+    ],
+    "ask": [
+      "Edit(docs/agent-routing-records.md)",
+      "Edit(docs/code-conventions.md)",
+      "Edit(docs/testing-strategy.md)",
+      "Edit(docs/pdr/**)"
+    ]
+  }
+}

@@ -76,3 +76,11 @@ jobs:
         # name collision must be registered or exempted on the record. Pure repo-local
         # reads — unlike the two ledger-reading scripts, this one genuinely runs in CI.
         run: node scripts/check-mothership-drift.mjs
+
+      - name: Check enforcement stanzas
+        # A permission stanza cannot report its own absence. Asserts this repo's
+        # harness configs (.claude/settings.json, opencode.json) carry the stamped,
+        # complete enforcement stanza for every records path in
+        # docs/enforcement-stanzas-register.md — and that every records file named
+        # in CLAUDE.md is in that register (blocking UNREGISTERED otherwise).
+        run: node scripts/check-enforcement-stanzas.mjs
