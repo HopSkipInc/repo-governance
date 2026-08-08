@@ -1,4 +1,4 @@
-<!-- template: pdr/README.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: pdr/README.md v1.1.0 · updated 2026-08-08 -->
 # Product Decision Records
 
 Why this software exists: who it serves, what bet it makes, what it deliberately will not do.
@@ -28,8 +28,14 @@ could violate silently. Everything else can emerge later, which is the normal pa
 Status values:
   Proposed             — written, no falsifier yet, or falsifier not yet wired
   Accepted             — live bet, falsifier present and observable
+  Rejected             — proposed and argued down; Context and Decision left intact,
+                         with a "What would reopen this" condition in place of a falsifier
   Superseded by PDR-N  — we changed our mind; the new record cites this one
   Retired              — the falsifier fired and we decided not to replace it
+
+Rejected and Superseded records stay in this index and are never pruned. A deleted
+proposal comes back — the record of what was refused, and why, is what stops the same
+idea being re-litigated from scratch every six months.
 
 Non-goals get their own number. "Not building mobile" is a decision with the same
 standing as "who we serve", and it is the one the audit can most cheaply check

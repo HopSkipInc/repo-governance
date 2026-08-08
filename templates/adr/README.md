@@ -1,4 +1,4 @@
-<!-- template: adr/README.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: adr/README.md v1.1.0 · updated 2026-08-08 -->
 # Architecture Decision Records
 
 How the code is shaped: load-bearing patterns, conventions, and invariants that would be
@@ -35,9 +35,16 @@ written.
 Status values:
   Proposed             — written, enforcement not yet wired, or lint not yet built
   Accepted             — live decision, enforcement present and passing
+  Rejected             — proposed and argued down; Context and Decision left intact,
+                         Consequences names what would reopen it
   Superseded by ADR-N  — we changed our mind; the new record cites this one
   Retired              — the enforcement was removed and the decision no longer holds
 
 The Enforcement column names the lint, check, or CI gate that enforces the decision.
 If it says "tracking issue #N", the ADR is Proposed — enforcement is not yet shipped.
+A Rejected record's Enforcement column reads "n/a — Rejected"; it promises nothing.
+
+Rejected and Superseded records stay in this index and are never pruned. A deleted
+proposal comes back — the record of what was refused, and why, is what stops the same
+idea being re-litigated from scratch every six months.
 -->
