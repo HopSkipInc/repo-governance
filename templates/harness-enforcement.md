@@ -64,6 +64,33 @@ verifies the install and its version. (`settings.json` is JSONC-tolerant in Clau
 if your repo's settings file is strict JSON, move the stamp into a `"_governance_install"`
 string key carrying the same text.)
 
+## Modes: `deny` (default) or `ask` (recorded per-repo downgrade)
+
+The stanza above ships `deny` — the conservative default, correct for a fresh adopter.
+Two modes exist, and the choice is per-repo, per path-class:
+
+- **`deny` — always, for secrets paths.** There is no legitimate agent-reads-`.env`
+  workflow, so credential paths never run at `ask`.
+- **`deny` (default) or `ask` (downgrade on the record) for records paths.** The
+  permission layer cannot tell a careful dated amendment from a `cp` over the record —
+  it gates paths, not intent. `deny` makes every records edit a human's hands.
+  `ask` (a `permissions.ask` array, same rule strings) makes every records edit a
+  human *checkpoint*: the harness prompts, the diff is on screen, one keystroke
+  approves. For repos where records maintenance is a daily paired activity (a §6 row,
+  a PDR status bump), `ask` is the livable setting.
+
+**`ask` does not weaken unattended runs — demonstrated, not cited** (2026-08-08,
+Claude Code 2.1.226): a headless `claude -p` edit against an `ask`-listed path is
+blocked with the denial recorded (`permission_denials` carries the Edit call —
+"you haven't granted it yet"), file unchanged. A fleet worker has nobody to ask, so
+`ask` is a hard wall exactly where it must be.
+
+A repo running records paths at `ask` records the mode and the reason in
+`docs/enforcement-stanzas-register.md`. The assertion lint
+(`check-enforcement-stanzas.mjs`) accepts `deny` or `ask` for records rules and
+requires `deny` for secrets rules. The downgrade moves a rule from `deny` to `ask` —
+it never deletes one.
+
 ## Limits, on the record
 
 - **Subprocess blind spot** (above): an agent determined to route around the deny through
