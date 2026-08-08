@@ -242,12 +242,14 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | **`workflows/graphify-report.yml`** | `system-map.md` is applied | P2 | GENERATOR companion — keeps `graphify-out/` fresh on push; pinned `graphifyy` install, code-only extraction, serialized bot commit-back | core |
 | **`harness-enforcement.md`** | CLAUDE.md exists **and** the team runs Claude Code | P1 | Permission-deny stanza — records-file protection + secrets hygiene, enforced by the harness pre-action, not by instructions. Path register is installer-filled from the repo's own CLAUDE.md records paragraph (PDR-004 — no shadow mirror). Ships with a binding demonstration in the installing PR; presence is linted by `check-enforcement-stanzas.mjs` | full |
 | **`harness-enforcement.opencode.md`** | CLAUDE.md or AGENTS.md exists **and** the team runs opencode | P1 | opencode variant of the same stanza — `permission.edit`/`read` path rules, last-match-wins ordering documented (catch-all first). Install instead of — not alongside — the Claude Code variant on an opencode-only team; both on a mixed team | full |
+| **`scripts/check-enforcement-stanzas.mjs`** | a `harness-enforcement*` variant is applied | P1 | The install-assertion half — a stanza cannot report its own absence. Register-driven (`docs/enforcement-stanzas-register.md`); fails closed on a missing register; blocking UNREGISTERED when a CLAUDE.md-listed records file has no register entry; catches the opencode catch-all-ordering mistake statically | full |
 
 **Bolded rows were added 2026-07-24**, when `check-analyze-repo-coverage.mjs` found the matrix
 named 13 of 36 templates. Everything bold was previously unreachable via `/analyze-repo`.
 The two `graphify` rows were added 2026-08-07 alongside the templates they ship.
 The two `harness-enforcement` rows were added 2026-08-08 alongside the templates they
-ship (issue #<36>).
+ship (issue #<36>); the `check-enforcement-stanzas.mjs` row landed with its lint the
+same day (issue #<37>).
 
 ### 2.3 Priority-ordered action plan
 

@@ -1,0 +1,17 @@
+{
+  // governance-install: harness-enforcement.md v1.0.0 · updated 2026-08-08
+  "permissions": {
+    "deny": [
+      "Edit(docs/agent-routing-records.md)",
+      "Edit(docs/code-conventions.md)",
+      "Edit(docs/testing-strategy.md)",
+      "Edit(docs/pdr/**)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Edit(./.env)",
+      "Edit(./.env.*)"
+    ]
+  }
+}
