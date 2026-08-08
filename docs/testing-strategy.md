@@ -119,6 +119,7 @@ correct — the exact condition that pushes an issue above `standard`.
 | **The 10 downstream lint templates run at all** before reaching a client | `templates/scripts/` | A client installs a lint that crashes, or worse, one that passes because its regex silently matches nothing | unfiled — see §3 row 1 |
 | **Rule 3 of `check-template-versions` still detects a bump-less change** | `scripts/check-template-versions.mjs` | The stamp drift rule stops firing and every template reads as current | unfiled — see §2 |
 | **`check-downstream-drift` findings reach a human** | client sync boundary | 10 blocking findings sit in a script nobody runs; a client is reported as governed at a version it does not have | see `docs/code-conventions.md` §5 |
+| **A shipped permission stanza *binds*** — `check-enforcement-stanzas` proves presence (stamped, complete, correctly ordered), never behaviour | `.claude/settings.json` / `opencode.json` in every governed repo | A stanza installs, stamps green, and blocks nothing — invisible to every structural gate | covered live-level by `docs/harness-binding-smoke-check.md` (issue #38) — recurs at `/review-sync` Step 5.0 on stanza version change or harness upgrade; inaugural run 2026-08-08, both harnesses, both directions |
 
 **Nothing currently escalates on these**, because this repo's open backlog is empty. When it
 is not, an issue touching `templates/scripts/` should carry
