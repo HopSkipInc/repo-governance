@@ -15,7 +15,11 @@
  *   1. Every template carries a version stamp.
  *   2. The stamp's path matches the template's actual path (catches copy-paste).
  *   3. A template whose content changed in this diff must have changed its
- *      version in the same diff. Runs only in diff mode (--base <ref>).
+ *      version in the same diff. Runs only in diff mode (--base <ref>). A
+ *      template *deleted* in the diff is skipped — removal needs no bump; the
+ *      /analyze-repo coverage gate accounts for the inventory. (First hit
+ *      2026-08-09: the estate's first-ever template deletion crashed the rule
+ *      with ENOENT — the file exists at the base ref and not on disk.)
  *   4. A template that also declares a human-visible `**Version:**` line must
  *      agree with its own stamp.
  *
@@ -140,7 +144,12 @@ if (BASE) {
     } catch {
       continue; // new file at this ref — rules 1-2 cover it
     }
-    const after = readFileSync(join(ROOT, pathFromRoot), 'utf8');
+    let after;
+    try {
+      after = readFileSync(join(ROOT, pathFromRoot), 'utf8');
+    } catch {
+      continue; // deleted in this diff — removal needs no version bump
+    }
     const rel = relative('templates', pathFromRoot);
     const isSkill = isFrontmatterStamped(pathFromRoot);
     const vBefore = stampOf(before, isSkill).version;
