@@ -233,3 +233,142 @@ test('drift: SKIPPED — never OK — when no governed repo is reachable', () =>
   assert.match(out, /SKIPPED/);
   assert.doesNotMatch(out, /^OK:/m);
 });
+
+// ------------------------------------------- stanza installs and lint homes (#67)
+//
+// The 2026-08-09 estate-wide false positive: a repo applies the enforcement-stanzas
+// prompt exactly as written, declares the two rows, and the lint reports MISMATCH
+// because a stanza merges into the harness config and resolves to no file. Stanzas
+// verify against the config's governance-install stamp instead. The stamp regex
+// matches the `//` comment form and the strict-JSON `_governance_install` key form.
+
+const STANZA_TEMPLATES = {
+  'templates/harness-enforcement.md': mdStamp('harness-enforcement.md', '1.0.0'),
+  'templates/harness-enforcement.opencode.md': mdStamp('harness-enforcement.opencode.md', '1.0.0'),
+};
+const settingsWithStamp = (v) =>
+  `{\n  // governance-install: harness-enforcement.md v${v} · updated 2026-08-08\n  "permissions": { "deny": ["Read(**/.env)"] }\n}\n`;
+const opencodeWithStamp = (v) =>
+  `{\n  // governance-install: harness-enforcement.opencode.md v${v} · updated 2026-08-08\n  "permission": { "edit": { "**/.env": "deny" } }\n}\n`;
+const scriptStamp = (name, v) => `#!/usr/bin/env node\n# template: ${name} v${v} · updated 2026-08-08\n`;
+
+test('drift: a stanza install verifies against the config stamp, not a phantom file path', () => {
+  const dir = repoFixture(
+    [['harness-enforcement.md', '1.0.0'], ['harness-enforcement.opencode.md', '1.0.0']],
+    {
+      ...STANZA_TEMPLATES,
+      'clones/repo-a/.claude/settings.json': settingsWithStamp('1.0.0'),
+      'clones/repo-a/opencode.json': opencodeWithStamp('1.0.0'),
+    }
+  );
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
+test('drift: the strict-JSON _governance_install key form verifies', () => {
+  const dir = repoFixture([['harness-enforcement.md', '1.0.0']], {
+    ...STANZA_TEMPLATES,
+    'clones/repo-a/.claude/settings.json':
+      '{ "_governance_install": "governance-install: harness-enforcement.md v1.0.0 · updated 2026-08-08", "permissions": { "deny": [] } }\n',
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
+test('drift: a declared stanza whose config file does not exist reports MISMATCH', () => {
+  const dir = repoFixture([['harness-enforcement.md', '1.0.0']], { ...STANZA_TEMPLATES });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MISMATCH/);
+  assert.match(out, /\.claude\/settings\.json does not exist/);
+});
+
+test('drift: a config without the governance-install stamp reports NOSTAMP, not MISMATCH', () => {
+  // The config exists — something is installed there — but the declaration cannot
+  // be verified. Severity split mirrors the file case: unverifiable, not wrong.
+  const dir = repoFixture([['harness-enforcement.md', '1.0.0']], {
+    ...STANZA_TEMPLATES,
+    'clones/repo-a/.claude/settings.json': '{ "permissions": { "deny": ["Read(**/.env)"] } }\n',
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /NOSTAMP/);
+  assert.match(out, /governance-install/);
+  assert.doesNotMatch(out, /^MISMATCH \(/m);
+});
+
+test('drift: a stanza stamp that disagrees with the declaration reports MISMATCH', () => {
+  const dir = repoFixture([['harness-enforcement.md', '1.0.0']], {
+    ...STANZA_TEMPLATES,
+    'clones/repo-a/.claude/settings.json': settingsWithStamp('0.9.0'),
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MISMATCH/);
+  assert.match(out, /stanza stamps v0\.9\.0/);
+});
+
+test('drift: a stanza stamped below the template version reports BEHIND without blocking', () => {
+  const dir = repoFixture([['harness-enforcement.opencode.md', '1.0.0']], {
+    'templates/harness-enforcement.opencode.md': mdStamp('harness-enforcement.opencode.md', '2.0.0'),
+    'clones/repo-a/opencode.json': opencodeWithStamp('1.0.0'),
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /BEHIND/);
+  assert.match(out, /template is v2\.0\.0/);
+});
+
+test('drift: the wrong variant stamp in a config does not satisfy the other variant', () => {
+  // settings.json carrying the *opencode* stamp must not verify the claude row —
+  // the per-config map scopes detection, and the regex anchors the full key.
+  const dir = repoFixture([['harness-enforcement.md', '1.0.0']], {
+    ...STANZA_TEMPLATES,
+    'clones/repo-a/.claude/settings.json':
+      '{ "_governance_install": "governance-install: harness-enforcement.opencode.md v1.0.0 · updated 2026-08-08", "permissions": { "deny": [] } }\n',
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /NOSTAMP/);
+});
+
+test('drift: a lint installed at tools/ resolves and verifies', () => {
+  const dir = repoFixture(
+    [['`tools/check-enforcement-stanzas.mjs`', 'v1.0.0']],
+    {
+      'templates/scripts/check-enforcement-stanzas.mjs': scriptStamp('scripts/check-enforcement-stanzas.mjs', '1.0.0'),
+      'clones/repo-a/tools/check-enforcement-stanzas.mjs': scriptStamp('scripts/check-enforcement-stanzas.mjs', '1.0.0'),
+    }
+  );
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
+test('drift: a lint installed at host/scripts/ resolves and verifies', () => {
+  const dir = repoFixture(
+    [['`host/scripts/check-enforcement-stanzas.mjs`', 'v1.0.0']],
+    {
+      'templates/scripts/check-enforcement-stanzas.mjs': scriptStamp('scripts/check-enforcement-stanzas.mjs', '1.0.0'),
+      'clones/repo-a/host/scripts/check-enforcement-stanzas.mjs': scriptStamp('scripts/check-enforcement-stanzas.mjs', '1.0.0'),
+    }
+  );
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
+test('drift: a declaration under an unlisted prefix is a local artifact — skipped deliberately', () => {
+  // The remaining skip, pinned as deliberate: an unlisted prefix resolves to no
+  // template key and produces no finding. If a new lint home appears in the
+  // field, the fix is a PREFIXES entry, not a tolerated false green.
+  const dir = repoFixture([['`local/check-thing.mjs`', 'v1.0.0']], {
+    'clones/repo-a/local/check-thing.mjs': scriptStamp('scripts/check-thing.mjs', '1.0.0'),
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+  assert.doesNotMatch(out, /check-thing/);
+});
