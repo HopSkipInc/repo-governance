@@ -1,4 +1,4 @@
-<!-- template: harness-enforcement.md v1.0.0 · updated 2026-08-08 -->
+<!-- template: harness-enforcement.md v1.0.1 · updated 2026-08-09 -->
 # Harness enforcement — Claude Code settings stanza
 
 Two invariants, enforced by the harness before the action lands — not by the model, and
@@ -41,7 +41,7 @@ the installing repo's own paragraph.
 
 ```json
 {
-  // governance-install: harness-enforcement.md v1.0.0 · updated 2026-08-08
+  // governance-install: harness-enforcement.md v1.0.1 · updated 2026-08-09
   "permissions": {
     "deny": [
       "Edit(docs/pdr/**)",              // EDIT_DENY_PATHS: one per records file/dir from CLAUDE.md
@@ -62,7 +62,10 @@ the installing repo's own paragraph.
 Keep the `governance-install` stamp comment when you install — it is how the drift check
 verifies the install and its version. (`settings.json` is JSONC-tolerant in Claude Code;
 if your repo's settings file is strict JSON, move the stamp into a `"_governance_install"`
-string key carrying the same text.)
+string key carrying the same text. **Claude Code `settings.json` only** — never put the
+key in `opencode.json`: opencode validates config against a closed schema at startup and
+refuses to boot on an unrecognized key (observed 2026-08-09, opencode 1.18.15). In a repo
+running both harnesses, the opencode stamp is always a `//` comment.)
 
 ## Modes: `deny` (default) or `ask` (recorded per-repo downgrade)
 

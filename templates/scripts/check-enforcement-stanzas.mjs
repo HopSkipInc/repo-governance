@@ -1,4 +1,4 @@
-// template: scripts/check-enforcement-stanzas.mjs v1.0.0 · updated 2026-08-08
+// template: scripts/check-enforcement-stanzas.mjs v1.0.1 · updated 2026-08-09
 /**
  * lint:enforcement-stanzas  [TEMPLATE — ships to governed repos]
  *
@@ -178,7 +178,7 @@ for (const harness of harnesses) {
   if (!raw.includes('governance-install: harness-enforcement')) {
     findings.push({
       sev: 'UNSTAMPED',
-      msg: `${HARNESS_CONFIG[harness]} carries no "governance-install: harness-enforcement" stamp comment (or _governance_install key) — the stamp is how install drift is detected; keep it when installing`,
+      msg: `${HARNESS_CONFIG[harness]} carries no "governance-install: harness-enforcement" stamp comment — the stamp is how install drift is detected; keep it when installing (a // comment; the _governance_install key form is Claude Code settings.json-only — fatal in opencode.json, which schema-validates config at startup)`,
     });
   }
 
