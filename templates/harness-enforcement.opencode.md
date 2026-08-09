@@ -1,4 +1,4 @@
-<!-- template: harness-enforcement.opencode.md v1.0.0 · updated 2026-08-08 -->
+<!-- template: harness-enforcement.opencode.md v1.0.1 · updated 2026-08-09 -->
 # Harness enforcement — opencode settings stanza
 
 Two invariants, enforced by the harness before the action lands — not by the model, and
@@ -42,7 +42,7 @@ paragraph.
 
 ```json
 {
-  // governance-install: harness-enforcement.opencode.md v1.0.0 · updated 2026-08-08
+  // governance-install: harness-enforcement.opencode.md v1.0.1 · updated 2026-08-09
   "permission": {
     "edit": {
       "*": "allow",
@@ -67,9 +67,13 @@ paragraph.
 ```
 
 Keep the `governance-install` stamp comment when you install — it is how the drift check
-verifies the install and its version. (`opencode.json` is JSONC-tolerant; if your repo's
-file is strict JSON, move the stamp into a `"_governance_install"` string key carrying
-the same text.)
+verifies the install and its version. The stamp is a `//` comment, **always**.
+`opencode.json` is JSONC-tolerant, but opencode validates the config against a **closed
+schema** at startup and refuses to boot on an unrecognized top-level key — so the
+`"_governance_install"` string-key form the Claude Code variant of this template offers
+for strict-JSON settings files is **fatal here**, not an option. Observed 2026-08-09,
+opencode 1.18.15: `Configuration is invalid … Unrecognized key: _governance_install`,
+TUI never starts. Never use the key form in `opencode.json`.
 
 ## Modes: `deny` (default) or `ask` (recorded per-repo downgrade)
 
