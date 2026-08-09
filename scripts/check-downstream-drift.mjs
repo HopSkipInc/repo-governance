@@ -185,13 +185,20 @@ const SECTION_INSTALLED = new Map([
 
 /**
  * Templates whose installed artifact is a stanza merged into the harness config,
- * not a file: template key -> the config that carries it, repo-relative. The
- * stamp regex matches the `//` comment form and the strict-JSON
+ * not a file: template key -> { config, stamp }. `config` is repo-relative;
+ * `stamp` is a literal regex (never built from the declaration — declarations
+ * are estate input) matching the `//` comment form and the strict-JSON
  * `_governance_install` key form alike, because both carry the same text.
  */
 const STANZA_INSTALLED = new Map([
-  ['harness-enforcement.md', '.claude/settings.json'],
-  ['harness-enforcement.opencode.md', 'opencode.json'],
+  ['harness-enforcement.md', {
+    config: '.claude/settings.json',
+    stamp: /governance-install:\s*harness-enforcement\.md\s+v(\d+\.\d+\.\d+)/,
+  }],
+  ['harness-enforcement.opencode.md', {
+    config: 'opencode.json',
+    stamp: /governance-install:\s*harness-enforcement\.opencode\.md\s+v(\d+\.\d+\.\d+)/,
+  }],
 ]);
 
 /**
@@ -293,7 +300,8 @@ for (const { repo, path } of repos) {
       continue;
     }
     if (STANZA_INSTALLED.has(key)) {
-      const cfgRel = STANZA_INSTALLED.get(key);
+      const stanza = STANZA_INSTALLED.get(key);
+      const cfgRel = stanza.config;
       const cfgAbs = join(path, cfgRel);
       if (!existsSync(cfgAbs)) {
         findings.push({
@@ -303,8 +311,7 @@ for (const { repo, path } of repos) {
         });
         continue;
       }
-      const stampRe = new RegExp(`governance-install:\\s*${key.replace(/\./g, '\\.')}\\s+v(\\d+\\.\\d+\\.\\d+)`);
-      const stamped = readFileSync(cfgAbs, 'utf8').match(stampRe)?.[1] ?? null;
+      const stamped = readFileSync(cfgAbs, 'utf8').match(stanza.stamp)?.[1] ?? null;
       if (!stamped) {
         findings.push({
           sev: 'NOSTAMP',
