@@ -212,6 +212,7 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | `watch-items.md` | Always (informational) | P2 | Watch-list format — low urgency, high compound value | full |
 | `governance-health.md` | After 3+ audit cycles | P2 (deferred) | Metrics need data to be meaningful | full |
 | `governance-sync-claude-section.md` | CLAUDE.md or AGENTS.md exists | P0 | Tells downstream agents about repo-governance; carries the Synced-templates table drift detection reads | core |
+| `closing-contract.md` | CLAUDE.md or AGENTS.md exists | P2 | Ends the closing-caveat tic: responses end with the result; loose ends ride the ledger, blocking ones lead | core |
 | `adr/README.md` + `adr/_template.md` | ADR corpus is being applied | P0 | The index and the blank form — an ADR directory without both drifts immediately | core |
 | `scripts/check-adr-readme-sync.mjs` | ADR directory **or** PDR directory exists | P1 | Prevents index drift in both corpora — one script covers both | core |
 | **`agent-routing.md`** | Backlog is worked by coding agents | P1 | `impl:` tiers keep work a weak model would botch away from it. Skip only if all implementation is human | full |

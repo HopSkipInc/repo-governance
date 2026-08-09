@@ -95,6 +95,10 @@ decomposed, then set a target.
 | HopSkipInc/analytics-infrastructure | [2026-08-08 enforcement stanzas](2026-08-08-enforcement-stanzas.md) | pending — stanza pair + lint; both configs created fresh; `scripts/` + `code-hygiene.yml` clutter job |
 | HopSkipInc/enrichment-pipeline | [2026-08-08 enforcement stanzas](2026-08-08-enforcement-stanzas.md) | pending — stanza pair + lint; **append** to the existing 13-rule `permissions.deny`, never replace (Bash-deny survival assertion in the prompt); ADRs live at root `adr/`; `tools/` + `code-hygiene.yml`. Apply after the 2026-08-07 re-sync (both touch CLAUDE.md) |
 | HopSkipInc/infra-ops | [2026-08-08 enforcement stanzas](2026-08-08-enforcement-stanzas.md) | pending — stanza pair + lint; records census is `docs/adr/` only; `scripts/` + `ci.yml` governance job |
+| HopSkipInc/ai-fleet | [2026-08-09 closing contract](2026-08-09-closing-contract.md) | pending — section into CLAUDE.md **and** AGENTS.md (both live there: fleet workers + Claude Code read CLAUDE.md, opencode reads AGENTS.md); one declaration row covers both |
+| HopSkipInc/analytics-infrastructure | [2026-08-09 closing contract](2026-08-09-closing-contract.md) | pending — CLAUDE.md section + declaration row |
+| HopSkipInc/enrichment-pipeline | [2026-08-09 closing contract](2026-08-09-closing-contract.md) | pending — CLAUDE.md section + declaration row; touches CLAUDE.md like the pending 08-07 re-sync and 08-08 stanzas — one CLAUDE.md pass can take all three |
+| HopSkipInc/infra-ops | [2026-08-09 closing contract](2026-08-09-closing-contract.md) | pending — CLAUDE.md section + declaration row (core class) |
 
 The 2026-08-02 prompts come from the downstream-drift disposition (#14): the corrected
 lint's surviving findings were 13 BEHIND (all already carried by the pending 2026-07-27

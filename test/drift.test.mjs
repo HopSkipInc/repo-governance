@@ -53,6 +53,7 @@ const templateTree = {
   'templates/skills/routing-triage/SKILL.md': fm('2.0.0'),
   'templates/agents/routing-classifier.opencode.md': fm('2.0.0'),
   'templates/governance-sync-claude-section.md': mdStamp('governance-sync-claude-section.md', '2.0.0'),
+  'templates/closing-contract.md': mdStamp('closing-contract.md', '1.0.0'),
 };
 
 /** The ledger needs the fixture's absolute path, so it is written after fixture(). */
@@ -187,6 +188,41 @@ test('drift: a section whose inline stamp disagrees with the declaration reports
   assert.equal(code, 1, out);
   assert.match(out, /MISMATCH/);
   assert.match(out, /installed CLAUDE\.md section stamps v1\.0\.0/);
+});
+
+test('drift: the closing-contract section verifies with its inline stamp', () => {
+  const dir = fixture({
+    ...templateTree,
+    'clones/repo-a/CLAUDE.md':
+      '# Client repo\n\n## Closing contract\n\n<!-- template: closing-contract.md v1.0.0 · updated 2026-08-09 -->\n\nEnd responses with the result.\n\n' +
+      claudeMd([['closing-contract.md', '1.0.0']]),
+  });
+  addLedger(dir, [['acme/repo-a', join(dir, 'clones/repo-a')]]);
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
+test('drift: a declared closing-contract section that is absent fires MISMATCH', () => {
+  const dir = repoFixture([['closing-contract.md', '1.0.0']]);
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MISMATCH/);
+  assert.match(out, /closing-contract\.md section is absent/);
+});
+
+test('drift: a closing-contract section whose stamp disagrees with the declaration reports MISMATCH', () => {
+  const dir = fixture({
+    ...templateTree,
+    'clones/repo-a/CLAUDE.md':
+      '# Client repo\n\n## Closing contract\n\n<!-- template: closing-contract.md v0.9.0 · updated 2026-08-01 -->\n\nEnd responses with the result.\n\n' +
+      claudeMd([['closing-contract.md', '1.0.0']]),
+  });
+  addLedger(dir, [['acme/repo-a', join(dir, 'clones/repo-a')]]);
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MISMATCH/);
+  assert.match(out, /installed CLAUDE\.md section stamps v0\.9\.0/);
 });
 
 test('drift: the canonical global declaration (~/.config/opencode/agents/...) resolves', () => {

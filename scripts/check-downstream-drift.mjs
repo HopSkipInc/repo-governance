@@ -174,12 +174,16 @@ function expandDeclared(d) {
 /**
  * Templates whose installed artifact is a section of the repo's CLAUDE.md, not a
  * file: `present` detects the section, `stamp` reads the inline stamp the section
- * carries since governance-sync-claude-section.md v1.2.0.
+ * carries (precedent: governance-sync-claude-section.md v1.2.0).
  */
 const SECTION_INSTALLED = new Map([
   ['governance-sync-claude-section.md', {
     present: /###\s*Synced templates/i,
     stamp: /template:\s*governance-sync-claude-section\.md\s+v(\d+\.\d+\.\d+)/,
+  }],
+  ['closing-contract.md', {
+    present: /##\s*Closing contract/i,
+    stamp: /template:\s*closing-contract\.md\s+v(\d+\.\d+\.\d+)/,
   }],
 ]);
 
