@@ -1,5 +1,11 @@
 # Governance update: generated system maps (2026-08-07)
 
+> **SUPERSEDED 2026-08-09 by [2026-08-09-graphify-local-regen.md](2026-08-09-graphify-local-regen.md).**
+> The CI commit-back this prompt ships is unlandable in any repo with required status
+> checks (field report: enrichment-pipeline PRs #474/#475 — direct push rejected, Actions
+> bot bypass not installable via API, `GITHUB_TOKEN` auto-PRs never run required checks).
+> Do not install the v1 workflow. Repos that did: step 0 of the superseding prompt.
+
 **Applies to:** all governed repos, both `full` and `core` adoption class. For `core`
 repos this is one workflow, one committed directory, and one README line — there is no
 lighter version to negotiate.

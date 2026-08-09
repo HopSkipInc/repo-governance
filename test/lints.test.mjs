@@ -164,6 +164,28 @@ test("template-versions: a stamp naming another template's path fails", () => {
   assert.match(out, /copied\.md|original\.md/);
 });
 
+test('template-versions: rule 3 survives a template deleted across the diff', () => {
+  // 2026-08-09: the estate's first-ever template deletion crashed the lint with
+  // ENOENT — `git show BASE:path` succeeds (the file existed at base) while the
+  // working-tree read has nothing to read. A deletion needs no version bump;
+  // rule 3 skips it and the /analyze-repo matrix accounts for the removal.
+  const dir = fixture({
+    'templates/keep.md': '<!-- template: keep.md v1.0.0 · updated 2026-08-07 -->\n# Keep\n',
+    'templates/gone.md': '<!-- template: gone.md v1.0.0 · updated 2026-08-07 -->\n# Gone\n',
+  });
+  const git = (args) =>
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: dir });
+  git(['add', '-A']);
+  git(['commit', '-q', '-m', 'base']);
+  const base = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+  git(['rm', '-q', 'templates/gone.md']);
+  git(['commit', '-q', '-m', 'delete gone.md']);
+  const { code, out } = run('check-template-versions.mjs', dir, { args: ['--base', base] });
+  assert.equal(code, 0, out);
+  // Prove rule 3 actually engaged — a pass in no-base mode would be a false green.
+  assert.match(out, /changed in this diff was bumped/);
+});
+
 // ------------------------------------------------------- analyze-repo-coverage
 
 /**
