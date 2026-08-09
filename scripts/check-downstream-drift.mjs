@@ -46,6 +46,24 @@
  * v1.2.0) is verified like a file; without it, the declaration can only report
  * NOSTAMP.
  *
+ * The harness-enforcement stanzas install as a merge into the harness config
+ * (`.claude/settings.json` / `opencode.json`), not as a file (issue #67: the
+ * drift check resolved neither and reported MISMATCH on a correct install).
+ * They verify by the `governance-install:` stamp the config carries — comment
+ * form or, for strict JSON, the `_governance_install` key; the regex matches
+ * both because both carry the same text. Detection mirrors
+ * check-enforcement-stanzas.mjs on purpose: the two lints must never disagree
+ * about what "installed" means. A config that exists without the stamp reports
+ * NOSTAMP (something is installed there, the declaration cannot be verified);
+ * no config at all reports MISMATCH (the declaration names an install that
+ * cannot exist).
+ *
+ * PREFIXES also covers the non-canonical lint homes in use in the field
+ * (`tools/`, `host/scripts/`); a declared path under an unlisted prefix resolves
+ * to no template key and is skipped as a local artifact — that skip is
+ * deliberate, documented here, and covered by a fixture, never silent by
+ * accident.
+ *
  * Read-only. It never writes to a governed repo.
  *
  * NOT wired to CI, deliberately. It reads local checkouts of the governed repos,
@@ -70,7 +88,7 @@ const STRICT = process.argv.includes('--strict');
 const EXTS = ['.md', '.mjs', '.yml'];
 
 /** Where a declared path in a governed repo maps back to under templates/. */
-const PREFIXES = ['docs/', '.claude/skills/', '.claude/agents/', 'scripts/', '.github/workflows/', 'templates/'];
+const PREFIXES = ['docs/', '.claude/skills/', '.claude/agents/', 'scripts/', 'tools/', 'host/scripts/', '.github/workflows/', 'templates/'];
 
 function walk(dir, acc = []) {
   for (const e of readdirSync(dir)) {
@@ -166,6 +184,24 @@ const SECTION_INSTALLED = new Map([
 ]);
 
 /**
+ * Templates whose installed artifact is a stanza merged into the harness config,
+ * not a file: template key -> { config, stamp }. `config` is repo-relative;
+ * `stamp` is a literal regex (never built from the declaration — declarations
+ * are estate input) matching the `//` comment form and the strict-JSON
+ * `_governance_install` key form alike, because both carry the same text.
+ */
+const STANZA_INSTALLED = new Map([
+  ['harness-enforcement.md', {
+    config: '.claude/settings.json',
+    stamp: /governance-install:\s*harness-enforcement\.md\s+v(\d+\.\d+\.\d+)/,
+  }],
+  ['harness-enforcement.opencode.md', {
+    config: 'opencode.json',
+    stamp: /governance-install:\s*harness-enforcement\.opencode\.md\s+v(\d+\.\d+\.\d+)/,
+  }],
+]);
+
+/**
  * Candidate on-disk locations for a declaration, in resolution order: the
  * declaration itself (repo-relative dialect), then the client-side install
  * location derived from the template key (template-relative dialect).
@@ -232,44 +268,75 @@ for (const { repo, path } of repos) {
     const key = toTemplateKey(expanded);
     if (!key) continue; // adapted/local artifact, not a tracked template
 
-    const cand = installCandidates(expanded, key).find((c) => existsSync(c.startsWith('/') ? c : join(path, c)));
-    if (!cand) {
-      if (SECTION_INSTALLED.has(key)) {
-        const sec = SECTION_INSTALLED.get(key);
-        if (!sec.present.test(md)) {
-          findings.push({
-            sev: 'MISMATCH',
-            repo,
-            msg: `declares ${declaredPath} v${declaredVer} but the ${key} section is absent from CLAUDE.md — a clean bill of health it has not got`,
-          });
-          continue;
-        }
-        const stamped = md.match(sec.stamp)?.[1] ?? null;
-        if (!stamped) {
-          findings.push({
-            sev: 'NOSTAMP',
-            repo,
-            msg: `declares ${declaredPath} v${declaredVer} — installed as a CLAUDE.md section, which carries no version stamp; the declaration cannot be verified`,
-          });
-          continue;
-        }
-        if (stamped !== declaredVer) {
-          findings.push({ sev: 'MISMATCH', repo, msg: `declares ${declaredPath} v${declaredVer} but the installed CLAUDE.md section stamps v${stamped}` });
-          continue;
-        }
-        const latest = current.get(key);
-        if (latest && latest !== declaredVer) {
-          findings.push({ sev: 'BEHIND', repo, msg: `${declaredPath} at v${declaredVer}, template is v${latest}` });
-        }
+  const cand = installCandidates(expanded, key).find((c) => existsSync(c.startsWith('/') ? c : join(path, c)));
+  if (!cand) {
+    if (SECTION_INSTALLED.has(key)) {
+      const sec = SECTION_INSTALLED.get(key);
+      if (!sec.present.test(md)) {
+        findings.push({
+          sev: 'MISMATCH',
+          repo,
+          msg: `declares ${declaredPath} v${declaredVer} but the ${key} section is absent from CLAUDE.md — a clean bill of health it has not got`,
+        });
         continue;
       }
-      findings.push({
-        sev: 'MISMATCH',
-        repo,
-        msg: `declares ${declaredPath} v${declaredVer} but no file resolves under either declaration dialect — a clean bill of health it has not got`,
-      });
+      const stamped = md.match(sec.stamp)?.[1] ?? null;
+      if (!stamped) {
+        findings.push({
+          sev: 'NOSTAMP',
+          repo,
+          msg: `declares ${declaredPath} v${declaredVer} — installed as a CLAUDE.md section, which carries no version stamp; the declaration cannot be verified`,
+        });
+        continue;
+      }
+      if (stamped !== declaredVer) {
+        findings.push({ sev: 'MISMATCH', repo, msg: `declares ${declaredPath} v${declaredVer} but the installed CLAUDE.md section stamps v${stamped}` });
+        continue;
+      }
+      const latest = current.get(key);
+      if (latest && latest !== declaredVer) {
+        findings.push({ sev: 'BEHIND', repo, msg: `${declaredPath} at v${declaredVer}, template is v${latest}` });
+      }
       continue;
     }
+    if (STANZA_INSTALLED.has(key)) {
+      const stanza = STANZA_INSTALLED.get(key);
+      const cfgRel = stanza.config;
+      const cfgAbs = join(path, cfgRel);
+      if (!existsSync(cfgAbs)) {
+        findings.push({
+          sev: 'MISMATCH',
+          repo,
+          msg: `declares ${declaredPath} v${declaredVer} but ${cfgRel} does not exist — a clean bill of health it has not got`,
+        });
+        continue;
+      }
+      const stamped = readFileSync(cfgAbs, 'utf8').match(stanza.stamp)?.[1] ?? null;
+      if (!stamped) {
+        findings.push({
+          sev: 'NOSTAMP',
+          repo,
+          msg: `declares ${declaredPath} v${declaredVer} but ${cfgRel} carries no "governance-install: ${key} v…" stamp (comment or _governance_install key) — the declaration cannot be verified`,
+        });
+        continue;
+      }
+      if (stamped !== declaredVer) {
+        findings.push({ sev: 'MISMATCH', repo, msg: `declares ${declaredPath} v${declaredVer} but the ${cfgRel} stanza stamps v${stamped}` });
+        continue;
+      }
+      const latest = current.get(key);
+      if (latest && latest !== declaredVer) {
+        findings.push({ sev: 'BEHIND', repo, msg: `${declaredPath} at v${declaredVer}, template is v${latest}` });
+      }
+      continue;
+    }
+    findings.push({
+      sev: 'MISMATCH',
+      repo,
+      msg: `declares ${declaredPath} v${declaredVer} but no file resolves under either declaration dialect — a clean bill of health it has not got`,
+    });
+    continue;
+  }
     const abs = cand.startsWith('/') ? cand : join(path, cand);
     const actual = stampOf(readFileSync(abs, 'utf8'), isFm(abs));
     if (!actual) {
