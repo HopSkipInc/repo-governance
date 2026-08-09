@@ -238,15 +238,18 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | `design-lenses-records.md` | design-lenses is applied | P1 | The per-repo evidence file — retroactive naming pass, lens log with forced fits, local claim-class extensions. Never syncs after install; extensions feed the upstream promotion sweep | full |
 | `skills/lens-sweep/` | design-lenses is applied | P1 | The application pass, run in a separate session from the ADR's authoring session — proposes Lens lines with evidence trails; proposes, never applies | full |
 | `scripts/check-design-lens.mjs` | design-lenses is applied | P1 | Mechanical floor — Lens line present, class valid against table + extensions, `checked:` paths exist, confirmations carry a consequence | full |
-| **`system-map.md`** | Always | P2 | Generated system-map policy — CI owns `graphify-out/`, humans own prose; publishing rules (never anonymous static hosting); pinned supply chain; the estate merge contract | core |
-| **`workflows/graphify-report.yml`** | `system-map.md` is applied | P2 | GENERATOR companion — keeps `graphify-out/` fresh on push; pinned `graphifyy` install, code-only extraction, serialized bot commit-back | core |
+| **`system-map.md`** | Always | P2 | Generated system-map policy — in-session regeneration owns `graphify-out/` (no CI: commit-back deadlocks against required status checks), humans own prose; publishing rules (never anonymous static hosting); pinned supply chain with fixed `PYTHONHASHSEED`; audit freshness probe; the estate merge contract | core |
 | **`harness-enforcement.md`** | CLAUDE.md exists **and** the team runs Claude Code | P1 | Permission-deny stanza — records-file protection + secrets hygiene, enforced by the harness pre-action, not by instructions. Path register is installer-filled from the repo's own CLAUDE.md records paragraph (PDR-004 — no shadow mirror). Ships with a binding demonstration in the installing PR; presence is linted by `check-enforcement-stanzas.mjs` | full |
 | **`harness-enforcement.opencode.md`** | CLAUDE.md or AGENTS.md exists **and** the team runs opencode | P1 | opencode variant of the same stanza — `permission.edit`/`read` path rules, last-match-wins ordering documented (catch-all first). Install instead of — not alongside — the Claude Code variant on an opencode-only team; both on a mixed team | full |
 | **`scripts/check-enforcement-stanzas.mjs`** | a `harness-enforcement*` variant is applied | P1 | The install-assertion half — a stanza cannot report its own absence. Register-driven (`docs/enforcement-stanzas-register.md`); fails closed on a missing register; blocking UNREGISTERED when a CLAUDE.md-listed records file has no register entry; catches the opencode catch-all-ordering mistake statically | full |
 
 **Bolded rows were added 2026-07-24**, when `check-analyze-repo-coverage.mjs` found the matrix
 named 13 of 36 templates. Everything bold was previously unreachable via `/analyze-repo`.
-The two `graphify` rows were added 2026-08-07 alongside the templates they ship.
+The two `graphify` rows were added 2026-08-07 alongside the templates they shipped. The
+`workflows/graphify-report.yml` row was removed 2026-08-09 when the template was deleted:
+its CI commit-back proved unlandable in any repo with required status checks (field
+report: enrichment-pipeline PRs #474/#475), so freshness moved to in-session regeneration
+under `system-map.md` v2.0.0.
 The two `harness-enforcement` rows were added 2026-08-08 alongside the templates they
 ship (issue #<36>); the `check-enforcement-stanzas.mjs` row landed with its lint the
 same day (issue #<37>).
