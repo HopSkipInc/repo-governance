@@ -3,11 +3,25 @@
 **Applies to:** all governed repos, both `full` and `core` adoption class.
 **Supersedes:** `2026-08-07-graphify-system-maps.md` — **do not apply the v1 prompt.** Any
 repo that installed it takes step 0 below.
-**Policy version to install:** `templates/system-map.md` v2.0.0 or later — read the stamp,
+**Policy version to install:** `templates/system-map.md` v2.1.0 or later — read the stamp,
 do not assume.
 **Templates:** `templates/system-map.md`. (The v1 workflow template
 `templates/workflows/graphify-report.yml` is deleted. Nothing replaces it in CI — that is
 the point.)
+
+> **CORRECTED 2026-08-10, before any repo applied it.** Two changes, repo-governance
+> #72 and #75. Read the corrected text, not the original intent.
+>
+> 1. **The pin now carries the SQL extra** (`graphifyy[sql]==0.9.35`, steps 4 and 5).
+>    Without it every `.sql` file in your repo extracts to nothing. SQL coverage is
+>    **file-level inventory only** — symbol nodes and SQL-sourced edges are untrusted on
+>    both estate dialects (policy §Extraction mode records why). Repos with no `.sql`
+>    files: the extra changes nothing for you; apply anyway so the estate stays on one pin.
+> 2. **Step 5's determinism check can never pass as originally written.** The first run
+>    is always the fresh code path and the second always incremental, and graphifyy
+>    0.9.35 serializes `graph.json` keys differently between those paths — parsed-equal,
+>    byte-different (#72, hit on the first real install). The check now verifies steady
+>    state: one warm-up cycle, then cycles 2 and 3 must be byte-identical.
 
 ## Why the redesign
 
@@ -62,7 +76,8 @@ synced-templates table if one was declared.
 cp ~/repos/HopSkipInc/repo-governance/templates/system-map.md docs/system-map.md
 ```
 
-Confirm the stamp reads ≥ v2.0.0 and §Regeneration rule names the current `graphifyy` pin.
+Confirm the stamp reads ≥ v2.1.0 and §Regeneration rule names the current `graphifyy[sql]`
+pin.
 Declare (or keep) the `docs/system-map.md` row in the synced-templates table.
 
 **2. Add `.graphifyignore` if needed.** Unchanged from v1: `.gitignore` is respected
@@ -88,34 +103,58 @@ target repo's `CLAUDE.md` natively; opencode sessions read `AGENTS.md`):
 Before committing any change that touches code files, regenerate the system map and
 commit `graphify-out/` with the same change:
 
-    PYTHONHASHSEED=0 uvx --from 'graphifyy==0.9.35' graphify extract . --code-only
-    PYTHONHASHSEED=0 uvx --from 'graphifyy==0.9.35' graphify cluster-only . --no-label
+    PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify extract . --code-only
+    PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify cluster-only . --no-label
 
 Then read the delta (`git diff --stat graphify-out/`) — the shape change is context for
 your work. `PYTHONHASHSEED=0` is required: community detection is non-deterministic
 without it. Never hand-edit `graphify-out/`; conflicts there are regenerated, never
-hand-resolved. Full policy: docs/system-map.md.
+hand-resolved. SQL coverage is file-level inventory only — do not trust SQL symbol nodes
+or SQL-sourced edges (docs/system-map.md §Extraction mode says why). Full policy:
+docs/system-map.md.
 ```
 
 Do **not** run `graphify claude install` / `graphify opencode install` — the tool's own
 platform installers write unmanaged agent-instruction sections and hooks. The block above
 is the only sanctioned install.
 
-**5. First regeneration, with the determinism check.** Run the two commands, then prove
-byte-stability before committing:
+**5. First regeneration, with the determinism check.** Verify **steady state**, not the
+fresh→incremental transition: graphifyy 0.9.35 serializes `graph.json` keys differently
+between the fresh and incremental code paths (parsed-equal, byte-different — repo-governance
+#72), and a first install always runs fresh first. Run one warm-up cycle, discard it, then
+prove cycles 2 and 3 byte-identical:
 
 ```bash
-PYTHONHASHSEED=0 uvx --from 'graphifyy==0.9.35' graphify extract . --code-only
-PYTHONHASHSEED=0 uvx --from 'graphifyy==0.9.35' graphify cluster-only . --no-label
+# warm-up (fresh path) — discard its output
+PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify extract . --code-only
+PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify cluster-only . --no-label
+# cycle 2 — the baseline
+PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify extract . --code-only
+PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify cluster-only . --no-label
 cp -r graphify-out /tmp/graphify-verify
-PYTHONHASHSEED=0 uvx --from 'graphifyy==0.9.35' graphify extract . --code-only
-PYTHONHASHSEED=0 uvx --from 'graphifyy==0.9.35' graphify cluster-only . --no-label
+# cycle 3 — must match cycle 2 byte-for-byte
+PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify extract . --code-only
+PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify cluster-only . --no-label
 diff -r /tmp/graphify-verify graphify-out   # must be empty
 ```
 
-Any diff at all: stop and report to repo-governance — the determinism assumption this
-policy stands on has broken (tool version, transitive dependency, or platform). Otherwise
-commit `graphify-out/` in the PR that applies this prompt, along with the README line:
+Any diff at all between cycles 2 and 3: stop and report to repo-governance — the
+determinism assumption this policy stands on has broken (tool version, transitive
+dependency, or platform).
+
+Two expected observations on the first extraction, neither an alarm:
+
+- **No `tree_sitter_sql not installed` warning.** If your repo has `.sql` files, the run
+  output's node/edge/community counts jump — that is the SQL corpus entering the graph
+  for the first time (measured on the estate's SQL-heaviest repo: +740 nodes, +467 edges,
+  communities 201→483, extract 3.8s→7.2s). Read the delta; it's the map seeing a layer it
+  was blind to. SQL symbols will include mangled labels like `sourcing].[affiliates` —
+  expected, recorded as untrusted in policy §Extraction mode.
+- If your repo has no `.sql` files, the counts should barely move. If they move a lot,
+  look at what the extractor newly classified as code — that read is the point of the
+  step.
+
+Commit `graphify-out/` in the PR that applies this prompt, along with the README line:
 
 ```markdown
 - **System map** (generated): [graphify-out/GRAPH_REPORT.md](graphify-out/GRAPH_REPORT.md)
