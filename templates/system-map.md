@@ -1,8 +1,8 @@
-<!-- template: system-map.md v2.0.0 · updated 2026-08-09 -->
+<!-- template: system-map.md v2.1.0 · updated 2026-08-10 -->
 # Generated System Maps
 
 **Status:** Policy — conventions verified by audit sweep
-**Last updated:** 2026-08-09
+**Last updated:** 2026-08-10
 
 ## Purpose
 
@@ -78,8 +78,8 @@ automation that pushes.
 - **How** (the block the downstream prompt installs into agent instructions):
 
   ```bash
-  PYTHONHASHSEED=0 uvx --from 'graphifyy==0.9.35' graphify extract . --code-only
-  PYTHONHASHSEED=0 uvx --from 'graphifyy==0.9.35' graphify cluster-only . --no-label
+  PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify extract . --code-only
+  PYTHONHASHSEED=0 uvx --from 'graphifyy[sql]==0.9.35' graphify cluster-only . --no-label
   git add graphify-out/   # the map rides the same commit as the code change
   ```
 
@@ -135,17 +135,37 @@ is opt-in per repo via a future governance prompt — never by local edit. Commu
 is the one LLM call in the toolchain; `--no-label` keeps it out, so placeholder names
 (`Community N`) in the report are expected, not a defect.
 
+**SQL coverage is file-level inventory only — the symbol layer is untrusted.** The pinned
+install carries the `[sql]` extra so that `.sql` files enter the graph as file nodes
+(estate survey, 2026-08-10: every governed repo but infra-ops holds a SQL corpus, and
+analytics-infrastructure's is its center of gravity). What the grammar
+(derekstride/tree-sitter-sql) cannot do is parse the estate's dialects: T-SQL bracketed
+identifiers and `CREATE OR ALTER` parse through ERROR nodes (0.4% of one repo's corpus
+parses clean), and Postgres `DO $$` / `ON CONFLICT` fare little better (16% clean). The
+consequences, accepted on the record: SQL **symbol** nodes are mostly mangled labels
+(`sourcing].[affiliates`), SQL-sourced `reads_from` edges dangle to never-created nodes,
+and occasional `references` edges are name-collision noise. File nodes are sound —
+inventory, community membership, freshness signal. Do not answer dependency questions
+("what reads this table") from SQL symbols or edges. If the grammar improves, the
+unfloored dependency floats the fix in on the next regeneration and this note gets
+revisited.
+
 ## Supply chain
 
-The pinned install is `uvx --from 'graphifyy==<pinned>'` — an exact version, managed by
-this template's stamp. Bumps arrive via repo-governance downstream sync, not local edits,
-so the estate upgrades in one move instead of drifting into N versions. Never float
-`latest`. Two accepted properties, on the record: `uvx` resolves transitive dependencies
-at run time, so a transitive bump can reshuffle community assignments once (a one-time
-delta, then it restabilizes — a per-repo lockfile costs more than that noise); and any
-version bump re-verifies determinism with the double-run diff from the downstream prompt
-before rolling out. (2026-08 Shai-Hulud: the estate survived an npm worm because every CI
-install was lockfile-bound. The pin is that discipline applied to a non-CI install.)
+The pinned install is `uvx --from 'graphifyy[sql]==<pinned>'` — an exact version with the
+SQL extra, managed by this template's stamp. Bumps arrive via repo-governance downstream
+sync, not local edits, so the estate upgrades in one move instead of drifting into N
+versions. Never float `latest`. Three accepted properties, on the record: `uvx` resolves
+transitive dependencies at run time, so a transitive bump can reshuffle community
+assignments once (a one-time delta, then it restabilizes — a per-repo lockfile costs more
+than that noise); the extra's one added dependency, `tree-sitter-sql`, is declared
+**unfloored** upstream, so a grammar release can shift SQL parse shape between runs with
+no pin bump (the same mechanism floats grammar *fixes* in free — accepted, because the
+alternative is pinning a grammar whose T-SQL support we want to improve underneath us);
+and any version bump re-verifies determinism with the double-run diff from the downstream
+prompt before rolling out. (2026-08 Shai-Hulud: the estate survived an npm worm because
+every CI install was lockfile-bound. The pin is that discipline applied to a non-CI
+install.)
 
 ## Freshness probe (audit, not CI)
 
