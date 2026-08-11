@@ -1,4 +1,4 @@
-// template: scripts/check-enforcement-stanzas.mjs v1.0.1 · updated 2026-08-09
+// template: scripts/check-enforcement-stanzas.mjs v1.1.0 · updated 2026-08-11
 /**
  * lint:enforcement-stanzas  [TEMPLATE — ships to governed repos]
  *
@@ -29,7 +29,10 @@
  *
  *   MISSING        a registered harness's config file does not exist
  *   UNSTAMPED      the config carries no governance-install stamp for the stanza
- *   MALFORMED      the config does not parse
+ *   MALFORMED      the config does not parse IN ITS OWN HARNESS'S DIALECT — strict
+ *                  JSON for .claude/settings.json, JSONC for opencode.json. Parsing
+ *                  both as JSONC (v1.0.1) accepted files Claude Code discards whole,
+ *                  reporting a stanza as present while nothing was enforced
  *   MISSING-RULE   a required rule is absent — records paths accept `deny` or `ask`
  *                  (the register records which mode the repo runs; ask auto-rejects
  *                  headless, demonstrated 2026-08-08 both harnesses); secrets paths
@@ -131,11 +134,30 @@ const paragraphExemptions = registerText.includes('## Paragraph exemptions')
 
 // ------------------------------------------------------- config file parsing
 
-/** Parse a JSONC-tolerant config: strips full-line and trailing `//` comments.
+/** Parse a config in its own harness's dialect — NOT uniformly JSONC.
+ *
+ *  This distinction is load-bearing and was learned the expensive way. v1.0.1
+ *  parsed both configs as JSONC, which meant it validated a `.claude/settings.json`
+ *  that Claude Code itself refuses to load: that loader is strict JSON and discards
+ *  the whole file on a comment, voiding every rule in it. The lint reported a
+ *  complete, correctly-ordered, stamped stanza while nothing was enforced
+ *  (analytics-infrastructure #437, one day green, found by a startup warning and
+ *  not by this lint). A presence lint that accepts input the harness rejects is
+ *  the fail-open it exists to detect.
+ *
+ *  So: strict JSON for Claude Code, JSONC for opencode (which does tolerate
+ *  comments, and whose closed startup schema rejects the key form instead).
+ *  Keep this per-harness for as long as the harnesses disagree. */
+function parseHarnessConfig(harness, path) {
+  const raw = readFileSync(path, 'utf8');
+  if (harness === 'claude-code') return JSON.parse(raw);
+  return parseJsonc(raw);
+}
+
+/** Strip full-line and trailing `//` comments, then parse.
  *  Limitation: a `//` inside a string value would be misread — no plausible
  *  permission rule carries one; path patterns never do. */
-function parseJsonc(path) {
-  const raw = readFileSync(path, 'utf8');
+function parseJsonc(raw) {
   const stripped = raw
     .split('\n')
     .map((line) => {
@@ -178,15 +200,22 @@ for (const harness of harnesses) {
   if (!raw.includes('governance-install: harness-enforcement')) {
     findings.push({
       sev: 'UNSTAMPED',
-      msg: `${HARNESS_CONFIG[harness]} carries no "governance-install: harness-enforcement" stamp comment — the stamp is how install drift is detected; keep it when installing (a // comment; the _governance_install key form is Claude Code settings.json-only — fatal in opencode.json, which schema-validates config at startup)`,
+      msg: `${HARNESS_CONFIG[harness]} carries no "governance-install: harness-enforcement" stamp — the stamp is how install drift is detected; keep it when installing. Form is per harness: .claude/settings.json takes a "_governance_install" string key whose VALUE carries the full stamp text (that file is strict JSON — a // comment there voids the entire stanza); opencode.json takes a // comment (the key form is fatal there, schema-validated at startup)`,
     });
   }
 
   let config;
   try {
-    config = parseJsonc(configPath);
+    config = parseHarnessConfig(harness, configPath);
   } catch (err) {
-    findings.push({ sev: 'MALFORMED', msg: `${HARNESS_CONFIG[harness]} does not parse: ${err.message}` });
+    const hint =
+      harness === 'claude-code' && /^\s*\/\//m.test(raw)
+        ? ' — this file contains a "//" comment and Claude Code parses it as STRICT JSON: the whole file is discarded and every rule in the stanza is inert. Move the governance-install stamp into a "_governance_install" string key (harness-enforcement.md v1.1.0+)'
+        : '';
+    findings.push({
+      sev: 'MALFORMED',
+      msg: `${HARNESS_CONFIG[harness]} does not parse as ${harness === 'claude-code' ? 'strict JSON' : 'JSONC'}: ${err.message}${hint}`,
+    });
     continue;
   }
 

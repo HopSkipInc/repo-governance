@@ -52,8 +52,13 @@ const register = (harnessRows = [], pathRows = [], exemptionRows = null) =>
       exemptionRows.map((r) => `| ${BT}${r[0]}${BT} | ${r[1]} |`).join('\n') +
       '\n');
 
+// Claude Code parses .claude/settings.json as STRICT JSON — the stamp is a
+// "_governance_install" key here, never a // comment. The comment form is the
+// v1.0.1 bug, and it has its own MALFORMED regression test below.
+const CLAUDE_STAMP = '  "_governance_install": "governance-install: harness-enforcement.md v1.1.0 · updated 2026-08-11",\n';
+
 const CLAUDE_CFG =
-  '{\n  // governance-install: harness-enforcement.md v1.0.0 · updated 2026-08-08\n' +
+  '{\n' + CLAUDE_STAMP +
   '  "permissions": {\n    "deny": [\n' +
   '      "Edit(docs/pdr/**)",\n      "Edit(docs/code-conventions.md)",\n' +
   '      "Read(./.env)",\n      "Read(./.env.*)",\n      "Read(**/.env)",\n      "Read(**/.env.*)",\n' +
@@ -104,7 +109,7 @@ test('enforcement: a missing harness config is a blocking MISSING', () => {
 test('enforcement: a deliberately-removed stamp fails CI naming the stanza', () => {
   const dir = fixture({
     'docs/enforcement-stanzas-register.md': register(BOTH, PATHS),
-    '.claude/settings.json': CLAUDE_CFG.replace('  // governance-install: harness-enforcement.md v1.0.0 · updated 2026-08-08\n', ''),
+    '.claude/settings.json': CLAUDE_CFG.replace(CLAUDE_STAMP, ''),
     'opencode.json': OPENCODE_CFG,
     'CLAUDE.md': CLAUDE_MD,
   });
@@ -112,6 +117,45 @@ test('enforcement: a deliberately-removed stamp fails CI naming the stanza', () 
   assert.equal(code, 1, out);
   assert.match(out, /UNSTAMPED/);
   assert.match(out, /governance-install: harness-enforcement/);
+});
+
+// The v1.0.1 regression, locked. That version parsed BOTH configs as JSONC, so a
+// `.claude/settings.json` carrying the stamp as a `//` comment cleared this lint
+// while Claude Code discarded the file whole and enforced none of it — a full day
+// of green CI over an inert stanza (analytics-infrastructure #437 → #449).
+// The comment form must now be MALFORMED, and the message must say why.
+test('enforcement: a // comment in .claude/settings.json is MALFORMED — Claude Code parses it as strict JSON', () => {
+  const commentStamped = CLAUDE_CFG.replace(
+    CLAUDE_STAMP,
+    '  // governance-install: harness-enforcement.md v1.0.0 · updated 2026-08-08\n',
+  );
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS),
+    '.claude/settings.json': commentStamped,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': CLAUDE_MD,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MALFORMED/);
+  assert.match(out, /does not parse as strict JSON/);
+  // the actionable half: name the cause and the fix, not just the parse error
+  assert.match(out, /every rule in the stanza is inert/);
+  assert.match(out, /_governance_install/);
+});
+
+// The mirror image: opencode IS JSONC-tolerant and rejects unknown keys at
+// startup, so the comment form is correct there and must keep clearing.
+test('enforcement: a // comment in opencode.json still clears — that harness is JSONC-tolerant', () => {
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': CLAUDE_MD,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK: every registered harness/);
 });
 
 test('enforcement: a missing records deny rule is a blocking MISSING-RULE naming it', () => {

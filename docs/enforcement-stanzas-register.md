@@ -15,7 +15,7 @@ blocking UNREGISTERED — registration is a decision, not a silence.
 
 | harness | config path | Since | Note |
 |---|---|---|---|
-| `claude-code` | `.claude/settings.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.md` v1.0.0 |
+| `claude-code` | `.claude/settings.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.md` v1.1.0 — stamp is a `"_governance_install"` string key, **not** a `//` comment: Claude Code parses this file as strict JSON and discards it entirely on a comment. This repo's own config carried the comment form from 2026-08-08 to 2026-08-11 and enforced nothing (v1.0.0 install; see the v1.1.0 template's stamp table). The `ask`/`deny` mode note that used to ride as a comment here lives in the mode paragraph at the bottom of this file, which was always its authoritative home |
 | `opencode` | `opencode.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.opencode.md` v1.0.0 — catch-all `"*": "allow"` first, denies after (last-match-wins) |
 
 ## Records paths
