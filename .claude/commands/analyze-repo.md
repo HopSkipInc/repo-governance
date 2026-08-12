@@ -232,6 +232,7 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | **`scripts/check-breaking-migrations.mjs`** | DB migration governance applied | P1 | A migration dropping/renaming a column must have zero remaining code references. Driven by a real outage | full |
 | **`scripts/check-schema-promises.mjs`** | DB migration governance applied | P1 | Sibling of the above — enforcement-bearing schema must have a consumer or a dormant register entry | full |
 | **`scripts/lint-stub-tests.mjs`** | npm `test`/`test:*` scripts exist | P2 | Catches false-green CI. Ships in report mode; promote to gate once clean | full |
+| **`scripts/check-weakened-verification.mjs`** | Repo has an automated test suite **and** CI can supply a base ref | P1 | The only mechanical check on weakened verification (`agent-routing.md` anti-pattern 7) — a workaround with a *negative* diff, which no pattern lint can see. Reads the net assertion/skip delta and clears on a `testing-strategy.md` §6 row or a `VERIFICATION-DELTA:` line. Language-agnostic by convention, not by parsing; ships in report mode, promote to gate after one audit cycle | full |
 | **`scripts/check-magic-strings.mjs`** | TypeScript repo | P2 | Value duplicating an exported alias without importing it | full |
 | **`scripts/check-inline-type-unions.mjs`** | TypeScript repo | P2 | Type-level sibling of the above | full |
 | **`scripts/check-duplicated-sql.mjs`** | TypeScript repo **and** inline SQL | P2 | Same query inlined in 2+ files instead of a registry | full |
