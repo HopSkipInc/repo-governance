@@ -119,9 +119,18 @@ Before implementing an issue:
    would need, and stop.
 3. If the label or the kind is missing, do not implement. Comment and stop.
 4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
-   same failing test; creating a file type with no precedent here; touching a migration
-   that drops or renames; no existing test covers the surface you are changing; the diff
-   exceeds **10 files**; or you are about to overwrite a records file listed above.
+   same failing test; **coding around a blocker instead of removing it** — a fallback,
+   default, retry, cast, or broad catch you would not have written had the call worked;
+   **weakening a test, assertion, or matcher to reach green**; creating a file type with
+   no precedent here; touching a migration that drops or renames; no existing test covers
+   the surface you are changing; the diff exceeds **10 files**; or you are about to
+   overwrite a records file listed above.
+
+   **Stopping means the edit does not land and the turn ends.** A question you then answer
+   yourself two paragraphs later is not a stop — it is the workaround applied to the stop
+   rule, and it is the observed way this condition fails. A degradation that is genuinely
+   the right call gets declared and countersigned by a human; it is never merged on your
+   own reading of your own question.
 
 Delegating is dispatching. When you hand implementation work on a tiered issue to a
 subagent, you become the dispatcher for that unit of work: check the subagent's

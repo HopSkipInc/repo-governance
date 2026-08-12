@@ -1,4 +1,4 @@
-<!-- template: definition-of-done.md v1.3.0 · updated 2026-08-08 -->
+<!-- template: definition-of-done.md v1.4.0 · updated 2026-08-12 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit
@@ -81,11 +81,15 @@ Every piece of work has a type. A thing is done when the row for its type is ful
 - [ ] Any new "Known Gaps" entry has a severity label and a tracking issue number; "Known Gap" without a tracking issue is not acceptable
 - [ ] If the feature introduces a new pattern that could be violated: a lint ships in the same PR, wired into both the project's local check command and CI
 - [ ] <!-- [PROPOSED from source repo; TypeScript repos] --> No new magic string or inline type union duplicates an existing exported alias, and no new SQL query duplicates an existing one instead of being centralized — see `templates/scripts/check-magic-strings.mjs`, `check-inline-type-unions.mjs`, `check-duplicated-sql.mjs`
+- [ ] **No undeclared degradation.** Every branch that returns a fallback, a default, an empty value, or swallows an error carries a declaration on the adjacent line — `DEGRADED: trigger=<domain condition> observed-by=<metric | alert | log consumer | test>` — and **the named observer actually exists**. A degradation path you cannot state a domain trigger for is not a fallback, it is a workaround: stop and ask, do not merge it
+- [ ] **Verification did not decrease.** No assertion removed, matcher loosened, test skipped, or `.only` left behind in order to reach green. `lint:weakened-verification` reads the net assertion and skip delta across the diff and clears only on a record — a `docs/testing-strategy.md` §6 row naming the property that stopped being verified, or a `VERIFICATION-DELTA: <reason>` line — see `templates/scripts/check-weakened-verification.mjs`
 - [ ] If a required field is added to a shared interface or contract: every doc and onboarding guide that shows example objects of that interface is updated in the same PR
 - [ ] If this closes a tracked issue: `Fixes #N` is in the PR description — GitHub closes the issue automatically on merge
 - [ ] <!-- delete if no docs/pdr/ --> `Serves: PDR-NNN` in the PR description names the bet this feature advances — **or** `Serves: none` with a one-line reason. Both are legitimate; saying nothing is not
 
 > **Why this rule exists:** [Fill in with your own incident. Example: "A new dispatch path shipped with no integration test. A database constraint and a type cast both passed CI — the unit tests mocked the layer where both lived — and broke in production."]
+>
+> **Why the degradation rule exists:** [Fill in with your own incident. The shape to look for: a `catch` that returned an empty list, written by an implementer on its third attempt at a call that would not work, merged green, and found months later when a caller that had never seen a real failure read the empty list as "no results". The same characters are correct engineering when the trigger is a named domain condition and something watches it fire — which is why the rule is about the **declaration**, not the syntax. Nothing reads intent out of a diff, so a missing declaration is the only observable there is. Note also which half is load-bearing: the required field is `observed-by`, because a trigger can be invented in four words while an observer has to exist somewhere else in the repo. That asymmetry is the only thing standing between this rule and a comment every branch grows and nobody reads.]
 >
 > **Why `Serves:` allows "none":** an escape hatch cheaper than lying is what keeps the field honest. A mandatory field with no out gets filled with whatever passes review, and then the traceability is worse than useless because it looks real. The rate of `Serves: none` is the signal — a few is healthy, a majority means the PDR corpus doesn't describe what the team is actually building.
 
@@ -96,6 +100,7 @@ Every piece of work has a type. A thing is done when the row for its type is ful
 - [ ] Fix is in place
 - [ ] **Regression test** at the same level the bug manifested (unit if caught by mocks, integration if it required a real data store) — exercising the function that actually failed, not just a sub-component it delegates to
 - [ ] Root cause documented in the commit message — what assumption was wrong, not just what changed
+- [ ] **The fix removes the cause, not the symptom.** No retry, sleep, widened cast, broadened catch, or loosened assertion standing in for the fix. If the cause is genuinely out of reach, the PR says so in those words and the mitigation is declared per the Feature section's degradation rule and countersigned by a human — an undeclared workaround merged as a bug fix closes the issue and keeps the bug
 - [ ] If the bug exposed a missing lint: either the lint ships in the same PR, or a P0 issue is filed and linked
 - [ ] <!-- delete if no docs/testing-strategy.md --> If the bug lived on a surface listed in `docs/testing-strategy.md` §6 (properties no test verifies at all): the regression test closes that line, or the line is updated with why it still stands. A silent failure that actually fired is the strongest evidence that section will ever produce
 - [ ] `Fixes #N` is in the PR description — GitHub closes the tracking issue automatically on merge

@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.11.0 · updated 2026-08-05 -->
+<!-- template: agent-routing.md v1.12.0 · updated 2026-08-12 -->
 # Agent Routing
 
-**Version:** 1.11.0 · **Last updated:** 2026-08-05
+**Version:** 1.12.0 · **Last updated:** 2026-08-12
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -27,6 +27,7 @@
 | 1.8.0 | 2026-07-26 | **Decompose before tiering.** An escalation now requires a split proposal or a non-splittability statement. Frontier *ratio* separated from inherent *population*; decomposition debt added as a signal; per-repo target ramp (20% → 10%). Measured across three live backlogs: 76% above-standard, 2 splits in 38 escalations, zero `both` in 33 client-repo calls |
 | 1.9.0 | 2026-07-26 | **Policy and records split into two files** — `docs/agent-routing.md` (syncs, `diff -q`-verifiable) and `docs/agent-routing-records.md` (never syncs). The old single-file shape told repos to append records to the file the checklist verified was identical to the template; every repo that ran a triage failed it permanently and the obvious fix was deleting its own calibration set. Model→class mapping split into class←model and model→harness-route, so a slug rename stops reading as a capability change |
 | 1.10.0 | 2026-07-27 | **Coverage is the fourth response.** An escalation resting on the uncovered-surface signal now requires a coverage record — a linked gap issue or a statement that the property is not testable. Ties the tier to `docs/testing-strategy.md` §2/§6 instead of to a triager's impression of the test suite. The one response that lowers the tier of every *future* issue on the surface, not just this one |
+| 1.12.0 | 2026-08-12 | **Do not code around a blocker.** Two stop conditions added to the layer-1 contract — coding around a blocker instead of removing it, and weakening a test to reach green — plus the sentence that makes a stop mean something: the edit does not land and the turn ends, because a question the implementer then answers itself is the workaround applied to the stop rule. Anti-pattern 7 gains its first mechanical half (`check-weakened-verification.mjs`, net assertion/skip delta across a diff), and states why a pattern lint was never going to work: a weakened test is the one workaround with a negative diff |
 | 1.11.0 | 2026-08-05 | **Delegation is dispatch.** Layer 1's duties made second-person for the two dispatch shapes that already exist: an interactive driver spawning subagents (the driver is the dispatcher; the delegation prompt is the launch, and it carries the capability budget — tier, kind, reason, stop conditions, scope ceiling) and fleet dispatch (enumerated rows, claim-of-record on the issue, waves from the epic table, deploy gates as wave boundaries, `Not splittable:` as a parallelism constraint). The policy spoke about dispatchers in the third person while every task-tool harness was already dispatching |
 
 ## Purpose
@@ -774,9 +775,17 @@ Before implementing an issue:
    would need, and stop.
 3. If the label or the kind is missing, do not implement. Comment and stop.
 4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
-   same failing test; creating a file type with no precedent here; touching a migration
-   that drops or renames; no existing test covers the surface you are changing; the diff
-   exceeds [N] files.
+   same failing test; **coding around a blocker instead of removing it** — a fallback,
+   default, retry, cast, or broad catch you would not have written had the call worked;
+   **weakening a test, assertion, or matcher to reach green**; creating a file type with
+   no precedent here; touching a migration that drops or renames; no existing test covers
+   the surface you are changing; the diff exceeds [N] files.
+
+   **Stopping means the edit does not land and the turn ends.** A question you then answer
+   yourself two paragraphs later is not a stop — it is the workaround applied to the stop
+   rule, and it is the observed way this condition fails. A degradation that is genuinely
+   the right call gets declared and countersigned by a human; it is never merged on your
+   own reading of your own question.
 
 Delegating is dispatching. When you hand implementation work on a tiered issue to a
 subagent, you become the dispatcher for that unit of work: check the subagent's
@@ -824,6 +833,17 @@ calibration examples are in `docs/agent-routing-records.md`.
    whose acceptance criteria include proving something can fail carries this exposure
    regardless of its tier — the mitigation is authoring (name the rule and the expected error;
    see [Issue Authoring](issue-authoring.md)), not escalation.
+
+   There is now one mechanical half, and it is worth understanding why it took this long.
+   Every other workaround an implementer writes — a fallback, a default, a cast, a broad
+   catch — lands as *added* lines, so a reviewer or a grep has something to see. Weakening a
+   test is the same move with a **negative** diff: a deleted assertion, a loosened matcher, a
+   `.skip` where a failure used to be. There is no string to search for, which is why no
+   pattern lint was ever going to find it. `scripts/check-weakened-verification.mjs` reads the
+   *net* assertion and skip delta across a diff instead, and clears on a record — a row in
+   `docs/testing-strategy.md` §6 naming the property that stopped being verified, or a
+   `VERIFICATION-DELTA:` justification in the diff. It ships in report mode; promote it to a
+   gate once one audit cycle has shown what it actually fires on.
 
 8. **Chasing the inherent *population* to zero.** `inherent` escalations are supposed to
    persist — a repo reporting zero has mislabeled its dangerous surfaces, not eliminated

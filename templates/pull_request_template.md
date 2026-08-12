@@ -1,4 +1,4 @@
-<!-- template: pull_request_template.md v1.0.0 · updated 2026-07-24 -->
+<!-- template: pull_request_template.md v1.1.0 · updated 2026-08-12 -->
 ## What this PR does
 
 <!-- One sentence. -->
@@ -13,6 +13,19 @@
 <!-- Features and epics only. Which bet does this advance? Write "Serves: PDR-NNN".
      If it advances none of them, write "Serves: none — <one-line reason>". That is a
      legitimate answer; saying nothing is not. Delete for bug fixes and chores. -->
+
+## Degradation
+
+<!-- Every fallback, default, retry, swallowed error, widened type, or disabled test this PR
+     adds — one line each: what condition triggers it, and what observes it firing.
+
+     Write "Degradation: none" if there are none. That is the common answer and a legitimate
+     one; saying nothing is not, because a blank section is indistinguishable from a section
+     nobody read.
+
+     If you cannot state a domain condition that triggers it, you do not have a fallback —
+     you have a workaround, and the trigger is "I could not get this to work." Stop and ask
+     before merging. -->
 
 ## Type
 
@@ -36,6 +49,8 @@
 
 ### All PRs
 - [ ] CI passes locally
+- [ ] The **Degradation** section above is filled in — every fallback names its trigger and its observer, or it reads `Degradation: none`
+- [ ] No verification was weakened to reach green — no assertion removed, matcher loosened, test skipped, or `.only` left behind. If verification did decrease legitimately: a `docs/testing-strategy.md` §6 row names the property that stopped being verified, or the diff carries a `VERIFICATION-DELTA: <reason>` line
 - [ ] `CLAUDE.md` updated if it describes something this PR changes
 - [ ] No doc section contradicts another in this PR or in linked docs
 - [ ] If a CI workflow was added or modified: it is correctly a **gate** (deterministic, blocks merge) or a **probe** (monitors reality, never blocks) — steps sensitive to transient upstream failures belong in probes, not merge gates
