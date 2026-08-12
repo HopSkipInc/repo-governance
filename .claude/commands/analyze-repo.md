@@ -240,7 +240,8 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | `design-lenses-records.md` | design-lenses is applied | P1 | The per-repo evidence file — retroactive naming pass, lens log with forced fits, local claim-class extensions. Never syncs after install; extensions feed the upstream promotion sweep | full |
 | `skills/lens-sweep/` | design-lenses is applied | P1 | The application pass, run in a separate session from the ADR's authoring session — proposes Lens lines with evidence trails; proposes, never applies | full |
 | `scripts/check-design-lens.mjs` | design-lenses is applied | P1 | Mechanical floor — Lens line present, class valid against table + extensions, `checked:` paths exist, confirmations carry a consequence | full |
-| **`system-map.md`** | Always | P2 | Generated system-map policy — in-session regeneration owns `graphify-out/` (no CI: commit-back deadlocks against required status checks), humans own prose; publishing rules (never anonymous static hosting); pinned supply chain with fixed `PYTHONHASHSEED`; audit freshness probe; the estate merge contract | core |
+| **`system-map.md`** | Always | P2 | Generated system-map policy — in-session regeneration for the delta read (commit nothing on working branches); the committed map has a single writer, the `chore/graphify-refresh` lane, driven by the audit freshness probe; publishing rules (never anonymous static hosting); pinned supply chain with fixed `PYTHONHASHSEED`; the estate merge contract | core |
+| **`scripts/check-system-map-lane.mjs`** | system-map.md is applied | P2 | The lane gate — R1: only `chore/graphify-refresh*`/`chore/graphify-install` branches may touch `graphify-out/**`; R2: refresh branches touch nothing else. Fails closed when branch or change set is indeterminable. Keeps the single-writer invariant a CI gate instead of a convention | core |
 | **`harness-enforcement.md`** | CLAUDE.md exists **and** the team runs Claude Code | P1 | Permission-deny stanza — records-file protection + secrets hygiene, enforced by the harness pre-action, not by instructions. Path register is installer-filled from the repo's own CLAUDE.md records paragraph (PDR-004 — no shadow mirror). Ships with a binding demonstration in the installing PR; presence is linted by `check-enforcement-stanzas.mjs` | full |
 | **`harness-enforcement.opencode.md`** | CLAUDE.md or AGENTS.md exists **and** the team runs opencode | P1 | opencode variant of the same stanza — `permission.edit`/`read` path rules, last-match-wins ordering documented (catch-all first). Install instead of — not alongside — the Claude Code variant on an opencode-only team; both on a mixed team | full |
 | **`scripts/check-enforcement-stanzas.mjs`** | a `harness-enforcement*` variant is applied | P1 | The install-assertion half — a stanza cannot report its own absence. Register-driven (`docs/enforcement-stanzas-register.md`); fails closed on a missing register; blocking UNREGISTERED when a CLAUDE.md-listed records file has no register entry; catches the opencode catch-all-ordering mistake statically | full |
@@ -251,7 +252,11 @@ The two `graphify` rows were added 2026-08-07 alongside the templates they shipp
 `workflows/graphify-report.yml` row was removed 2026-08-09 when the template was deleted:
 its CI commit-back proved unlandable in any repo with required status checks (field
 report: enrichment-pipeline PRs #474/#475), so freshness moved to in-session regeneration
-under `system-map.md` v2.0.0.
+under `system-map.md` v2.0.0. The `check-system-map-lane.mjs` row was added 2026-08-12
+with `system-map.md` v3.0.0: committing the map on every working branch made every pair
+of concurrent code PRs conflict in `graphify-out/**`, so the committed map moved to a
+single `chore/graphify-refresh` lane and the lint is what keeps every other branch off it
+(issue #<79>).
 The two `harness-enforcement` rows were added 2026-08-08 alongside the templates they
 ship (issue #<36>); the `check-enforcement-stanzas.mjs` row landed with its lint the
 same day (issue #<37>).
