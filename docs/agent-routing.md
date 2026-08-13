@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.12.0 · updated 2026-08-12 -->
+<!-- template: agent-routing.md v1.13.0 · updated 2026-08-13 -->
 # Agent Routing
 
-**Version:** 1.12.0 · **Last updated:** 2026-08-12
+**Version:** 1.13.0 · **Last updated:** 2026-08-13
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -28,6 +28,7 @@
 | 1.9.0 | 2026-07-26 | **Policy and records split into two files** — `docs/agent-routing.md` (syncs, `diff -q`-verifiable) and `docs/agent-routing-records.md` (never syncs). The old single-file shape told repos to append records to the file the checklist verified was identical to the template; every repo that ran a triage failed it permanently and the obvious fix was deleting its own calibration set. Model→class mapping split into class←model and model→harness-route, so a slug rename stops reading as a capability change |
 | 1.10.0 | 2026-07-27 | **Coverage is the fourth response.** An escalation resting on the uncovered-surface signal now requires a coverage record — a linked gap issue or a statement that the property is not testable. Ties the tier to `docs/testing-strategy.md` §2/§6 instead of to a triager's impression of the test suite. The one response that lowers the tier of every *future* issue on the surface, not just this one |
 | 1.12.0 | 2026-08-12 | **Do not code around a blocker.** Two stop conditions added to the layer-1 contract — coding around a blocker instead of removing it, and weakening a test to reach green — plus the sentence that makes a stop mean something: the edit does not land and the turn ends, because a question the implementer then answers itself is the workaround applied to the stop rule. Anti-pattern 7 gains its first mechanical half (`check-weakened-verification.mjs`, net assertion/skip delta across a diff), and states why a pattern lint was never going to work: a weakened test is the one workaround with a negative diff |
+| 1.13.0 | 2026-08-13 | **`gate:decision` gets its write path.** "Recorded as a PDR or ADR by a person" had drifted into "typed by a person" once the harness stanzas denied raw edits to records paths — an agent that could prepare the whole change could not publish the record of its decision. The label now says what was always meant: an agent drafts the record through the repo's mediated write path (`write-record.mjs`, issue #81); a person owns it at merge |
 | 1.11.0 | 2026-08-05 | **Delegation is dispatch.** Layer 1's duties made second-person for the two dispatch shapes that already exist: an interactive driver spawning subagents (the driver is the dispatcher; the delegation prompt is the launch, and it carries the capability budget — tier, kind, reason, stop conditions, scope ceiling) and fleet dispatch (enumerated rows, claim-of-record on the issue, waves from the epic table, deploy gates as wave boundaries, `Not splittable:` as a parallelism constraint). The policy spoke about dispatchers in the third person while every task-tool harness was already dispatching |
 
 ## Purpose
@@ -256,7 +257,7 @@ more per issue:
 | `gate:human-approval` | An agent may prepare the change; a human owns the irreversible step (prod data, money, outbound comms). |
 | `gate:human-review` | A judgment call no test settles — UX, prose, threat modelling. |
 | `gate:credentials` | The agent structurally cannot hold the keys. |
-| `gate:decision` | The outcome should be recorded as a PDR or ADR by a person before the code lands. |
+| `gate:decision` | The outcome should be recorded as a PDR or ADR before the code lands — an agent drafts the record through the repo's mediated write path; a person owns it at merge. |
 
 Without this family, "one-line config change on the tenant wall" has to be filed
 `impl:human`, which over-escalates the *implementation* in order to protect the *merge* —

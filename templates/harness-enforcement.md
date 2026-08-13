@@ -1,4 +1,4 @@
-<!-- template: harness-enforcement.md v1.1.0 · updated 2026-08-11 -->
+<!-- template: harness-enforcement.md v1.2.0 · updated 2026-08-13 -->
 # Harness enforcement — Claude Code settings stanza
 
 Two invariants, enforced by the harness before the action lands — not by the model, and
@@ -119,15 +119,54 @@ blocked with the denial recorded (`permission_denials` carries the Edit call —
 A repo running records paths at `ask` records the mode and the reason in
 `docs/enforcement-stanzas-register.md`. The assertion lint
 (`check-enforcement-stanzas.mjs`) accepts `deny` or `ask` for records rules and
-requires `deny` for secrets rules. The downgrade moves a rule from `deny` to `ask` —
-it never deletes one.
+requires `deny` for secrets rules. The downgrade moves a rule from `deny` to
+`ask` — it never deletes one.
+
+## Mediated write paths (v1.2.0, issue #81)
+
+The stanza gates paths, not intent — so left alone it cannot tell "agent
+creates ADR-063" from "agent `cp`s a blank form over ADR-022", and every
+records write becomes human hands (`deny`), a human keystroke (`ask`), or
+impossible (headless — `ask` auto-rejects, and a fleet worker has nobody to
+ask). "Human writes the ADR" is not a process. The remedy is a **mediated write
+path**, and it works *because* this stanza stays at full strength:
+
+- The repo ships a validating, append-only writer script —
+  `templates/scripts/write-record.mjs` — run via Bash. A subprocess is not
+  bound by `permissions.deny` (see the blind-spot limit below); that documented
+  gap is, here, the designed gate. `create` publishes a new numbered record
+  (number allocation, required-section validation, README registration, corpus
+  lints run post-write); `amend` lands status flips, consequences, and README
+  rows under section guards (`## Decision` / `## Context` are immutable — the
+  blank form's own rule, made mechanical; README rows are editable but never
+  deletable).
+- **The deny rules stay exactly as shipped.** They close the accident vector —
+  the one-shot Edit/Write/`cp` onto an existing record — and they are what
+  makes the funnel work: the raw path errors out, the script is the easy path.
+  A repo that weakens the deny "because the script exists" has removed the
+  reason agents use the script.
+- The human checkpoint moves to the PR merge — where it already sits for every
+  other artifact, and the only checkpoint that exists for unattended workers.
+
+**This section sanctions exactly one subprocess write path: the registered
+script.** Any other scripted write to records paths remains precisely the
+violation it was before — the blind spot is named honestly below, and a
+repo that finds itself needing a second mediated path extends the register,
+it does not improvise. Each mediated path is declared in
+`docs/enforcement-stanzas-register.md` (`## Mediated write paths`), and
+`check-enforcement-stanzas.mjs` asserts the named script exists and stamps the
+declared version — a register row claiming a writer that is not on disk is the
+same fail-open shape the lint exists to catch.
 
 ## Limits, on the record
 
 - **Subprocess blind spot** (above): an agent determined to route around the deny through
   a script can. This stanza gates the harness's own tools — the accidental-overwrite and
   casual-read cases, which are the observed incidents. Deliberate circumvention is a
-  sandboxing conversation, deliberately out of scope.
+  sandboxing conversation, deliberately out of scope. **One subprocess path is sanctioned
+  by design:** the registered mediated write path (above), which validates and never
+  overwrites. It is the exception that proves the rule — every other scripted write to
+  records paths is circumvention, and the register is how CI knows which is which.
 - **Presence ≠ binding.** This stanza shipping in a repo proves the config exists. That
   it actually blocks an edit is verified once at install time (the binding demonstration
   pasted in the installing PR) and thereafter by the recurring smoke check — see

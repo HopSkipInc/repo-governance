@@ -39,7 +39,7 @@ function run(cwd) {
 }
 
 const BT = '`';
-const register = (harnessRows = [], pathRows = [], exemptionRows = null) =>
+const register = (harnessRows = [], pathRows = [], exemptionRows = null, mediatedRows = null) =>
   '# Enforcement stanzas register\n\n## Harnesses\n\n' +
   '| harness | config path |\n|---|---|\n' +
   harnessRows.map((r) => `| ${BT}${r[0]}${BT} | ${BT}${r[1]}${BT} |`).join('\n') +
@@ -50,7 +50,16 @@ const register = (harnessRows = [], pathRows = [], exemptionRows = null) =>
     ? ''
     : '\n## Paragraph exemptions\n\n| path | Reason |\n|---|---|\n' +
       exemptionRows.map((r) => `| ${BT}${r[0]}${BT} | ${r[1]} |`).join('\n') +
+      '\n') +
+  (mediatedRows === null
+    ? ''
+    : '\n## Mediated write paths\n\n| path | script | version |\n|---|---|---|\n' +
+      mediatedRows.map((r) => `| ${BT}${r[0]}${BT} | ${BT}${r[1]}${BT} | ${BT}${r[2]}${BT} |`).join('\n') +
       '\n');
+
+/** The mediated writer fixture: a script whose leading stamp comment carries
+ *  the declared version, exactly as the shipped template does. */
+const WRITER = '// template: scripts/write-record.mjs v1.0.0 · updated 2026-08-13\n// fixture body\n';
 
 // Claude Code parses .claude/settings.json as STRICT JSON — the stamp is a
 // "_governance_install" key here, never a // comment. The comment form is the
@@ -352,4 +361,94 @@ test('enforcement: the self-installed copy and the template are byte-identical',
   const installed = readFileSync(resolve(REPO, 'scripts/check-enforcement-stanzas.mjs'), 'utf8');
   const template = readFileSync(resolve(REPO, 'templates/scripts/check-enforcement-stanzas.mjs'), 'utf8');
   assert.equal(installed, template, 'scripts/ and templates/scripts/ copies drifted — re-sync and re-stamp');
+});
+
+// --------------------------------------------------- mediated write paths
+
+test('enforcement: a mediated write path with its script on disk and stamped clears', () => {
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS, null, [['docs/pdr/', 'scripts/write-record.mjs', '1.0.0']]),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': CLAUDE_MD,
+    'scripts/write-record.mjs': WRITER,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /1 mediated write path\(s\)/);
+});
+
+test('enforcement: a mediated row whose script is absent is a blocking MEDIATED-MISSING', () => {
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS, null, [['docs/pdr/', 'scripts/write-record.mjs', '1.0.0']]),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': CLAUDE_MD,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MEDIATED-MISSING/);
+  assert.match(out, /scripts\/write-record\.mjs/);
+});
+
+test('enforcement: a mediated row whose script stamps a different version is a blocking MEDIATED-MISMATCH', () => {
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS, null, [['docs/pdr/', 'scripts/write-record.mjs', '9.9.9']]),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': CLAUDE_MD,
+    'scripts/write-record.mjs': WRITER,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MEDIATED-MISMATCH/);
+  assert.match(out, /v9\.9\.9/);
+});
+
+test('enforcement: a malformed mediated row fails closed', () => {
+  const bad = '# Enforcement stanzas register\n\n## Harnesses\n\n| harness | config path |\n|---|---|\n' +
+    BOTH.map((r) => `| ${BT}${r[0]}${BT} | ${BT}${r[1]}${BT} |`).join('\n') +
+    '\n\n## Records paths\n\n| path |\n|---|\n' + PATHS.map((p) => `| ${BT}${p}${BT} |`).join('\n') +
+    `\n\n## Mediated write paths\n\n| path | script | version |\n|---|---|---|\n| ${BT}docs/pdr/${BT} | ${BT}scripts/write-record.mjs${BT} | ${BT}latest${BT} |\n`;
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': bad,
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': CLAUDE_MD,
+    'scripts/write-record.mjs': WRITER,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /ERROR/);
+  assert.match(out, /mediated-write-paths row 1 is malformed/);
+});
+
+test('enforcement: a mediated row for an unprotected path fails closed — nothing to mediate into it', () => {
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS, null, [['docs/adr/', 'scripts/write-record.mjs', '1.0.0']]),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': CLAUDE_MD,
+    'scripts/write-record.mjs': WRITER,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /not a registered records path/);
+});
+
+test('enforcement: the records paragraph may name the mediated script — its register row satisfies completeness', () => {
+  const mdNamingWriter = CLAUDE_MD.replace(
+    '\n\n## Something else\n',
+    ` Records are written via ${BT}scripts/write-record.mjs${BT}.\n\n## Something else\n`,
+  );
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS, null, [['docs/pdr/', 'scripts/write-record.mjs', '1.0.0']]),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': mdNamingWriter,
+    'scripts/write-record.mjs': WRITER,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /UNREGISTERED/);
 });

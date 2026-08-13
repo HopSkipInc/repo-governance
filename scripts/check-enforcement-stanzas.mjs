@@ -1,4 +1,4 @@
-// template: scripts/check-enforcement-stanzas.mjs v1.1.0 · updated 2026-08-11
+// template: scripts/check-enforcement-stanzas.mjs v1.2.0 · updated 2026-08-13
 /**
  * lint:enforcement-stanzas  [TEMPLATE — ships to governed repos]
  *
@@ -25,6 +25,16 @@
  * `## Paragraph exemptions` register section carries those, reason required per
  * row — an exemption without its reason on the record is a suppression.
  *
+ * v1.2.0 (issue #81): the optional `## Mediated write paths` register section
+ * names the validating, append-only scripts through which agents may write a
+ * records path (write-record.mjs) while the stanza keeps denying raw edits. A
+ * declared path must be a registered records path — there is nothing to mediate
+ * into an unprotected one. Each row asserts the script exists and stamps the
+ * declared version: a register row claiming a mediated path that is not on disk
+ * is the same fail-open shape this lint exists for. A mediated row's script
+ * also counts as a registered path for the completeness rule, so the records
+ * paragraph can name the write path without a fake exemption.
+ *
  * Findings, all blocking unless noted:
  *
  *   MISSING        a registered harness's config file does not exist
@@ -40,6 +50,8 @@
  *   NOT-BINDING    (opencode) a required rule is listed before the "*" catch-all —
  *                  last-match-wins means the catch-all silently overwrites it
  *   UNREGISTERED   a path in the CLAUDE.md records paragraph has no register entry
+ *   MEDIATED-MISSING   a mediated-write row's script is not on disk
+ *   MEDIATED-MISMATCH  the script's version stamp does not match the row's
  *
  * Secrets rules are a lint constant (the SECRETS set below), not register data —
  * they ship with the stanza template and version with it; a repo must not edit
@@ -129,6 +141,24 @@ const paragraphExemptions = registerText.includes('## Paragraph exemptions')
         failClosed(`paragraph-exemptions row ${i + 1} carries no reason — an exemption without its reason on the record is a suppression`);
       }
       return stripTicks(cells[0]);
+    })
+  : [];
+
+/** Optional section (v1.2.0, issue #81): the mediated write paths — records
+ *  paths an agent writes through a validating, append-only script while the
+ *  stanza keeps denying raw edits. | path | script | version |. A declared
+ *  path must itself be a registered records path; a malformed row fails
+ *  closed, exactly as an unreadable register does. */
+const mediatedPaths = registerText.includes('## Mediated write paths')
+  ? tableRows('## Mediated write paths').map((cells, i) => {
+      if (cells.length < 3 || !cells[0] || !cells[1] || !/^\d+\.\d+\.\d+$/.test(stripTicks(cells[2]))) {
+        failClosed(`mediated-write-paths row ${i + 1} is malformed — expected | \`records/path/\` | \`script/path.mjs\` | \`X.Y.Z\` |`);
+      }
+      const row = { path: stripTicks(cells[0]), script: stripTicks(cells[1]), version: stripTicks(cells[2]) };
+      if (!recordsPaths.includes(row.path)) {
+        failClosed(`mediated-write-paths row ${i + 1} names ${row.path}, which is not a registered records path — there is nothing to mediate into an unprotected path`);
+      }
+      return row;
     })
   : [];
 
@@ -291,6 +321,30 @@ for (const harness of harnesses) {
   }
 }
 
+// ------------------------------------------------------- mediated write paths
+
+/** Each row: the script must exist, and its version stamp (the leading
+ *  `// template: <path> vX.Y.Z` comment) must match the declared version. A
+ *  row without its script on disk is the fail-open shape this lint exists
+ *  for — declared protection that is not there. */
+for (const row of mediatedPaths) {
+  const scriptPath = join(ROOT, row.script);
+  if (!existsSync(scriptPath)) {
+    findings.push({
+      sev: 'MEDIATED-MISSING',
+      msg: `${row.script} is registered as the mediated write path for ${row.path} but does not exist — install it from templates/scripts/, or remove the row`,
+    });
+    continue;
+  }
+  const stamp = readFileSync(scriptPath, 'utf8').slice(0, 500);
+  if (!stamp.includes(`v${row.version}`)) {
+    findings.push({
+      sev: 'MEDIATED-MISMATCH',
+      msg: `${row.script} is registered at v${row.version} but its stamp disagrees — re-sync the script or correct the row (drift in a write path is worse than drift in a check: it writes records)`,
+    });
+  }
+}
+
 // ------------------------------------------- register completeness (UNREGISTERED)
 
 /** The records-files paragraph: the section whose `##` heading contains
@@ -312,11 +366,12 @@ function recordsParagraphPaths() {
 }
 
 const listed = recordsParagraphPaths();
+const mediatedScripts = mediatedPaths.map((m) => m.script);
 if (listed === null) {
   console.log('SKIPPED: no CLAUDE.md/AGENTS.md records-files paragraph found — the register-completeness rule did not run. This is a skip, not a pass.');
 } else {
   for (const p of listed) {
-    if (!recordsPaths.includes(p) && !paragraphExemptions.includes(p)) {
+    if (!recordsPaths.includes(p) && !paragraphExemptions.includes(p) && !mediatedScripts.includes(p)) {
       findings.push({
         sev: 'UNREGISTERED',
         msg: `${p} is named in the records-files paragraph but absent from docs/enforcement-stanzas-register.md — an unprotected records file is reported, never silently unasserted. Add it to the register and to every registered harness's stanza.`,
@@ -328,7 +383,7 @@ if (listed === null) {
 // ----------------------------------------------------------------- the report
 
 console.log(
-  `check-enforcement-stanzas: ${harnesses.length} harness(es) registered (${harnesses.join(', ')}), ${recordsPaths.length} records path(s), ${paragraphExemptions.length} paragraph exemption(s), ${listed === null ? 'completeness SKIPPED' : `${listed.length} paragraph path(s) checked`}.`,
+  `check-enforcement-stanzas: ${harnesses.length} harness(es) registered (${harnesses.join(', ')}), ${recordsPaths.length} records path(s), ${paragraphExemptions.length} paragraph exemption(s), ${mediatedPaths.length} mediated write path(s), ${listed === null ? 'completeness SKIPPED' : `${listed.length} paragraph path(s) checked`}.`,
 );
 
 if (!findings.length) {

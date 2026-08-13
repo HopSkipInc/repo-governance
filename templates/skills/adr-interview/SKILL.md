@@ -7,8 +7,8 @@ description: >
   and where enforcement is missing, then confirms with the person who holds the
   architecture. Produces numbered records in docs/adr/ with enforcement (lints or checks),
   plus a PR.
-version: 1.0.0
-updated: 2026-07-24
+version: 1.1.0
+updated: 2026-08-13
 triggers:
   - /adr-interview
   - adr interview
@@ -186,21 +186,54 @@ Read `/tmp/adr-evidence.md`.
 
 ## Step 3: Write the records
 
-For each confirmed decision, write `docs/adr/NNN-<slug>.md` following `templates/adr/_template.md`. Create `docs/adr/` if absent.
-
-- **Numbering:** next free number, zero-padded to 3. On refresh, never reuse a superseded record's number.
-- **Status:** `Accepted` only if enforcement is wired and passing. Otherwise `Proposed`, with the missing enforcement named in the Enforcement section and a tracking issue filed.
-- **Enforcement section:** name the specific lint/check/gate. If it doesn't exist yet, say "not yet built — tracking issue #N" and file the issue.
-- **Context:** if the decision was discovered (not made deliberatively), say so. "The codebase has done this consistently since the first commit" is valid context. The interview's job was to confirm it's intentional — that confirmation is the Context.
-- **Supersession (refresh only):** if an existing ADR's decision has changed, write a NEW ADR citing the old one, set the old one's Status to `Superseded by ADR-NNN`, and leave its Context intact. Never edit a Decision in place.
-
-**Register every record in `docs/adr/README.md`.** The `lint:adr-readme-sync` gate fails the build otherwise. Verify before committing:
+Records are published through the repo's **mediated write path** — the harness
+stanza denies raw edits to the records directory, and the script is the
+sanctioned way in. For each confirmed decision, compose the full record at a
+scratch path (`/tmp/adr-<slug>.md` is fine) following `templates/adr/_template.md`,
+then publish:
 
 ```bash
-node scripts/check-adr-readme-sync.mjs   # or: npm run lint:adr-readme-sync
+node scripts/write-record.mjs create adr /tmp/adr-<slug>.md
 ```
 
-If the repo has no such script, say so in the PR body — the corpus is unguarded until it's wired.
+The script allocates the number (never reuse a superseded record's number —
+the script's max+1 allocation is what makes that hold), validates the record
+(required sections, status rules, the Lens line where design-lenses runs),
+writes it append-only, registers the `docs/adr/README.md` row, and runs the
+corpus lints. A refusal names the rule that fired — fix the draft and
+re-publish. Create `docs/adr/` if absent happens inside the script, with the
+gap said out loud.
+
+- **Status:** `Accepted` only if enforcement is wired and passing — the script
+  refuses `Accepted` whose Enforcement section still says "not yet built".
+  Otherwise `Proposed`, with the missing enforcement named and a tracking issue
+  filed (below).
+- **Context:** if the decision was discovered (not made deliberatively), say so.
+  "The codebase has done this consistently since the first commit" is valid
+  context. The interview's job was to confirm it's intentional — that
+  confirmation is the Context.
+- **Supersession (refresh only):** if an existing ADR's decision has changed,
+  `create` a NEW ADR citing the old one, then flip the old one's Status without
+  touching its Decision or Context — the script's amend guard refuses those
+  sections outright:
+
+  ```bash
+  # old record, full text, with only the Status line changed:
+  node scripts/write-record.mjs amend adr <NNN> /tmp/adr-<NNN>-superseded.md
+  # and its README row: copy docs/adr/README.md to /tmp, edit the row, then
+  node scripts/write-record.mjs amend adr readme /tmp/README.md
+  ```
+
+  A status flip and its README row are two invocations in one commit — the
+  derived Status cell syncs automatically on `amend`; curated cells (Title,
+  Enforcement) move only through `amend readme`.
+
+If the repo has no `scripts/write-record.mjs` yet (governance baseline older
+than 2026-08-13), STOP and say so: the records directory is gated and there is
+no mediated path. The fix is the repo-governance sync that ships the script —
+do not hand-edit `docs/adr/` around the stanza, and do not ask the human to
+type the records. If the repo has the script but no `check-adr-readme-sync`
+lint, the script says UNGUARDED — report that in the PR body.
 
 **For each Proposed ADR**, file a tracking issue for the missing enforcement:
 
@@ -222,8 +255,9 @@ BASE=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's|.*/||')
 git worktree add ../adr-${DATE} -b "${BRANCH}" "origin/${BASE}"
 
 cd ../adr-${DATE}
-mkdir -p docs/adr
-cp <written records and README> docs/adr/
+# Records land via the write path, IN the worktree — never cp into docs/adr/:
+#   node scripts/write-record.mjs create adr /tmp/adr-<slug>.md
+# (the script discovers the corpus relative to the worktree root)
 
 # If any lints were written, include them
 git add docs/adr/ scripts/ .github/workflows/

@@ -48,7 +48,24 @@ path.
    - **Pass:** `EDIT-SUCCEEDED` and the marker present in the file.
 6. **Secrets spot-check** (recommended, cheap): with the stanza restored, a read attempt
    on a scratch `.env` must also be denied.
-7. **Record the run** — versions, both transcripts, both directions — in the PR that
+7. **Mediated-path assertion** (required once the repo ships `write-record.mjs`,
+   v1.2.0/v1.1.0 stanzas, issue #81): the funnel has two halves and both need
+   demonstrating — the raw edit is denied (step 4) **and** the sanctioned path works.
+   In the scratch repo, install `scripts/write-record.mjs`, then
+   - headless: `claude -p "Run: node scripts/write-record.mjs create adr /tmp/draft.md
+     where the draft is a valid ADR body you write first"` (opencode: `opencode run
+     "<same>"`). **Pass:** the script exits 0, `docs/adr/001-*.md` exists, the README
+     row is registered. This passes *through* the Bash subprocess the stanza does not
+     bind — that is the design, and seeing it work is the point of the step.
+   - **Desktop spot-check** (one time per harness-version change, or when a desktop
+     session is the place records work happens): repeat steps 4 and 7 in a Claude Code
+     **desktop** session. Desktop sessions are long-running and decision-heavy — exactly
+     where ADRs get written — and whether they load `.claude/settings.json` identically
+     to the CLI is an assumption, not an observation, until this runs. If the desktop
+     denied run *succeeds* in editing the records path, the stanza does not bind there:
+     the protection in that surface is illusory, and that finding goes in the register
+     before anything else ships.
+8. **Record the run** — versions, both transcripts, both directions — in the PR that
    ships or bumps the stanza, or in the sync-review notes when run on cadence.
 
 ## Machine notes (this machine, 2026-08-08)
