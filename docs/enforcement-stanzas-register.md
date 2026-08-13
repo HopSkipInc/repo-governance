@@ -15,8 +15,8 @@ blocking UNREGISTERED — registration is a decision, not a silence.
 
 | harness | config path | Since | Note |
 |---|---|---|---|
-| `claude-code` | `.claude/settings.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.md` v1.1.0 — stamp is a `"_governance_install"` string key, **not** a `//` comment: Claude Code parses this file as strict JSON and discards it entirely on a comment. This repo's own config carried the comment form from 2026-08-08 to 2026-08-11 and enforced nothing (v1.0.0 install; see the v1.1.0 template's stamp table). The `ask`/`deny` mode note that used to ride as a comment here lives in the mode paragraph at the bottom of this file, which was always its authoritative home |
-| `opencode` | `opencode.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.opencode.md` v1.0.0 — catch-all `"*": "allow"` first, denies after (last-match-wins) |
+| `claude-code` | `.claude/settings.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.md` v1.2.0 (stamp bumped 2026-08-13 alongside the write-record install — the stanza content is unchanged; v1.2.0 is the mediated-write-paths section) — stamp is a `"_governance_install"` string key, **not** a `//` comment: Claude Code parses this file as strict JSON and discards it entirely on a comment. This repo's own config carried the comment form from 2026-08-08 to 2026-08-11 and enforced nothing (v1.0.0 install; see the v1.1.0 template's stamp table). The `ask`/`deny` mode note that used to ride as a comment here lives in the mode paragraph at the bottom of this file, which was always its authoritative home |
+| `opencode` | `opencode.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.opencode.md` v1.0.0 — catch-all `"*": "allow"` first, denies after (last-match-wins). Stamp bump to v1.1.0 (mediated-write-paths section) is pending — `opencode.json` carries unrelated uncommitted work from the SourcingService pilot; bump lands when that does |
 
 ## Records paths
 
@@ -39,6 +39,20 @@ clause. Reason required per row; a reasonless row fails closed.
 | path | Reason |
 |---|---|
 | `templates/` | The paragraph's contrast clause — "The blank forms live in `templates/`". Forms are the product, not records; gating them is check-template-versions' job, not this stanza's |
+
+## Mediated write paths
+
+Records paths an agent writes through a validating, append-only script (issue
+#81) while the stanza keeps denying raw file tools. The script is the gate the
+permission layer cannot express — append-only creation, section-level amendment
+guards, README registration, corpus lints run post-write — and the stanza is
+what funnels agents to it. Each row asserts the script exists and stamps the
+declared version. This repo has no ADR corpus (CLAUDE.md: the layer is not run
+here), so only the PDR corpus is listed.
+
+| path | script | version | note |
+|---|---|---|---|
+| `docs/pdr/` | `scripts/write-record.mjs` | `1.0.0` | Installed 2026-08-13 with the template that ships it; byte-identical self-copy asserted by the write-record fixture suite |
 
 **Mode, on the record:** this repo runs its records paths at **`ask`**, not `deny`
 (decision 2026-08-08, review feedback on PR #64). Records maintenance here is a daily

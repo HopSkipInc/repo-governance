@@ -6,8 +6,8 @@ description: >
   then interviews the person who actually holds the thesis to confirm, correct, or reject
   each one. Produces numbered records in docs/pdr/ with observable falsifiers, plus a PR.
   The evidence is the interview's leverage — this skill never asks a blank-slate question.
-version: 1.0.0
-updated: 2026-07-24
+version: 1.1.0
+updated: 2026-08-13
 triggers:
   - /pdr-interview
   - pdr interview
@@ -165,21 +165,46 @@ Read `/tmp/pdr-evidence.md`.
 
 ## Step 3: Write the records
 
-For each confirmed decision, write `docs/pdr/NNN-<slug>.md` following `templates/pdr/_template.md`. Create `docs/pdr/` if absent.
-
-- **Numbering:** next free number, zero-padded to 3. On refresh, never reuse a superseded record's number.
-- **Non-goals get their own numbers** — never a bullet inside another record.
-- **Status:** `Accepted` only if the falsifier is present and observable. Otherwise `Proposed`, with the missing piece named in Context.
-- **Supersession (refresh only):** if an existing record's bet changed, write a NEW record citing the old one, set the old one's Status to `Superseded by PDR-NNN`, and **leave its Context intact**. Never edit a Decision in place.
-- **`Last confirmed`:** today's date, for every record the human just confirmed — including ones that didn't change. Re-confirmation is the point of a refresh.
-
-**Register every record in `docs/pdr/README.md`.** The `lint:adr-readme-sync` gate fails the build otherwise. Verify before committing:
+Records are published through the repo's **mediated write path** — the harness
+stanza denies raw edits to the records directory, and the script is the
+sanctioned way in. For each confirmed decision, compose the full record at a
+scratch path (`/tmp/pdr-<slug>.md` is fine) following `templates/pdr/_template.md`,
+then publish:
 
 ```bash
-node scripts/check-adr-readme-sync.mjs   # or: npm run lint:adr-readme-sync
+node scripts/write-record.mjs create pdr /tmp/pdr-<slug>.md
 ```
 
-If the repo has no such script, say so in the PR body — the corpus is unguarded until it's wired.
+The script allocates the number (never reuse a superseded record's number),
+validates the record (required sections, `Confirmed by` is a real name, an
+`Accepted` record carries a non-vague falsifier), fills `Last confirmed` with
+today, writes append-only, registers the `docs/pdr/README.md` row, and runs the
+corpus lints. A refusal names the rule that fired — fix the draft and
+re-publish.
+
+- **Non-goals get their own numbers** — never a bullet inside another record.
+- **Status:** `Accepted` only if the falsifier is present and observable — the
+  script enforces this mechanically. Otherwise `Proposed`, with the missing
+  piece named in Context.
+- **Supersession (refresh only):** if an existing record's bet changed, `create`
+  a NEW record citing the old one, then flip the old one's Status — the amend
+  guard refuses any change to its Context or Decision:
+
+  ```bash
+  node scripts/write-record.mjs amend pdr <NNN> /tmp/pdr-<NNN>-superseded.md
+  ```
+
+- **`Last confirmed`:** today's date, for every record the human just confirmed
+  — including ones that didn't change. Re-confirmation is the point of a
+  refresh. Bump it with `amend pdr <NNN> <revised-file>`; the README's Last
+  confirmed cell syncs automatically.
+
+If the repo has no `scripts/write-record.mjs` yet (governance baseline older
+than 2026-08-13), STOP and say so: the records directory is gated and there is
+no mediated path. The fix is the repo-governance sync that ships the script —
+do not hand-edit `docs/pdr/` around the stanza, and do not ask the human to
+type the records. If the repo has the script but no `check-adr-readme-sync`
+lint, the script says UNGUARDED — report that in the PR body.
 
 ---
 
@@ -194,8 +219,8 @@ BASE=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's|.*/||')
 git worktree add ../pdr-${DATE} -b "${BRANCH}" "origin/${BASE}"
 
 cd ../pdr-${DATE}
-mkdir -p docs/pdr
-cp <written records and README> docs/pdr/
+# Records land via the write path, IN the worktree — never cp into docs/pdr/:
+#   node scripts/write-record.mjs create pdr /tmp/pdr-<slug>.md
 
 git add docs/pdr/
 git commit -m "docs: product decision records (${DATE})

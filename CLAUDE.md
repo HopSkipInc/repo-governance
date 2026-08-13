@@ -68,6 +68,12 @@ contents are local, dated, and exist nowhere else. A `cp` from the template dest
 with no diff to recover from. The same rule applies in every governed repo, and the
 migration order matters: move records out first, then copy the policy.
 
+Records are **written via `scripts/write-record.mjs`** — the mediated write path (issue
+#81): `create` publishes a new numbered record append-only, `amend` lands status flips,
+consequences, and README rows under section guards, and the harness stanza keeps denying
+raw edits to records paths so agents are funneled here. The human checkpoint is the PR
+merge, not human typing.
+
 ## This repo's own governance
 
 | Layer | State |
