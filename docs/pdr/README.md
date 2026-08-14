@@ -17,6 +17,7 @@ Every file in this directory must appear in the table below. `lint:adr-readme-sy
 | [007](007-not-a-security-practice.md) | Non-goal — not a security or compliance practice | Accepted | 2026-07-27 |
 | [008](008-claim-coverage-is-a-health-metric.md) | Claim coverage is a health metric, not an audit domain | Accepted | 2026-08-02 |
 | [009](009-two-adoption-depths.md) | Two adoption depths — `full` and `core` | Accepted | 2026-08-03 |
+| [010](010-estimation-calibrates-on-observed-deliveries.md) | Estimation calibrates on observed deliveries, measured in tokens | Proposed | — |
 
 ## Notes on this corpus
 
