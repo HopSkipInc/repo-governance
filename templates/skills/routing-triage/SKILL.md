@@ -9,8 +9,8 @@ description: >
   a human, applies the labels and tier lines, and writes the repo's calibration set to
   docs/agent-routing-records.md. Every escalation is decomposed before it is tiered — a split
   proposal or a non-splittability statement is required, not suggested.
-version: 1.6.1
-updated: 2026-08-03
+version: 1.7.0
+updated: 2026-08-17
 triggers:
   - /routing-triage
   - /routing-triage refresh
@@ -461,6 +461,22 @@ silent overwrite.
 
 ## Step 5: Branch, commit, open PR
 
+**Re-check the policy stamp now, not just at run start.** The policy has moved mid-run
+before — 1.9.0 → 1.10.0 at 08:57 EDT on 2026-07-27, two hours into a run conducted under
+1.9.0, caught only because a `diff -q` happened to run at the end. A run that never
+re-checks finishes silently split across two policy versions. Compare the version you
+recorded at run start against the template *now*:
+
+```bash
+grep -m1 -E '^\*\*Version:' docs/agent-routing.md                          # what this run ran under
+grep -m1 'template: agent-routing.md' <governance-repo>/templates/agent-routing.md
+```
+
+If they disagree, read the template's changelog rows between the two versions and
+re-examine every call made under a rule that changed — the kinds, the escalation
+responses, and the decomposition and coverage records have all changed between versions
+before. Note both versions in the PR body either way.
+
 ```bash
 git checkout -b governance/agent-routing
 git add docs/agent-routing.md docs/agent-routing-records.md CLAUDE.md
@@ -537,7 +553,10 @@ architecture moves, which arrives as an ADR, not as a triage pass.
   is.
 - Epics get a tier table over their children, not a single tier. An epic whose children
   span standard→human is normal and useful; collapsing it to `human` strands the mechanical
-  work.
+  work. Head the table with a qualified heading — `## Impl tier (epic)` — so nothing reads
+  it as a single tier line. `check-issue-routing.mjs` R1 also exempts a bare `## Impl tier`
+  block that contains the child tier table (or an issue carrying the `epic` label), but the
+  qualified heading is the form every reader, human or tool, parses correctly.
 - If more than half the escalations are `spec`, stop triaging and say so. The finding is
   that the backlog is unauthored, and more labels will not fix it.
 - If nothing comes out `inherent`, you have not found the repo's risk surfaces. Go back to

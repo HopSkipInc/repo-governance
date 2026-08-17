@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.2.0 · updated 2026-07-27
+// template: scripts/check-issue-routing.mjs v1.3.0 · updated 2026-08-17
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -14,7 +14,9 @@
  * Python, or Go repo, because issues are issues.
  *
  * RULES
- *   R1 one-impl-label      exactly one impl: label            (structural)
+ *   R1 one-impl-label      exactly one impl: label; an epic's child tier
+ *                            table (policy §Mechanism 3) is exempt — it
+ *                            carries no single tier by design   (structural)
  *   R2 tier-line-present   body has an "## Impl tier" section (structural)
  *   R3 kind-declared       tier > standard declares a kind    (structural)
  *   R4 ready-vs-spec       status:ready + spec-component kind (contradiction)
@@ -141,6 +143,13 @@ const SPLIT_REFERENCE = /\bsplit\s+(from|into)\b[^.\n]*#\d+/i;
 /**
  * R8: phrases that cite the uncovered-surface signal as a reason for the tier.
  * Same tuning advice as HEDGE_PATTERNS — add what your triagers actually write.
+ *
+ * The last three entries are the 2026-07-27 ai-fleet additions: "has no test
+ * file" was used three times in a single triage run and matched none of the
+ * original seven — every one of those escalations rested entirely on the
+ * uncovered-surface signal, escaped R8, and got no expiry condition. The
+ * file-named form is written `(test|spec).<ext>` so it reads across languages
+ * (get.test.ts, Foo.spec.cs); the observed phrasing was TypeScript.
  */
 const COVERAGE_SIGNAL = [
   /\bno (existing |current )?tests?\b[^.\n]*\bcovers?\b/i,
@@ -150,6 +159,9 @@ const COVERAGE_SIGNAL = [
   /\buncovered\b/i,
   /\buntested\b/i,
   /\bnothing (currently )?(covers|verifies|exercises)\b/i,
+  /\bno test files?\b/i,
+  /\bno \S+\.(test|spec)\.[a-z0-9]+\b/i,
+  /\basserts? nothing about\b/i,
 ];
 
 /**
@@ -159,6 +171,22 @@ const COVERAGE_SIGNAL = [
  */
 const COVERAGE_GAP = /\bcoverage gap\b\s*[::-]\s*[^\n]*#\d+/i;
 const COVERAGE_NOT_TESTABLE = /\bcoverage\b\s*[::-]\s*not testable\b\s*[—–\-:]\s*\S+/i;
+
+/**
+ * The epic shape (policy §Mechanism 3): an epic carries a tier table over its
+ * children rather than a single tier, so it has no impl: label and its tier
+ * block is the child table, not a tier line. R1 must not demand a label on
+ * the shape the policy prescribes — it did, on every epic, until 1.3.0.
+ * Detected two ways, either sufficient: the repo's `epic` label, or a table
+ * row in the block pairing a child issue with a tier. A qualified heading
+ * (e.g. `## Impl tier (epic …)`) never reaches here at all — it falls outside
+ * tierBlock's anchored heading and the issue is skipped above.
+ */
+const EPIC_TIER_ROW = /^\s*\|[^\n]*#\d+[^\n]*\|\s*(standard|frontier|human)\s*\|/im;
+
+function isEpicShape(names, block) {
+  return names.some((n) => n.toLowerCase() === 'epic') || (block ? EPIC_TIER_ROW.test(block) : false);
+}
 
 // ------------------------------------------------------------------ helpers
 
@@ -190,9 +218,32 @@ function tierBlock(body) {
   return (end === -1 ? rest : rest.slice(0, end)).join('\n').trim();
 }
 
+/**
+ * The kind is read from its declaration site — the first line of the block,
+ * where the tier is declared — never from prose. The previous whole-block
+ * `\b(spec|inherent|both)\b` false-positived on ordinary English ("fails closed
+ * at **both** decision points"), reporting kind=both on standard issues
+ * (ai-fleet #1356, #1354). Harmless to today's rules (R3/R4/R7 gate on tier,
+ * R5 needs the structure label), but the field was untrustworthy and any
+ * future rule reading kind without checking tier would misfire.
+ *
+ * The declaration shapes below are the observed dialects, not aspirations —
+ * run against ai-fleet's live backlog before tightening: the canonical
+ * `frontier (inherent)`, the backticked `` `frontier` (`inherent`) ``, the
+ * slash form `` `human` / `inherent` ``, the comma-kind form
+ * `impl: frontier, kind both`, the em-dash form `` `frontier` — kind `both` ``,
+ * and the standalone `**Kind: inherent.**`.
+ * Emphasis is stripped first; what each shape has in common is the kind word
+ * bound to the tier word or the word "kind", which is what prose never does.
+ */
 function declaredKind(block) {
   if (!block) return null;
-  const m = block.match(/\b(spec|inherent|both)\b/i);
+  const firstLine = block.split(/\r?\n/, 1)[0].replace(/[`*]/g, '');
+  const m =
+    firstLine.match(/\b(?:standard|frontier|human)\b[^(]*\((?:kind:\s*)?(spec|inherent|both)\)/i) ||
+    firstLine.match(/\b(?:standard|frontier|human)\b\s*[/,]\s*(?:kind[:\s]*)?(spec|inherent|both)\b/i) ||
+    firstLine.match(/\b(?:standard|frontier|human)\b\s*[—–-]\s*kind[:\s]+(spec|inherent|both)\b/i) ||
+    firstLine.match(/\bkind\s*:\s*(spec|inherent|both)\b/i);
   return m ? m[1].toLowerCase() : null;
 }
 
@@ -234,14 +285,15 @@ for (const issue of issues) {
   // nothing else — an untriaged backlog is not a violation, it is just untriaged.
   if (impls.length === 0 && !block) continue;
 
-  if (impls.length !== 1) {
+  const epic = isEpicShape(names, block);
+  if (impls.length !== 1 && !(epic && impls.length === 0)) {
     report('R1', issue.number, `expected exactly one impl: label, found ${impls.length}${impls.length ? ` (${impls.join(', ')})` : ''}`);
   }
   if (impls.length > 0 && !block) {
     report('R2', issue.number, `carries ${impls[0]} but has no "## Impl tier" section — the label routes, the line explains; a constraint with no reason cannot be re-evaluated`);
   }
-  if (impls.length === 0 && block) {
-    report('R1', issue.number, 'has an "## Impl tier" section but no impl: label — nothing will route on it');
+  if (impls.length === 0 && block && !epic) {
+    report('R1', issue.number, 'has an "## Impl tier" section but no impl: label — nothing will route on it. If this is an epic, the block should be the child tier table (policy §Mechanism 3), which R1 exempts');
   }
 
   const tier = impls[0];
