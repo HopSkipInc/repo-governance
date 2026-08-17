@@ -1,8 +1,8 @@
-<!-- Draft — awaiting confirmation by Greg Leizerowicz. See Status note below. -->
+<!-- Draft — awaiting confirmation by Greg Leizerowicz. Revised 2026-08-17 before signature: harness identity vs version disambiguated (Decision 1, Falsifier 3). See Status note below. -->
 # PDR-010: Estimation calibrates on observed deliveries, measured in tokens
 
 **Status:** Proposed
-**Date:** 2026-08-14
+**Date:** 2026-08-17
 **Confirmed by:** — (drafted for Greg Leizerowicz; unconfirmed)
 **Last confirmed:** —
 
@@ -74,11 +74,14 @@ fourth is the one that makes the other three safe.
 features observable *before* the work: `impl:` tier and kind, files touched, whether a
 test surface already covered it, and DoD work type — **plus model and harness**, which are
 part of the key and not a metadata column, per the calibration protocol's own limits.
-Estimation means "this looks like bucket C; here is what bucket C has actually cost."
-Every cell reports its sample count `n`. A cell below a minimum `n` reports **thin** and
-derives no estimate and no cap. Carrying a prior model's baseline across an upgrade is
-permitted only as an explicit dated assumption with a staleness flag — never as a silent
-merge.
+Harness *identity* is the key dimension; harness *version* is recorded on every span
+(Consequences 1) but is not itself keyed — a key that re-partitioned on every harness
+point release would never reach minimum `n`, and harness upgrades land far more often
+than model upgrades. Estimation means "this looks like bucket C; here is what bucket C
+has actually cost." Every cell reports its sample count `n`. A cell below a minimum `n`
+reports **thin** and derives no estimate and no cap. Carrying a prior baseline across a
+model **or harness** upgrade is permitted only as an explicit dated assumption with a
+staleness flag — never as a silent merge.
 
 **2. Measurement flows span → issue → PR.** Cost is incurred per span, and a large share
 of it produces no commit at all: exploration, dead ends, the frontier review pass,
@@ -153,9 +156,10 @@ model would have completed is a tax."*
       undercount is measured rather than argued
 - [ ] Revisit when the first cap derived from this data fires on work a frontier review
       later finds correct — one such event retires the percentile-plus-headroom rule
-- [ ] Revisit at the first model upgrade that lands mid-window — if every bucket falls
-      below minimum `n` and the practice yields no usable estimate for a full cycle, then
-      keying the bucket on model is too fine and this record owes a pooling rule instead
+- [ ] Revisit at the first model or harness upgrade that lands mid-window — if every
+      bucket falls below minimum `n` and the practice yields no usable estimate for a
+      full cycle, then keying the bucket on model and harness is too fine and this
+      record owes a pooling rule instead
 - [ ] Revisit when the first self-serve adopter implements the contract, if their reported
       token totals for a PR differ from what the host DB computes for the same PR — the
       contract is ambiguous where it pretends to be mechanical
