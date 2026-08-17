@@ -517,10 +517,118 @@ test('issue-routing: the ai-fleet declaration dialects parse (U3 — live-corpus
   assert.doesNotMatch(out, /R3/);
 });
 
-// ------------------------------------------------------------- pdr-falsifiers
+// --------------------------- 2026-08-17: closed pass (v1.4.0) ----------------
+// The closed pass answers "is this repo's history estimable?" — R1–R3 only over
+// recently closed issues, probe posture by default, kind-coverage census. The gh
+// stub answers the single fetch with the case's issues; closed fixtures carry
+// closedAt, and the window filters client-side off it.
+
+const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
+
+test('issue-routing closed pass: a kind-less closed escalation is flagged R3, probe exits 0', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 12,
+      title: 'x',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody('frontier — the entitlement predicate is one union; every branch reads it.'),
+      closedAt: daysAgo(2),
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed'] });
+  assert.equal(code, 0, out);
+  assert.match(out, /closed pass, R1–R3, last 30d/);
+  assert.match(out, /CLOSED PASS \(1, probe/);
+  assert.match(out, /#12 \[R3\]/);
+  assert.match(out, /Kind coverage: 1 closed escalation\(s\) in window — 0 spec, 0 inherent, 0 both, 1 undeclared \(0% declared\)/);
+});
+
+test('issue-routing closed pass: a fully declared closed escalation is clean and counts its kind', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 13,
+      title: 'x',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody('frontier (inherent) — a wrong scope leaks cross-workspace data silently.\nNot splittable: one predicate.'),
+      closedAt: daysAgo(1),
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed'] });
+  assert.equal(code, 0, out);
+  assert.match(out, /OK: every closed escalation in the window/);
+  assert.match(out, /0 spec, 1 inherent, 0 both, 0 undeclared \(100% declared\)/);
+});
+
+test('issue-routing closed pass: R4–R8 cannot fire on finished work', () => {
+  // The fixture is a walking contradiction — status:ready + spec kind (R4), a
+  // hedge with no decomposition record (R7), a coverage signal with no record
+  // (R8). The open pass flags all three; the closed pass must stay silent on
+  // all of them and check declarations only.
+  const issue = {
+    number: 21,
+    title: 'x',
+    labels: [{ name: 'impl:frontier' }, { name: 'status:ready' }],
+    body: tierBody('frontier (both) — mostly mechanical, and no test coverage of the retry path.'),
+    closedAt: daysAgo(3),
+  };
+  const openRun = run('check-issue-routing.mjs', fixture({}), { env: ghStub(fixture({}), [issue]) });
+  assert.match(openRun.out, /\[R4\]/);
+  assert.match(openRun.out, /\[R7\]/);
+  assert.match(openRun.out, /\[R8\]/);
+
+  const dir = fixture({});
+  const { code, out } = run('check-issue-routing.mjs', dir, { env: ghStub(dir, [issue]), args: ['--closed'] });
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /\[R[4-8]\]/);
+  assert.match(out, /OK: every closed escalation/);
+});
+
+test('issue-routing closed pass: --closed-gate promotes findings to blocking', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 12,
+      title: 'x',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody('frontier — one predicate; every branch reads it.'),
+      closedAt: daysAgo(2),
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed', '--closed-gate'] });
+  assert.equal(code, 1, out);
+  assert.match(out, /CLOSED PASS \(1, gate\)/);
+});
+
+test('issue-routing closed pass: the window excludes issues closed before it', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 12,
+      title: 'x',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody('frontier — one predicate; every branch reads it.'),
+      closedAt: daysAgo(60),
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed', '--days', '30'] });
+  assert.equal(code, 0, out);
+  assert.match(out, /swept 0 closed issues/);
+  assert.doesNotMatch(out, /#12/);
+});
+
+test('issue-routing closed pass: --days rejects a non-integer loudly', () => {
+  const dir = fixture({});
+  const { code, out } = run('check-issue-routing.mjs', dir, { env: ghStub(dir, []), args: ['--closed', '--days', 'soon'] });
+  assert.equal(code, 2, out);
+  assert.match(out, /--days needs a positive integer/);
+});
 
 const ACCEPTED = (falsifier) =>
   `# PDR-001: A bet\n\n**Status:** Accepted\n**Confirmed by:** Someone\n\n## Falsifier\n\n${falsifier}\n`;
+
+// ------------------------------------------------------------- pdr-falsifiers
 
 test('pdr-falsifiers: a corpus with observable falsifiers passes', () => {
   const dir = fixture({

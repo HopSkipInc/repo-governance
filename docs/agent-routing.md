@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.13.0 · updated 2026-08-13 -->
+<!-- template: agent-routing.md v1.14.0 · updated 2026-08-17 -->
 # Agent Routing
 
-**Version:** 1.13.0 · **Last updated:** 2026-08-13
+**Version:** 1.14.0 · **Last updated:** 2026-08-17
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -30,6 +30,7 @@
 | 1.12.0 | 2026-08-12 | **Do not code around a blocker.** Two stop conditions added to the layer-1 contract — coding around a blocker instead of removing it, and weakening a test to reach green — plus the sentence that makes a stop mean something: the edit does not land and the turn ends, because a question the implementer then answers itself is the workaround applied to the stop rule. Anti-pattern 7 gains its first mechanical half (`check-weakened-verification.mjs`, net assertion/skip delta across a diff), and states why a pattern lint was never going to work: a weakened test is the one workaround with a negative diff |
 | 1.13.0 | 2026-08-13 | **`gate:decision` gets its write path.** "Recorded as a PDR or ADR by a person" had drifted into "typed by a person" once the harness stanzas denied raw edits to records paths — an agent that could prepare the whole change could not publish the record of its decision. The label now says what was always meant: an agent drafts the record through the repo's mediated write path (`write-record.mjs`, issue #81); a person owns it at merge |
 | 1.11.0 | 2026-08-05 | **Delegation is dispatch.** Layer 1's duties made second-person for the two dispatch shapes that already exist: an interactive driver spawning subagents (the driver is the dispatcher; the delegation prompt is the launch, and it carries the capability budget — tier, kind, reason, stop conditions, scope ceiling) and fleet dispatch (enumerated rows, claim-of-record on the issue, waves from the epic table, deploy gates as wave boundaries, `Not splittable:` as a parallelism constraint). The policy spoke about dispatchers in the third person while every task-tool harness was already dispatching |
+| 1.14.0 | 2026-08-17 | **The kind is a forecasting input.** Rationale subsection under the two load-bearing rules: estimation buckets key on the kind, `both` is the observed high-variance bucket, and an escalation closed without a kind is a permanently lost data point — the calibration protocol forbids post-hoc classification. No rule changes; no tier definitions move |
 
 ## Purpose
 
@@ -100,6 +101,23 @@ different questions.
 
 *(Found 2026-07-24 by `check-issue-routing.mjs` R4 firing on a `both` issue whose spec had just
 been fixed — the lint was right and the policy was silent.)*
+
+### What the kind means for forecasting
+
+The kind is a forecasting input, not only a routing hint. Estimation calibrates on
+observed deliveries, bucketed by features knowable before the work starts — tier, kind,
+files touched, whether a test surface covered it, work type, model, and harness. The
+early observed shape, on thin cells with no derived estimates: `both` is the
+high-variance bucket — under-specified work that is also dangerous lands slow and
+unpredictable. That is what makes *"rewrite this issue and the forecast tightens"* a
+mechanical recommendation rather than an opinion.
+
+An escalation that closes without a declared kind is a permanently lost data point. The
+calibration protocol forbids classifying it after the fact — *"if classification happens
+after the attempts, you have a narrative, not an experiment"* — so the gap never fills.
+The open sweep's kind rule catches it while there is still time to fix honestly; the
+closed pass (`check-issue-routing.mjs` 1.4.0+, `--closed`) reports kind coverage over
+recently closed issues, so the repo can see whether its history is estimable at all.
 
 ## Responses to an escalation
 

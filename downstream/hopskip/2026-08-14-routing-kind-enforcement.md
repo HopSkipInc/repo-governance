@@ -9,10 +9,9 @@ is ever doubted.
 (111 completed issues). Not an upstream template redesign — the rule already exists and
 is already `error`-severity. What is missing is that **nothing runs it**, and its scope
 excludes the only issues an estimator can learn from.
-**Blocked until:** repo-governance ships `templates/scripts/check-issue-routing.mjs`
-**1.4.0** (the closed pass) and the `agent-routing.md` minor this prompt describes. This
-prompt ships no code, and step 2 has nothing to install until then. Step 1 is runnable
-today and free.
+**Ships with:** this PR carries the upstream half — `templates/scripts/check-issue-routing.mjs`
+1.4.0 (the closed pass) and `agent-routing.md` 1.14.0 (the rationale subsection). Steps 1–6
+are runnable on merge.
 **Sequencing:** independent of the 2026-08-08 / 2026-08-11 / 2026-08-13 stanza chain.
 **Interacts with the 2026-08-17 routing-validator-fixes prompt** — same script, same
 repos: that prompt takes the validator to 1.3.0, this one's upstream change lands as
@@ -96,9 +95,9 @@ gaps stay gaps. The fix is forward-only.
 
 ## What changes upstream
 
-- **`templates/scripts/check-issue-routing.mjs` 1.3.0 → 1.4.0.** (1.3.0 shipped
-  2026-08-17 carrying ai-fleet's validator fixes — R8 phrasings, epic-aware R1,
-  declaration-anchored kind. It has no closed pass; `STATE = 'open'` still holds there.
+- **`templates/scripts/check-issue-routing.mjs` 1.3.0 → 1.4.0** (shipped in this PR).
+  (1.3.0 shipped 2026-08-17 carrying ai-fleet's validator fixes — R8 phrasings, epic-aware
+  R1, declaration-anchored kind. It has no closed pass; `STATE = 'open'` still holds there.
   The closed pass is what 1.4.0 adds.)
   - New `STATE`/window handling: in addition to the `open` sweep, a closed-issue pass over
     a bounded recency window (default: closed within 30 days) applying **R1–R3 only**.
@@ -109,11 +108,11 @@ gaps stay gaps. The fix is forward-only.
     adoption, then promote.
   - Census output gains a `kind coverage` line (count by kind, plus undeclared) — this is
     the number that says whether the repo's history is estimable.
-- **`templates/agent-routing.md` → next minor.** A short subsection under the two
-  load-bearing rules recording the second purpose: the kind is an input to delivery
-  forecasting, `both` is the high-variance bucket, and an escalation closed without a kind
-  is a permanently lost data point. This is a *rationale* addition — no rule changes, no
-  tier definitions move.
+- **`templates/agent-routing.md` 1.13.0 → 1.14.0** (shipped in this PR). A short
+  subsection under the two load-bearing rules recording the second purpose: the kind is an
+  input to delivery forecasting, `both` is the high-variance bucket, and an escalation
+  closed without a kind is a permanently lost data point. This is a *rationale* addition —
+  no rule changes, no tier definitions move.
 
 ## Sequencing — ai-fleet first
 
