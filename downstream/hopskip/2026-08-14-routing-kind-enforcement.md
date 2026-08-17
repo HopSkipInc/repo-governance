@@ -1,17 +1,27 @@
 # Governance update: the kind field becomes load-bearing — wire the routing lint, gate at close (2026-08-14)
 
-**Applies to:** all four governed repos that installed `scripts/check-issue-routing.mjs`
-(ai-fleet, analytics-infrastructure, enrichment-pipeline, infra-ops).
+**Applies to:** the three governed repos that adopted the routing layer (ai-fleet,
+analytics-infrastructure, enrichment-pipeline). HopSkipInc/infra-ops never installed it
+(core class, per the 2026-08-17 validator-fixes record): no action, recorded here so the
+omission is considered rather than silent — its step-1 grep costs one line if that record
+is ever doubted.
 **Source:** measurement run against HopSkipInc/ai-fleet's closed backlog, 2026-08-14
 (111 completed issues). Not an upstream template redesign — the rule already exists and
 is already `error`-severity. What is missing is that **nothing runs it**, and its scope
 excludes the only issues an estimator can learn from.
+**Blocked until:** repo-governance ships `templates/scripts/check-issue-routing.mjs`
+**1.4.0** (the closed pass) and the `agent-routing.md` minor this prompt describes. This
+prompt ships no code, and step 2 has nothing to install until then. Step 1 is runnable
+today and free.
 **Sequencing:** independent of the 2026-08-08 / 2026-08-11 / 2026-08-13 stanza chain.
-But **ai-fleet first, other repos after one cycle** — see "Sequencing" below. This follows
+**Interacts with the 2026-08-17 routing-validator-fixes prompt** — same script, same
+repos: that prompt takes the validator to 1.3.0, this one's upstream change lands as
+1.4.0 on top, cumulative, so if both are pending, one install takes both. But
+**ai-fleet first, other repos after one cycle** — see "Sequencing" below. This follows
 PDR-010 Consequences 4 (*"Instrument HopSkip first, template second"*) and PDR-006's rule
 that friction is measured before it is solved.
 **Depends on:** [PDR-010](../../docs/pdr/010-estimation-calibrates-on-observed-deliveries.md)
-(Proposed, 2026-08-14) — which is what makes the kind field load-bearing beyond routing.
+(**Accepted**, 2026-08-17) — which is what makes the kind field load-bearing beyond routing.
 
 ## The problem this solves
 
@@ -86,7 +96,10 @@ gaps stay gaps. The fix is forward-only.
 
 ## What changes upstream
 
-- **`templates/scripts/check-issue-routing.mjs` 1.2.0 → 1.3.0.**
+- **`templates/scripts/check-issue-routing.mjs` 1.3.0 → 1.4.0.** (1.3.0 shipped
+  2026-08-17 carrying ai-fleet's validator fixes — R8 phrasings, epic-aware R1,
+  declaration-anchored kind. It has no closed pass; `STATE = 'open'` still holds there.
+  The closed pass is what 1.4.0 adds.)
   - New `STATE`/window handling: in addition to the `open` sweep, a closed-issue pass over
     a bounded recency window (default: closed within 30 days) applying **R1–R3 only**.
     R4–R8 are contradiction rules about work not yet done and must not fire on closed
@@ -123,13 +136,19 @@ whether the lint is dead there too is free.
    ```
    Zero hits outside the script itself and doc/declaration text = the lint is dead.
 
-2. **Install the 1.3.0 script** over your copy at its existing path (ai-fleet: repo root
+2. **Install the 1.4.0 script** over your copy at its existing path (ai-fleet: repo root
    `scripts/`; check yours). Keep the path — relocating it breaks the root-clutter
-   allowlist in repos that carry one.
+   allowlist in repos that carry one. If you have not yet applied the 2026-08-17
+   validator fixes, skip straight to 1.4.0 — it is cumulative with 1.3.0.
 
-3. **Wire the open pass as a gate**, matching how your repo runs its other lints (ai-fleet:
-   an npm script in `host/package.json` plus a `run-tests.yml` step; other repos: your
-   existing lint job). It needs a GitHub token with issue read scope.
+3. **Sweep, then wire the open pass as a gate.** Run the open pass once against the live
+   backlog *before* gating. The 42% closed-frontier missing-kind rate means existing open
+   violations are likely, and turning the gate on over them turns every unrelated PR red.
+   Fix or grandfather every finding in the same PR (the ADR checklist's "existing
+   violations fixed or grandfathered" pattern), then wire the gate, matching how your repo
+   runs its other lints (ai-fleet: an npm script in `host/package.json` plus a
+   `run-tests.yml` step; other repos: your existing lint job). It needs a GitHub token
+   with issue read scope.
 
 4. **Wire the closed pass**, initially WARN. It needs to run on a schedule, not per-PR — a
    PR does not close issues at merge time reliably enough to gate on. A daily or weekly
@@ -183,7 +202,13 @@ Three findings from that run that do bear on Consequences 1:
    satisfied — by the event stream, not by `agent_spans`. **Open question for the author:
    are spans the right home at all, or should `worker.cost` be promoted to the record of
    account and the six fields land there instead?** That is a different scope than
-   instrumenting a table nothing writes.
+   instrumenting a table nothing writes. *Since this note was written, ai-fleet PR 1972
+   (ADR-067, open) has proposed the fact-table answer: `metered_usage`, observed at a
+   platform-owned gateway, with PDR-010 Consequences 1 retargeted from `agent_spans` to
+   the table that ships. Under PDR-010 as amended and Accepted (2026-08-17), harness
+   *version* rides every fact — recorded, not keyed — since it is what makes the
+   staleness rule operable on a harness-upgrade boundary. Whichever lane lands second
+   should cite the other.*
 2. **The unattributed line is 49.5%.** 73 runs carrying 15,680 `worker.cost` events and
    ≈1.23 B tokens have no `fleet_runs` row — mostly `fwm-*` and local/dev harness runs
    emitting into the prod event store. Decision 2 says a large unattributed line means the
