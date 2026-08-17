@@ -341,6 +341,182 @@ test('issue-routing: R3 fires on an escalation with no kind', () => {
   assert.match(out, /R3/);
 });
 
+// --------------------------- 2026-08-17: ai-fleet upstream-feedback fixes (v1.3.0)
+
+test('issue-routing: R8 fires on "has no test file" (U1 — used 3x in one ai-fleet run, matched nothing)', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 11,
+      title: 'x',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody(
+        'frontier (inherent) — the scoping module has no test file; a wrong scope leaks silently.\nNot splittable: one predicate function.'
+      ),
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /R8/, out);
+  assert.match(out, /#11/);
+});
+
+test('issue-routing: R8 fires on the file-named form "no get.test.ts" (U1)', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 12,
+      title: 'x',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody(
+        'frontier (inherent) — the tenant scoping path has no get.test.ts at all.\nNot splittable: one predicate function.'
+      ),
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /R8/, out);
+  assert.match(out, /#12/);
+});
+
+test('issue-routing: R8 fires on "asserts nothing about" (U1 — the #762 phrasing)', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 13,
+      title: 'x',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody(
+        "frontier (inherent) — the tenancy filter's suite asserts nothing about tenant scoping.\nNot splittable: one predicate function."
+      ),
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /R8/, out);
+  assert.match(out, /#13/);
+});
+
+test('issue-routing: R1 stands down on an epic carrying the child tier table (U2)', () => {
+  // Policy §Mechanism 3 prescribes exactly this shape: no impl: label, the
+  // "## Impl tier" block holds the per-child table. R1 demanded a label on it.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 20,
+      title: 'Epic: tenancy hardening',
+      labels: [],
+      body: 'Body of work.\n\n## Impl tier\n\n| Child | Tier | Kind | Why |\n|---|---|---|---|\n| #21 | standard | — | loud failure, covered by config tests |\n| #22 | frontier | inherent | silent failure on the scope boundary |\n',
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /R1/);
+});
+
+test('issue-routing: R1 stands down on the `epic` label even without the table (U2)', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 23,
+      title: 'Epic: quota work',
+      labels: [{ name: 'epic' }],
+      body: 'Body of work.\n\n## Impl tier\n\nTiered by child; see the linked issues.\n',
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /R1/);
+});
+
+test('issue-routing: R1 still fires on a bare tier block that is not an epic (guarding the U2 guard)', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 24,
+      title: 'x',
+      labels: [],
+      body: tierBody('frontier (inherent) — silent failure on the scope path.\nNot splittable: one function.'),
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 1, out);
+  assert.match(out, /R1/);
+  assert.match(out, /child tier table/);
+});
+
+test('issue-routing: kind is not read from prose — "both decision points" declares nothing (U3)', () => {
+  // Pre-1.3.0 the whole-block `\b(spec|inherent|both)\b` read "both" here and
+  // reported kind=both, silencing R3 on an escalation that declared no kind.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 30,
+      title: 'x',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody('frontier — the change fails closed at both decision points.\nNot splittable: one transaction.'),
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 1, out);
+  assert.match(out, /R3/);
+});
+
+test('issue-routing: a real declaration still parses when prose says "both" later (U3)', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 31,
+      title: 'x',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody(
+        'frontier (inherent) — fails closed at **both** decision points; a wrong scope leaks silently.\nNot splittable: one transaction.'
+      ),
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /R3/);
+});
+
+test('issue-routing: the ai-fleet declaration dialects parse (U3 — live-corpus shapes)', () => {
+  // All six R3s a strict `^tier (kind)` parse produced on ai-fleet's real
+  // backlog were declared kinds in emphatic dress. These are those shapes.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 32,
+      title: 'backtick-paren form',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody('`frontier` (`inherent`) — the spec is complete; no rewrite drops the tier.\nNot splittable: one transaction.'),
+    },
+    {
+      number: 33,
+      title: 'slash form',
+      labels: [{ name: 'impl:human' }],
+      body: tierBody('`human` / `inherent` — commercial judgement; the ordering failure is silent.\nNot splittable: milestone ordering is one decision.'),
+    },
+    {
+      number: 34,
+      title: 'comma-kind form',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody('**`impl: frontier`, kind `both`.**\n`inherent`: silent and financial failure modes.\nNot splittable: one surface.'),
+    },
+    {
+      number: 35,
+      title: 'standalone kind form',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody('**Kind: `inherent`.** Two load-bearing boundaries.\nNot splittable: one dispatch path.'),
+    },
+    {
+      number: 36,
+      title: 'em-dash kind form (ai-fleet #1485)',
+      labels: [{ name: 'impl:frontier' }],
+      body: tierBody('`frontier` — kind `both`. **Under-specified:** the answers are the deliverable.\nNot splittable: the judgment is the work.'),
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /R3/);
+});
+
 // ------------------------------------------------------------- pdr-falsifiers
 
 const ACCEPTED = (falsifier) =>
