@@ -162,20 +162,59 @@ The step-1 grep run again should now return hits in a workflow file. If it does 
 lint is still dead and steps 2–6 changed nothing — that is the failure mode this whole
 prompt exists to catch, and it is invisible unless you re-run the grep.
 
-## Note for the PDR-010 author
+## Note for the PDR-010 author — measured 2026-08-17, one claim retracted
 
-PDR-010 Consequences 1 authorizes six ai-fleet span-schema additions, the first being *"a
-commit/issue/PR join key"*, on the Context finding that *"no commit↔span path exists
-today."* That is right for commits. But `agent_spans.fleet_id → fleet_runs.fleet_id →
-fleet_runs.pr_url` looks like an existing two-hop **span → PR** path for fleet-dispatched
-work, and `host/src/fleet-pr-relay.ts:83` writes the reverse (`Fleet: <url>` in every PR
-body, idempotently) — verified parseable 2026-08-14.
+An earlier draft of this prompt suggested PDR-010's schema addition might be five fields
+rather than six, on the grounds that `agent_spans.fleet_id → fleet_runs.fleet_id →
+fleet_runs.pr_url` looked like an existing two-hop span → PR path. **That is retracted.**
+Measured against prod: **`agent_spans.fleet_id` is NULL on 29,532 of 29,532 rows** — every
+row is `source='host'`, and the MCP `record_span` worker tool has never written one. The
+path exists in the schema and resolves **zero** spans. PDR-010's *"verified missing"* is
+not overstated, the addition stands at **six** fields, and harness identity is confirmed
+recorded nowhere.
 
-This does not change the decision — attribution declared at dispatch is still right, and
-archaeology is still foreclosed as the mechanism — but if the path resolves in practice, the
-schema addition may be five fields rather than six, and the retrospective study has a join
-it can use today. Worth a check before the schema work is scoped; measurement is queued in
-the DB-access session.
+Three findings from that run that do bear on Consequences 1:
+
+1. **The token vector already exists, in a different table.** `events` where
+   `event_type='worker.cost'` carries `{fleet_run_id, worker_name, model, input_tokens,
+   output_tokens, cache_creation_tokens, cache_read_tokens, cumulative_*}` — 15,997 events
+   resolving to 81 of 83 registered runs, no NULL token fields, cumulative counters
+   reconciling with delta sums. So Decision 3's "host DB carries token vectors" is already
+   satisfied — by the event stream, not by `agent_spans`. **Open question for the author:
+   are spans the right home at all, or should `worker.cost` be promoted to the record of
+   account and the six fields land there instead?** That is a different scope than
+   instrumenting a table nothing writes.
+2. **The unattributed line is 49.5%.** 73 runs carrying 15,680 `worker.cost` events and
+   ≈1.23 B tokens have no `fleet_runs` row — mostly `fwm-*` and local/dev harness runs
+   emitting into the prod event store. Decision 2 says a large unattributed line means the
+   allocation rule is wrong; at nearly half of all observed fleet spend, that test fires.
+   The cause is specific and fixable — a dispatch path that emits cost events without
+   registering a run — so this is a bug with a number attached, not an accounting posture.
+3. **Cache reads are 96.0% of admitted tokens.** This vindicates Decision 3's insistence on
+   the four-class vector: a blended total would misstate spend by roughly an order of
+   magnitude, since cache reads price near a tenth of input. It also implies
+   ai-fleet's `FLEET_BUDGET_CLASS_TOKENS` "blended token" classes need a cache-class-aware
+   mix assumption — a **cap** concern, and therefore out of scope here per Decision 4's
+   separation, but it should not be lost.
+
+Full retrospective, with the admission-filter deviations stated: ai-fleet
+`docs/agent-routing-records.md`, section dated 2026-08-17, marked *retrospective, PDR-010
+Proposed*.
+
+### And the coverage number bears on this prompt directly
+
+**Only 17 of 113 tiered closed-completed issues (15%) have any linked fleet run**; 14
+survive admission. The other ~85% were closed by hand or by interactive sessions with no
+fleet telemetry at all. Token spend tracked the tier in the right direction (p50 11.8 M
+standard vs 39.5 M frontier, ~3.3× against 7.5× in calendar) but every cell was thin and
+the `standard` bucket pooled two models, so nothing was derived.
+
+The consequence for enforcement: **the kind field's value is currently realised through the
+calendar axis, not the token axis**, because the token axis only sees a recent fleet-only
+slice. That does not weaken the case for collecting the field — it is the input to both
+axes — but it does mean this prompt should not be justified to anyone as unlocking a dollar
+forecast. It unlocks the bucket key. The dollar half needs the substrate PDR-010 authorizes
+plus far more fleet-dispatched delivery than history contains.
 
 ## Open question for the owner
 
