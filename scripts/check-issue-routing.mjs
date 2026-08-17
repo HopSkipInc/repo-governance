@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.3.0 · updated 2026-08-17
+// template: scripts/check-issue-routing.mjs v1.4.0 · updated 2026-08-17
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -69,6 +69,25 @@
  * reported as SKIPPED, never as passing. A check that fails open is worse than
  * no check, because it reads as evidence.
  *
+ * CLOSED PASS (1.4.0+) — `--closed [--days N] [--closed-gate]`
+ *
+ * The open sweep governs work not yet done. The closed pass answers a
+ * different question: is this repo's history estimable? The estimation bucket
+ * key includes the kind, and an escalation that closes without one is a
+ * permanently lost data point — the calibration protocol forbids classifying
+ * it after the fact ("a narrative, not an experiment"). So the closed pass
+ * applies R1–R3 only to issues closed within the window (default 30 days)
+ * and prints a kind-coverage census. R4–R8 are contradiction rules about work
+ * in flight and cannot fire honestly on finished work; R6 is excluded the
+ * same way.
+ *
+ * The closed pass is a probe by default: findings print under their own
+ * heading and never fail the build (it monitors record quality; it must never
+ * block a merge). `--closed-gate` promotes it to blocking — the adoption path
+ * is probe first, one cycle of the coverage number, then decide. Wire it on a
+ * schedule, not per-PR: issues close between PRs, and a PR does not close
+ * issues at merge time reliably enough to gate on.
+ *
  * CONFIGURE BEFORE USE — REPO is auto-detected from git remote; override it if
  * you run this outside a checkout. Review SEVERITY and STRUCTURE_LABEL.
  *
@@ -99,11 +118,18 @@ const SEVERITY = {
 /** The label your issue-structure validator applies. */
 const STRUCTURE_LABEL = 'needs-structure';
 
-/** Issue states to sweep. */
+/** Issue states to sweep. `--closed` overrides this — see the header. */
 const STATE = 'open';
 
 /** Max issues to fetch. */
 const LIMIT = 500;
+
+/** Default recency window for the closed pass. */
+const DEFAULT_CLOSED_DAYS = 30;
+
+/** Rules that fire on closed issues. R4–R8 are contradiction rules about work
+ *  in flight; on finished work they cannot fire honestly. */
+const CLOSED_RULES = new Set(['R1', 'R2', 'R3']);
 
 /** R6: a body edit this many minutes either side of the label change counts as grounding it. */
 const GROUNDING_WINDOW_MINUTES = 60;
@@ -255,17 +281,39 @@ function implLabels(labels) {
 
 const findings = [];
 function report(rule, number, message) {
+  if (CLOSED && !CLOSED_RULES.has(rule)) return;
   const sev = SEVERITY[rule];
   if (sev === 'off') return;
   findings.push({ rule, sev, number, message });
 }
 
+// ------------------------------------------------------- closed-pass flags
+
+const ARGS = process.argv.slice(2);
+const CLOSED = ARGS.includes('--closed');
+const CLOSED_GATE = ARGS.includes('--closed-gate');
+let DAYS = DEFAULT_CLOSED_DAYS;
+const daysIdx = ARGS.indexOf('--days');
+if (daysIdx !== -1) {
+  DAYS = Number(ARGS[daysIdx + 1]);
+  if (!Number.isInteger(DAYS) || DAYS < 1) {
+    console.error(`check-issue-routing: --days needs a positive integer, got "${ARGS[daysIdx + 1]}"`);
+    process.exit(2);
+  }
+}
+
 const REPO = repoSlug();
 
-const issues = JSON.parse(
-  gh(['issue', 'list', '--repo', REPO, '--state', STATE, '--limit', String(LIMIT),
-      '--json', 'number,title,body,labels'])
+const state = CLOSED ? 'closed' : STATE;
+const fields = CLOSED ? 'number,title,body,labels,closedAt' : 'number,title,body,labels';
+const fetched = JSON.parse(
+  gh(['issue', 'list', '--repo', REPO, '--state', state, '--limit', String(LIMIT),
+      '--json', fields])
 );
+
+/** The window filters client-side: one fetch path, no `--search` date dialect. */
+const cutoff = Date.now() - DAYS * 24 * 60 * 60 * 1000;
+const issues = CLOSED ? fetched.filter((i) => Date.parse(i.closedAt) >= cutoff) : fetched;
 
 const tiered = [];
 
@@ -274,6 +322,9 @@ const census = { escalations: 0, notSplittable: 0, split: 0, undeclared: 0 };
 
 /** Coverage census — the mechanical half of the audit's signal 6. */
 const coverage = { cited: 0, gap: 0, notTestable: 0, unrecorded: 0, issues: [] };
+
+/** Kind coverage census (closed pass only) — the estimability number. */
+const kindCoverage = { escalations: 0, spec: 0, inherent: 0, both: 0, undeclared: 0 };
 
 for (const issue of issues) {
   const names = issue.labels.map((l) => l.name);
@@ -297,6 +348,11 @@ for (const issue of issues) {
   }
 
   const tier = impls[0];
+  if (CLOSED && tier && tier !== 'impl:standard') {
+    kindCoverage.escalations += 1;
+    if (kind) kindCoverage[kind] += 1;
+    else kindCoverage.undeclared += 1;
+  }
   if (tier && tier !== 'impl:standard') {
     if (!kind) {
       report('R3', issue.number, `${tier} with no kind declared — must be spec, inherent, or both. Without the kind the escalation is permanent and the ratio cannot be computed`);
@@ -311,8 +367,9 @@ for (const issue of issues) {
 
   // R7: the tier line concedes a mechanical majority but carries no decomposition
   // record. The hedge is the triager writing the split proposal in prose and then
-  // escalating the whole issue anyway.
-  if (tier && tier !== 'impl:standard' && block) {
+  // escalating the whole issue anyway. Open-pass only — the census reads work habits,
+  // and a closed issue's hedge is no longer actionable.
+  if (!CLOSED && tier && tier !== 'impl:standard' && block) {
     const isSplit = SPLIT_REFERENCE.test(block);
     const isDeclared = NOT_SPLITTABLE.test(block);
     const decomposed = isSplit || isDeclared;
@@ -330,7 +387,8 @@ for (const issue of issues) {
 
   // R8: the tier line blames an uncovered surface but names no way to close it.
   // The tier is then a standing charge against a test nobody has been asked to write.
-  if (tier && tier !== 'impl:standard' && block) {
+  // Open-pass only, same reasoning as R7.
+  if (!CLOSED && tier && tier !== 'impl:standard' && block) {
     const signal = COVERAGE_SIGNAL.find((p) => p.test(block));
     if (signal) {
       const hasGap = COVERAGE_GAP.test(block);
@@ -350,9 +408,11 @@ for (const issue of issues) {
 }
 
 // ------------------------------------------------------- R6 ungrounded downgrade
+// Open-pass only: a closed issue's tier history is frozen, and the rule exists
+// to catch gaming in flight — post-close it is meaningless.
 
 let r6Skipped = null;
-if (SEVERITY.R6 !== 'off' && tiered.length) {
+if (!CLOSED && SEVERITY.R6 !== 'off' && tiered.length) {
   const [owner, name] = REPO.split('/');
   for (const number of tiered) {
     let events, edits;
@@ -391,7 +451,26 @@ if (SEVERITY.R6 !== 'off' && tiered.length) {
 const errors = findings.filter((f) => f.sev === 'error');
 const warns = findings.filter((f) => f.sev === 'warn');
 
-console.log(`check-issue-routing: ${REPO} — swept ${issues.length} ${STATE} issues, ${tiered.length} tiered.`);
+console.log(
+  CLOSED
+    ? `check-issue-routing (closed pass, R1–R3, last ${DAYS}d): ${REPO} — swept ${issues.length} closed issues, ${tiered.length} tiered.`
+    : `check-issue-routing: ${REPO} — swept ${issues.length} ${STATE} issues, ${tiered.length} tiered.`
+);
+
+if (CLOSED) {
+  const declared = kindCoverage.spec + kindCoverage.inherent + kindCoverage.both;
+  const pct = kindCoverage.escalations ? Math.round((declared / kindCoverage.escalations) * 100) : 0;
+  console.log(
+    `\nKind coverage: ${kindCoverage.escalations} closed escalation(s) in window — ` +
+    `${kindCoverage.spec} spec, ${kindCoverage.inherent} inherent, ${kindCoverage.both} both, ` +
+    `${kindCoverage.undeclared} undeclared (${pct}% declared).`
+  );
+  console.log(
+    'This is the number that says whether the repo\'s history is estimable: the estimation ' +
+    'bucket key includes the kind, and an escalation closed without one is a data point ' +
+    'nothing can recover.'
+  );
+}
 
 if (census.escalations) {
   const pct = ((census.escalations / tiered.length) * 100).toFixed(0);
@@ -418,12 +497,22 @@ if (coverage.cited) {
   );
 }
 
-for (const group of [errors, warns]) {
-  if (!group.length) continue;
-  const label = group === errors ? 'ERROR' : 'WARN';
-  console[group === errors ? 'error' : 'log'](`\n${label} (${group.length}):`);
-  for (const f of group.sort((a, b) => a.number - b.number)) {
-    console[group === errors ? 'error' : 'log'](`  #${f.number} [${f.rule}] ${f.message}`);
+if (CLOSED) {
+  if (findings.length) {
+    const posture = CLOSED_GATE ? 'gate' : 'probe — never blocks a merge';
+    console.log(`\nCLOSED PASS (${findings.length}, ${posture}):`);
+    for (const f of findings.sort((a, b) => a.number - b.number)) {
+      console.log(`  #${f.number} [${f.rule}] ${f.message}`);
+    }
+  }
+} else {
+  for (const group of [errors, warns]) {
+    if (!group.length) continue;
+    const label = group === errors ? 'ERROR' : 'WARN';
+    console[group === errors ? 'error' : 'log'](`\n${label} (${group.length}):`);
+    for (const f of group.sort((a, b) => a.number - b.number)) {
+      console[group === errors ? 'error' : 'log'](`  #${f.number} [${f.rule}] ${f.message}`);
+    }
   }
 }
 
@@ -433,7 +522,11 @@ if (r6Skipped) {
 }
 
 if (!findings.length && !r6Skipped) {
-  console.log('OK: all tiered issues carry a single impl: label, a tier line, a kind, and no contradictions.');
+  console.log(
+    CLOSED
+      ? 'OK: every closed escalation in the window carries a single impl: label, a tier line, and a kind.'
+      : 'OK: all tiered issues carry a single impl: label, a tier line, a kind, and no contradictions.'
+  );
 }
 
-process.exit(errors.length ? 1 : 0);
+process.exit(CLOSED ? (CLOSED_GATE && findings.length ? 1 : 0) : errors.length ? 1 : 0);
