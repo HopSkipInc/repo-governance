@@ -1,16 +1,9 @@
-<!-- Draft — awaiting confirmation by Greg Leizerowicz. Revised 2026-08-17 before signature: harness identity vs version disambiguated (Decision 1, Falsifier 3). See Status note below. -->
 # PDR-010: Estimation calibrates on observed deliveries, measured in tokens
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-08-17
-**Confirmed by:** — (drafted for Greg Leizerowicz; unconfirmed)
-**Last confirmed:** —
-
-> **Status note.** The falsifiers below are present and observable, so the gap between
-> this record and `Accepted` is not the falsifier — it is confirmation. The four decisions
-> here are methodology-owner calls, and the record is drafted for signature, not signed.
-> `lint:pdr-falsifiers` gates `Accepted` records only, so this one passes R1–R2 either way;
-> that is a property of the lint, not a reason to read this as live.
+**Confirmed by:** Greg Leizerowicz
+**Last confirmed:** 2026-08-17
 
 ---
 
