@@ -1,4 +1,4 @@
-<!-- template: definition-of-done.md v1.4.0 · updated 2026-08-12 -->
+<!-- template: definition-of-done.md v1.5.0 · updated 2026-08-18 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit
@@ -160,6 +160,7 @@ Every piece of work has a type. A thing is done when the row for its type is ful
 - [ ] All deliverables in the issue description are done — or each remaining item is explicitly filed as a separate issue with severity and linked in a comment before closing
 - [ ] If the issue promised a lint or test that wasn't part of the primary work: either done in the same PR or filed as a P0/P1 before close
 - [ ] "Cleanup" issues are not closed until the cleanup is actually complete — not 70% complete
+- [ ] **Dependent sweep done** — searched for open issues whose `## Dependencies` names this issue in a `blocked-by` ref; for each dependent, cleared the reference, flipped `status:blocked` if this was its last blocker, and corrected body prose that still asserts the blocker. Sweep command and the record-it-in-the-closing-comment rule: *Stale issue sweep* below
 
 > **Why this rule exists:** [Fill in with your own incident. Example: "An issue was closed when the primary migration shipped, while IaC files, docs, and dependent issues still referenced the retired pattern — a P1 in the next audit. On creation: a backlog sweep of ~50 open issues found most lacked verifiable outcomes — they captured intent but gave no one a way to self-verify completion, so the whole backlog had to be re-authored by hand."]
 
@@ -179,6 +180,26 @@ gh issue list --state open --limit 200 --json number,title | jq -r '.[] | "#\(.n
 ```
 
 For each stale issue found: close it with a comment citing the PR and a one-line reason.
+
+**Dependent sweep — the inverse direction, run before closing any issue that others
+cite as a blocker.** Closing an issue does not touch the issues that declared
+`blocked-by` on it; their bodies go on asserting a blocker that no longer exists, and
+the dependent sits "blocked" on nothing — the observed cost was 14 days on one
+critical path and two months on another (2026-08-17 cross-repo epic review). This
+sweep is the primary control; `scripts/check-stale-blockers.mjs` is only the backstop
+for when it doesn't happen.
+
+```bash
+# Open issues whose Dependencies block names this issue (here: #42) as a blocker
+gh issue list --state open --limit 200 --json number,body \
+  | jq -r '.[] | select(.body | test("blocked-by[^·\\n]*#42\\b")) | "#\(.number)"'
+```
+
+For each dependent found: clear the `blocked-by` reference (or re-point it at whatever
+actually remains), flip `status:blocked` if this was its last blocker, correct any body
+prose elsewhere that still asserts the blocker, and record the sweep in your closing
+comment ("swept dependents: #51, #77" — or "swept dependents: none found"). The closing
+comment is the audit trail that lets the next sweep trust itself.
 
 > **Why this rule exists:** [Fill in. Example pattern from source repo: "Issues stayed open for days after their fixing PRs merged because the author didn't write `Fixes #N`. The audit caught them — but only the *next* audit, so every audit accumulated a batch of already-done items that polluted severity counts and wasted triage time. The sweep takes 60 seconds at a session boundary."]
 

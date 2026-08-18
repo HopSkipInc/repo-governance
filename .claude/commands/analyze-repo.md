@@ -122,6 +122,7 @@ Check for each of the standard governance artifacts. Score each:
 | Issue authoring | `docs/issue-authoring.md` | PRESENT if exists. ABSENT if missing. |
 | Scheduled audit | `.github/workflows/scheduled-audit*.yml`, OR DoD mentions an in-platform scheduler ("cron state machine", "audit.*machine", "audit-data-platform"), OR `docs/governance-health.md` (implies audit is running) | PRESENT if workflow, in-platform scheduler reference, or health doc exists. ABSENT if no trace of any audit mechanism. |
 | Audit deadman | `.github/workflows/audit-deadman*.yml` | PRESENT if exists. NOT_APPLICABLE if no scheduled audit. ABSENT if audit exists but no deadman. |
+| Stale-blocker probe | `.github/workflows/stale-blocker-probe*.yml` | PRESENT if exists. NOT_APPLICABLE if the backlog carries no `blocked-by` cross-issue dependencies (nothing to probe). ABSENT if dependencies exist but no probe does. |
 | Governance health | `docs/governance-health.md` | PRESENT if exists. ABSENT if missing. NOT_APPLICABLE if fewer than 3 audit cycles. |
 | ADR lint | any workflow/lint that checks ADR ↔ README consistency | PRESENT if exists. ABSENT if missing. NOT_APPLICABLE if no ADR directory. |
 | DB migration CI | `.github/workflows/db-migration-harness*.yml` or equivalent | PRESENT if exists. ABSENT if DB migrations exist but no harness. NOT_APPLICABLE if no DB. |
@@ -246,6 +247,8 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | **`harness-enforcement.opencode.md`** | CLAUDE.md or AGENTS.md exists **and** the team runs opencode | P1 | opencode variant of the same stanza — `permission.edit`/`read` path rules, last-match-wins ordering documented (catch-all first). Install instead of — not alongside — the Claude Code variant on an opencode-only team; both on a mixed team | full |
 | **`scripts/check-enforcement-stanzas.mjs`** | a `harness-enforcement*` variant is applied | P1 | The install-assertion half — a stanza cannot report its own absence. Register-driven (`docs/enforcement-stanzas-register.md`); fails closed on a missing register; blocking UNREGISTERED when a CLAUDE.md-listed records file has no register entry; catches the opencode catch-all-ordering mistake statically | full |
 | **`scripts/write-record.mjs`** | a `harness-enforcement*` variant is applied | P1 | The mediated write path (issue #81) — agents publish ADRs/PDRs through a validating, append-only script while the stanza keeps denying raw edits to records paths. Without it, every records write is human hands (deny), a human keystroke (ask), or impossible (headless — ask auto-rejects, so fleet workers cannot author records). Register each corpus in `## Mediated write paths` | full |
+| **`scripts/check-stale-blockers.mjs`** | The backlog carries cross-issue dependencies (`blocked-by` refs in issue bodies) | P1 | The phantom-blocker detector — a probe, never a gate. Five classes (phantom, unresolved-ref, unreachable→SKIPPED, mutual-deferral, stale-status); a scope the token cannot read is reported SKIPPED, never counted clean. Ships alongside the `issue-authoring.md` ref-resolution rule and the `definition-of-done.md` dependent sweep, which is the primary control — the probe is the backstop | full |
+| **`workflows/stale-blocker-probe.yml`** | `scripts/check-stale-blockers.mjs` is applied | P1 | The weekly cron that runs the probe and upserts one rolling issue, escalating to P1 when a phantom sits on a P1 issue for two consecutive runs. Needs an estate-spanning token (`STALE_BLOCKERS_TOKEN` secret) for cross-repo refs; without it the probe degrades to same-repo-only, loudly | full |
 
 **Bolded rows were added 2026-07-24**, when `check-analyze-repo-coverage.mjs` found the matrix
 named 13 of 36 templates. Everything bold was previously unreachable via `/analyze-repo`.
@@ -261,7 +264,9 @@ single `chore/graphify-refresh` lane and the lint is what keeps every other bran
 The two `harness-enforcement` rows were added 2026-08-08 alongside the templates they
 ship (issue #<36>); the `check-enforcement-stanzas.mjs` row landed with its lint the
 same day (issue #<37>). The `scripts/write-record.mjs` row was added 2026-08-13 with
-the mediated write path (issue #<81>).
+the mediated write path (issue #<81>). The `check-stale-blockers.mjs` /
+`stale-blocker-probe.yml` rows were added 2026-08-18 with the stale-blocker controls
+(issue #<89>).
 
 ### 2.3 Priority-ordered action plan
 

@@ -1,0 +1,119 @@
+# template: workflows/stale-blocker-probe.yml v1.0.0 · updated 2026-08-18
+name: Stale-blocker probe
+
+# Kind: PROBE — monitors the backlog's blocking claims, never blocks merges or deploys.
+#
+# The failure this watches: a blocker is asserted once, in prose, and never
+# re-evaluated. The upstream issue closes; the downstream body is never re-read;
+# the program sits "blocked" for weeks on nothing (2026-08-17 cross-repo epic
+# review: three of four apparently-stalled programs, 14 days and 2 months of
+# dead time on two of them). The primary control is the dependent sweep at
+# closing time (definition-of-done.md → Stale issue sweep); this probe is the
+# backstop for when the sweep didn't happen.
+#
+# What it does, weekly (the incidents ran 14d and 2 months — weekly is enough):
+#   1. Runs scripts/check-stale-blockers.mjs in probe mode (always exit 0; the
+#      five classes and the SKIPPED contract are documented in its header).
+#   2. Upserts ONE rolling issue (label: stale-blocker-probe) with the latest
+#      census + findings — not one issue per finding, which would be alarm spam.
+#   3. Escalates the rolling issue to P1 when a phantom sits on a P1 issue for
+#      TWO consecutive runs — one run could be a sweep-in-progress; two is a
+#      pattern. The previous run's phantom-P1 set is read back from the rolling
+#      issue's body, which is why the body is rewritten wholesale each run.
+#
+# Unlike audit-deadman.yml, this probe DOES depend on API availability — which
+# is exactly why the script carries the SKIPPED state. If the job log shows
+# SKIPPED scopes, the answer is a wider token (below), not a quieter probe.
+#
+# Cross-repo coverage needs a token that can read every repo your backlog
+# references. Default GITHUB_TOKEN reads only this repo; set an
+# estate-spanning PAT as the STALE_BLOCKERS_TOKEN secret to widen the scope.
+# Without it the probe degrades to same-repo-only — LOUDLY (SKIPPED lines,
+# census "scopes skipped" count), never silently.
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Mondays 08:00 UTC — adjust to before your weekly triage
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.STALE_BLOCKERS_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the probe (probe mode — never fails the job)
+        id: run
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          node scripts/check-stale-blockers.mjs | tee probe-output.txt
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Upsert the rolling issue
+        env:
+          RUN_DATE: ${{ steps.run.outputs.date }}
+        run: |
+          set -euo pipefail
+
+          gh label create stale-blocker-probe \
+            --repo "$GITHUB_REPOSITORY" \
+            --description "Rolling output of the weekly stale-blocker probe" \
+            --color 0E8A16 --force
+
+          # The phantom-on-P1 set from THIS run — the escalation signal.
+          CURRENT=$(grep -oE '^  #[0-9]+ \[phantom\].*\[P1 dependent\]' probe-output.txt \
+            | grep -oE '^  #[0-9]+' | tr -d ' #' | sort -u || true)
+
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --label stale-blocker-probe --json number --jq '.[0].number // empty')
+
+          ESCALATE=false
+          PREVIOUS=""
+          if [ -n "$EXISTING" ]; then
+            # The previous run's phantom-P1 set, read back from the rolling body.
+            PREVIOUS=$(gh issue view "$EXISTING" --repo "$GITHUB_REPOSITORY" --json body \
+              --jq '.body' | grep -oE '^  #[0-9]+ \[phantom\].*\[P1 dependent\]' \
+              | grep -oE '^  #[0-9]+' | tr -d ' #' | sort -u || true)
+          fi
+          if [ -n "$CURRENT" ] && [ -n "$PREVIOUS" ]; then
+            # Two consecutive runs with the same phantom-on-P1 = escalate.
+            if [ -n "$(comm -12 <(printf '%s\n' $CURRENT) <(printf '%s\n' $PREVIOUS))" ]; then
+              ESCALATE=true
+            fi
+          fi
+
+          TITLE="stale-blocker probe — rolling findings (last run $RUN_DATE)"
+          {
+            echo "Weekly output of \`.github/workflows/stale-blocker-probe.yml\`. Rewritten each run —"
+            echo "do not edit by hand; act on the findings in their own issues and let the next run clear them."
+            echo ""
+            echo '```'
+            cat probe-output.txt
+            echo '```'
+          } > rolling-body.md
+
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --body-file rolling-body.md
+            echo "Updated rolling issue #$EXISTING."
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --label stale-blocker-probe \
+              --body-file rolling-body.md
+          fi
+
+          if [ "$ESCALATE" = "true" ]; then
+            TARGET=${EXISTING:-$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+              --label stale-blocker-probe --json number --jq '.[0].number')}
+            gh issue edit "$TARGET" --repo "$GITHUB_REPOSITORY" --add-label P1
+            gh issue comment "$TARGET" --repo "$GITHUB_REPOSITORY" \
+              --body "Escalated to P1: a phantom blocker on a P1 issue survived two consecutive weekly runs. The dependent sweep (definition-of-done.md → Stale issue sweep) is not happening — do it by hand on the flagged issues now."
+            echo "::error::Phantom blocker on a P1 issue persisted across two runs — see #$TARGET"
+          fi
