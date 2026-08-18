@@ -52,7 +52,7 @@ here), so only the PDR corpus is listed.
 
 | path | script | version | note |
 |---|---|---|---|
-| `docs/pdr/` | `scripts/write-record.mjs` | `1.1.0` | Installed 2026-08-13 (v1.0.0); 1.1.0 2026-08-18 adds the pre-confirmation revision mode (issue #88) — unsigned drafts may revise Context/Decision, confirmed records stay locked. Byte-identical self-copy asserted by the write-record fixture suite |
+| `docs/pdr/` | `scripts/write-record.mjs` | `1.2.0` | Installed 2026-08-13 (v1.0.0); 1.1.0 2026-08-18 adds the pre-confirmation revision mode (issue #88) — unsigned drafts may revise Context/Decision, confirmed records stay locked; 1.2.0 2026-08-18 derives the corpus dialect from disk (issue #91) — MADR bracket H1s read and mint, pad width follows the corpus instead of a constant. Byte-identical self-copy asserted by the write-record fixture suite |
 
 **Mode, on the record:** this repo runs its records paths at **`ask`**, not `deny`
 (decision 2026-08-08, review feedback on PR #64). Records maintenance here is a daily

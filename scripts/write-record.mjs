@@ -1,4 +1,4 @@
-// template: scripts/write-record.mjs v1.1.0 · updated 2026-08-18
+// template: scripts/write-record.mjs v1.2.0 · updated 2026-08-18
 /**
  * write-record  [TEMPLATE — ships to governed repos]
  *
@@ -62,6 +62,31 @@
  *           amend). A Proposed PDR WITH a confirmer named is a contradictory
  *           state: the signature IS the confirmation, and the record is
  *           treated as locked.
+ *
+ *           CORPUS DIALECTS (1.2.0, issue #91). The script derives the corpus's
+ *           numbering dialect from what is on disk instead of assuming the
+ *           template's own form: pad WIDTH is the widest number in use
+ *           (filenames and README link targets), minimum 3 — a corpus already
+ *           at 4 digits (MADR corpora, e.g. enrichment-pipeline's `adr/0021`)
+ *           gets a 4-digit mint, not a 3-digit file beside a 4-digit table;
+ *           and the H1 is minted bracketed (`# [ADR-0011] Title`) when the
+ *           corpus's records read that way. amend accepts all three observed
+ *           H1 variants on read — `# ADR-011: T`, `# [ADR-0011] T`, and
+ *           `# ADR 0007: T` (space; one live record uses it — run the read
+ *           against the real corpus before trusting a regex to it).
+ *           1.1.0 assumed `# ADR-NNN:` and padStart(3), which left a
+ *           MADR corpus deny-mode for agents AND unreadable by the sanctioned
+ *           path — every amend failed closed on the bracket.
+ *
+ *           The same dialect logic applies to SECTIONS: a MADR corpus has no
+ *           ## Enforcement anywhere (it is a house rule, not MADR's), and
+ *           re-validating the whole file on amend refused every Consequences-
+ *           only edit. So required-section absence is an error at CREATE
+ *           (new records meet the house standard, whatever the corpus's
+ *           history) and at amend only when the amend itself creates the
+ *           absence (the record had the section; the revised file drops it).
+ *           A pre-existing absence is warned on, loudly — the guard is
+ *           anti-degradation, not a backfill mandate.
  * readme  — full-file replace of the corpus README under a structural guard:
  *           prose outside the inventory table byte-identical, header row
  *           identical, no row deletions (the never-pruned rule, also
@@ -239,7 +264,7 @@ function findCorpusDir(kind) {
 
 /** Next free number: max over filenames AND README link targets, plus one.
  *  A file deleted by hand must not free its number — the README is the
- *  longer-lived witness. Zero-padded to 3 (4 once the corpus outgrows it). */
+ *  longer-lived witness. The pad width is the caller's job (corpusDialect). */
 function nextNumber(dir) {
   let max = 0;
   for (const f of readdirSync(dir)) {
@@ -255,6 +280,35 @@ function nextNumber(dir) {
   return max + 1;
 }
 
+/** The corpus's numbering dialect (1.2.0, issue #91), derived from what is on
+ *  disk — never assumed:
+ *    width   the widest number in use (filenames and README link targets, the
+ *            longer-lived witness for a file deleted by hand), minimum 3.
+ *    bracket true when bracketed MADR H1s (`# [ADR-0011] Title`) outnumber
+ *            plain ones (`# ADR-011: Title`) — an empty or plain corpus keeps
+ *            the original form, a MADR corpus is written in its own dialect.
+ *            create mints the detected form so its own amend can re-read it. */
+function corpusDialect(dir) {
+  let width = 3;
+  let bracket = 0;
+  let plain = 0;
+  const readme = join(dir, 'README.md');
+  if (existsSync(readme)) {
+    for (const m of readFileSync(readme, 'utf8').matchAll(/\((\d{3,4})-[^)]+\.md\)/g)) {
+      width = Math.max(width, m[1].length);
+    }
+  }
+  for (const f of readdirSync(dir)) {
+    const m = f.match(/^(\d{3,4})-.+\.md$/);
+    if (!m) continue;
+    width = Math.max(width, m[1].length);
+    const h1 = readFileSync(join(dir, f), 'utf8').match(/^#\s+(.+)$/m)?.[1] ?? '';
+    if (/^\[(ADR|PDR)[- ]\d{3,4}\]/.test(h1)) bracket++;
+    else if (/^(ADR|PDR)[- ]\d{3,4}/.test(h1)) plain++;
+  }
+  return { width, bracket: bracket > plain };
+}
+
 function slugify(title) {
   return title
     .toLowerCase()
@@ -265,7 +319,9 @@ function slugify(title) {
 }
 
 function findRecordFile(dir, numArg) {
-  const num = numArg.replace(/^(ADR|PDR)-/i, '').padStart(3, '0');
+  // Pad to the corpus's own width (1.2.0) — `amend adr 11` must find
+  // 0011-*.md in a 4-digit corpus, not just 011-*.md in a 3-digit one.
+  const num = numArg.replace(/^(ADR|PDR)-/i, '').padStart(corpusDialect(dir).width, '0');
   const matches = readdirSync(dir).filter((f) => f.startsWith(`${num}-`) && f.endsWith('.md'));
   return { num, file: matches[0] ?? null };
 }
@@ -344,6 +400,13 @@ function validate(kind, text, ctx) {
 
   for (const name of REQUIRED_SECTIONS[kind]) {
     const body = sectionBody(sections, name);
+    // ctx.missingOk (amend only, 1.2.0/#91): the record ON DISK never had this
+    // section — a MADR corpus has no ## Enforcement anywhere, and punishing a
+    // Consequences amend for a pre-existing, corpus-wide absence is the
+    // dialect assumption wearing a rule's clothes. Absence the amend itself
+    // creates (the record had it, the revised file drops it) stays an error —
+    // the guard is anti-degradation, not a backfill mandate.
+    if (body === null && ctx.missingOk?.includes(name)) continue;
     if (body === null) errors.push(`missing required section: ## ${name}`);
     else if (body === '') errors.push(`section ## ${name} is empty`);
   }
@@ -477,15 +540,21 @@ function cmdCreate(kind, draftPath) {
 
   // Number first: the H1 is rewritten with the allocated number, so a draft
   // never reserves one and two agents' drafts cannot collide before merge.
-  const num = String(nextNumber(corpusDir)).padStart(3, '0');
+  // The mint speaks the corpus's dialect (1.2.0, issue #91): its pad width
+  // and its H1 form, so a create into a MADR corpus produces a record this
+  // same script's amend can re-read.
+  const dialect = corpusDialect(corpusDir);
+  const num = String(nextNumber(corpusDir)).padStart(dialect.width, '0');
 
   let { head, sections } = parseRecord(text);
   const h1 = head.match(/^#\s+(.+)$/m);
   if (!h1) die('the draft has no `# ` title line');
-  const title = h1[1].replace(new RegExp(`^${LABEL[kind]}-[A-Za-z0-9]{1,5}:\\s*`), '').trim();
+  const title = h1[1].replace(new RegExp(`^\\[?${LABEL[kind]}[- ][A-Za-z0-9]{1,5}\\]?:?\\s*`), '').trim();
   if (!title || title === '<Title>') die(`the draft's H1 is still the placeholder — give the record its real title`);
 
-  head = head.replace(/^#\s+.+$/m, () => `# ${LABEL[kind]}-${num}: ${title}`);
+  head = head.replace(/^#\s+.+$/m, () =>
+    dialect.bracket ? `# [${LABEL[kind]}-${num}] ${title}` : `# ${LABEL[kind]}-${num}: ${title}`,
+  );
   head = fixFrontField(head, 'Date', TODAY);
   if (kind === 'pdr') head = fixFrontField(head, 'Last confirmed', TODAY);
   text = [head, ...sections.map((s) => s.slice)].join('\n\n');
@@ -541,9 +610,13 @@ function cmdAmendRecord(kind, numArg, revisedPath) {
   const newParsed = parseRecord(newText);
 
   // The number is identity. Renumbering is delete + create, and deletion is
-  // not an operation this script performs.
-  const oldNum = oldParsed.head.match(new RegExp(`#\\s+${LABEL[kind]}-(\\d{3,4})`))?.[1];
-  const newNum = newParsed.head.match(new RegExp(`#\\s+${LABEL[kind]}-(\\d{3,4})`))?.[1];
+  // not an operation this script performs. The H1 match accepts the observed
+  // MADR variants (1.2.0, issue #91 — all three live in one real corpus):
+  // `# ADR-011: T` (template form), `# [ADR-0011] T` (bracket), `# ADR 0007: T`
+  // (space). Widening the READ weakens nothing — the number must still equal
+  // the old one, and the filename lookup already pinned it.
+  const oldNum = oldParsed.head.match(new RegExp(`#\\s+\\[?${LABEL[kind]}[- ](\\d{3,4})\\]?`))?.[1];
+  const newNum = newParsed.head.match(new RegExp(`#\\s+\\[?${LABEL[kind]}[- ](\\d{3,4})\\]?`))?.[1];
   if (!newNum || newNum !== oldNum) {
     die(`the H1 number cannot change under amend (${LABEL[kind]}-${oldNum ?? '?'} → ${newNum ?? 'none'}) — a renumbering is a new record`);
   }
@@ -581,8 +654,16 @@ function cmdAmendRecord(kind, numArg, revisedPath) {
   }
 
   const lensRequired = kind === 'adr' && (findLint('check-design-lens.mjs') !== null || existsSync(join(ROOT, 'docs', 'design-lenses.md')));
-  const errors = validate(kind, newText, { corpusDir: dir, num, lensRequired, allowUnsignedDraft: revisionMode });
+  // Sections the record never had stay its history, not this amend's
+  // obligation (1.2.0/#91) — said out loud, per the fail-loud convention.
+  const missingOk = REQUIRED_SECTIONS[kind].filter((n) => sectionBody(oldParsed.sections, n) === null);
+  const errors = validate(kind, newText, { corpusDir: dir, num, lensRequired, allowUnsignedDraft: revisionMode, missingOk });
   if (errors.length) dieAll(errors);
+  if (missingOk.length) {
+    console.log(
+      `write-record: WARNING — ${LABEL[kind]}-${oldNum} has no ## ${missingOk.join(' / ## ')} section (a corpus-dialect absence, predating this amend; left as-is). The house form requires it of every NEW record — create stays strict.`,
+    );
+  }
 
   writeFileSync(join(corpusDir, file), newText.endsWith('\n') ? newText : `${newText}\n`);
   console.log(
