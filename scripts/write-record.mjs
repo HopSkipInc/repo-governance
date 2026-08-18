@@ -1,4 +1,4 @@
-// template: scripts/write-record.mjs v1.0.0 · updated 2026-08-13
+// template: scripts/write-record.mjs v1.1.0 · updated 2026-08-18
 /**
  * write-record  [TEMPLATE — ships to governed repos]
  *
@@ -42,6 +42,26 @@
  *           the record, so the record is their source. The curated cells
  *           (Title, Enforcement summary) are NOT auto-touched: use
  *           `amend readme`, which guards the index itself.
+ *
+ *           PRE-CONFIRMATION REVISION MODE (1.1.0, issue #88). The section
+ *           guard cannot distinguish revising an unsigned draft from
+ *           rewriting history — it fired identically on both, and the only
+ *           scripted path left for fixing an unsigned draft was supersession:
+ *           a manufactured chain for a position nobody ever held (observed
+ *           live 2026-08-17, PDR-010's pre-signature fix routed around the
+ *           script). The guard therefore lifts for a record that is
+ *           pre-confirmation ON DISK and stays pre-confirmation in the
+ *           revised file:
+ *             PDR: Status Proposed AND `Confirmed by:` unfilled
+ *                  (`—`, empty, or a <placeholder>)
+ *             ADR: Status Proposed (ADRs carry no Confirmed-by; Proposed is
+ *                  the pre-confirmation state)
+ *           The flip to confirmed/Accepted locks Context and Decision
+ *           permanently — so the flip amend itself must carry those sections
+ *           byte-identical (no smuggling a Decision edit into the acceptance
+ *           amend). A Proposed PDR WITH a confirmer named is a contradictory
+ *           state: the signature IS the confirmation, and the record is
+ *           treated as locked.
  * readme  — full-file replace of the corpus README under a structural guard:
  *           prose outside the inventory table byte-identical, header row
  *           identical, no row deletions (the never-pruned rule, also
@@ -86,9 +106,11 @@ const CORPUS_DIRS = {
 const LABEL = { adr: 'ADR', pdr: 'PDR' };
 const LINT_HOMES = ['scripts', 'host/scripts', 'tools'];
 
-/** Sections an amend may never rewrite. The templates' rule is "never edit a
- *  Decision in place"; Context rides with it because a new rationale for the
- *  same decision IS a new decision. Everything else is fair game. */
+/** Sections an amend may never rewrite once the record is confirmed. The
+ *  templates' rule is "never edit a Decision in place"; Context rides with it
+ *  because a new rationale for the same decision IS a new decision. Before
+ *  confirmation they are revisable — see the header's pre-confirmation mode.
+ *  Everything else is fair game. */
 const PROTECTED_SECTIONS = ['Context', 'Decision'];
 
 const REQUIRED_SECTIONS = {
@@ -169,6 +191,28 @@ function sectionBody(sections, name) {
 
 function statusOf(head) {
   return (head.match(/^\*\*Status:\*\*\s*(.+)$/m)?.[1] ?? '').trim();
+}
+
+/**
+ * Is this record pre-confirmation? (1.1.0, issue #88)
+ *
+ * A record records belief only once someone signs. Before that it is a draft,
+ * and revising a draft's Context/Decision is not rewriting history. The state
+ * is read from the record ITSELF, old and new file independently:
+ *
+ *   PDR: Status Proposed AND Confirmed by unfilled — empty, `—` (the observed
+ *        live dialect is `— (drafted for <name>; unconfirmed)`), or a
+ *        <placeholder>. A Proposed PDR WITH a confirmer named is
+ *        contradictory — the signature is the confirmation — and counts as
+ *        LOCKED, not pre-confirmation.
+ *   ADR: Status Proposed. ADRs carry no Confirmed-by; Proposed is the
+ *        pre-confirmation state.
+ */
+function isPreConfirmation(kind, head) {
+  if (!/^Proposed\b/i.test(statusOf(head))) return false;
+  if (kind === 'adr') return true;
+  const cb = (head.match(/^\*\*Confirmed by:\*\*\s*(.*)$/m)?.[1] ?? '').trim();
+  return cb === '' || /^[—-]/.test(cb) || /^<.*>$/.test(cb);
 }
 
 /** Read or replace a `**Name:** value` front-matter line. Placeholders
@@ -355,7 +399,11 @@ function validate(kind, text, ctx) {
 
   if (kind === 'pdr') {
     const confirmedBy = (head.match(/^\*\*Confirmed by:\*\*\s*(.+)$/m)?.[1] ?? '').trim();
-    if (!confirmedBy || /^<.*>$/.test(confirmedBy)) {
+    // ctx.allowUnsignedDraft (amend only, 1.1.0/#88): the record on disk and
+    // the revised file are both pre-confirmation — an unsigned draft is a
+    // legal thing to KEEP unsigned while revising it. create never passes
+    // this: you cannot publish an unsigned draft through the script.
+    if ((!confirmedBy || /^<.*>$/.test(confirmedBy)) && !ctx.allowUnsignedDraft) {
       errors.push('PDR needs `**Confirmed by:** <a name, not a role>` — refusing is as much a signature as accepting, but someone signs');
     }
   }
@@ -502,22 +550,46 @@ function cmdAmendRecord(kind, numArg, revisedPath) {
 
   // The section guard. "Never edit a Decision in place" is the blank form's
   // own rule; here it is mechanical. Context rides with the Decision.
+  //
+  // Pre-confirmation revision mode (1.1.0, issue #88): the guard lifts only
+  // when the record ON DISK is an unsigned draft AND the revised file keeps
+  // it one. A flip to confirmed/Accepted in the same amend that edits a
+  // protected section is the lock bypass — refused by name.
+  const draftBefore = isPreConfirmation(kind, oldParsed.head);
+  const draftAfter = isPreConfirmation(kind, newParsed.head);
+  const revisionMode = draftBefore && draftAfter;
+  const signedProposal =
+    kind === 'pdr' && /^Proposed\b/i.test(statusOf(oldParsed.head)) && !draftBefore;
+
   for (const name of PROTECTED_SECTIONS) {
     const before = sectionSlice(oldParsed.sections, name);
     const after = sectionSlice(newParsed.sections, name);
-    if (before !== after) {
+    if (before === after || revisionMode) continue;
+    if (draftBefore && !draftAfter) {
       die(
-        `REFUSED: ## ${name} changed. A ${name} is never edited in place — write a NEW record that supersedes ${LABEL[kind]}-${oldNum} (create), then amend this one's Status to \`Superseded by ${LABEL[kind]}-NNN\`. The record of what was believed and why it changed is the most valuable thing in the corpus.`,
+        `REFUSED: ## ${name} changed in the same amend that confirms the record. The flip to signed/Accepted is what locks Context and Decision — a confirmation amend carries them byte-identical. Land the revision while the draft is unsigned, then confirm in a separate amend the PR can read on its own.`,
       );
     }
+    if (signedProposal) {
+      die(
+        `REFUSED: ## ${name} changed, and this PDR is Proposed but SIGNED (Confirmed by is filled) — a contradictory state. The signature is the confirmation: the record is locked from that point. If the signature was premature, remove the confirmer (a Status/front-matter amend, sections untouched) and then revise; otherwise the path is supersession.`,
+      );
+    }
+    die(
+      `REFUSED: ## ${name} changed. A ${name} is never edited in place on a confirmed record — write a NEW record that supersedes ${LABEL[kind]}-${oldNum} (create), then amend this one's Status to \`Superseded by ${LABEL[kind]}-NNN\`. The record of what was believed and why it changed is the most valuable thing in the corpus.`,
+    );
   }
 
   const lensRequired = kind === 'adr' && (findLint('check-design-lens.mjs') !== null || existsSync(join(ROOT, 'docs', 'design-lenses.md')));
-  const errors = validate(kind, newText, { corpusDir: dir, num, lensRequired });
+  const errors = validate(kind, newText, { corpusDir: dir, num, lensRequired, allowUnsignedDraft: revisionMode });
   if (errors.length) dieAll(errors);
 
   writeFileSync(join(corpusDir, file), newText.endsWith('\n') ? newText : `${newText}\n`);
-  console.log(`write-record: amended ${dir}/${file} (${LABEL[kind]}-${oldNum}) — ## Context and ## Decision verified byte-identical`);
+  console.log(
+    revisionMode
+      ? `write-record: amended ${dir}/${file} (${LABEL[kind]}-${oldNum}) — pre-confirmation draft; ## Context / ## Decision revised under the unsigned-draft rule. Confirming (signature / Accepted) locks them permanently.`
+      : `write-record: amended ${dir}/${file} (${LABEL[kind]}-${oldNum}) — ## Context and ## Decision verified byte-identical`,
+  );
 
   // Derived README cells follow the record; curated cells never move without
   // `amend readme`. Status is the record's own line; Last confirmed (PDR) is
