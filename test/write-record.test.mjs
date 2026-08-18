@@ -527,6 +527,174 @@ test('amend readme: every record on disk must have a row', () => {
   assert.match(out, /has no row/);
 });
 
+// --------------------------- 2026-08-18: corpus dialects (issue #91)
+// A MADR corpus (bracketed `# [ADR-0011] Title` H1s, 4-digit filenames) failed
+// closed on every amend — the number-identity regex anchored on the template's
+// own `# ADR-NNN:` form — and the next create would have minted a 3-digit file
+// beside a 4-digit README table. The dialect is derived from disk, both ways:
+// amend READS both H1 forms, create MINTS the corpus's form.
+
+/** The reporter's corpus shape: root adr/, 4-digit files, bracketed H1s. */
+function madrCorpus({ revisedEdit = null } = {}) {
+  const existing = `# [ADR-0011] Data-boundary contracts
+
+**Status:** Accepted
+**Date:** 2026-07-20
+
+---
+
+## Context
+
+Positional records crossed the HTTP boundary unchecked.
+
+## Decision
+
+All inbound positional records are parsed by the boundary contract before use.
+
+## Enforcement
+
+tools/check-boundary-contracts.mjs, wired into CI
+
+## Consequences
+
+HTTP handlers lose direct access to raw positional payloads.
+`;
+  let revised = existing;
+  if (revisedEdit) revised = revised.replace('## Consequences\n\n', `## Consequences\n\n${revisedEdit}\n`);
+  return {
+    'adr/README.md':
+      '# Architecture Decision Records\n\nEvery file in this directory must appear in the table below.\n\n' +
+      '| # | Title | Status | Enforcement |\n|---|-------|--------|-------------|\n' +
+      '| [0011](0011-data-boundary-contracts.md) | Data-boundary contracts | Accepted | tools/check-boundary-contracts.mjs |\n',
+    'adr/0011-data-boundary-contracts.md': existing,
+    'revised.md': revised,
+  };
+}
+
+test('amend (91): a MADR bracket-form corpus amends — the number identity reads through the brackets', () => {
+  const dir = fixture(madrCorpus({ revisedEdit: 'Triage-interview ruling: HTTP-boundary positional records are permanently exempt from the §8 rule (decided 2026-08-18).' }));
+  const { code, out } = run(dir, ['amend', 'adr', '0011', 'revised.md']);
+  assert.equal(code, 0, out);
+  assert.match(readFileSync(join(dir, 'adr/0011-data-boundary-contracts.md'), 'utf8'), /permanently exempt/);
+});
+
+test('amend (91): an unpadded lookup finds a 4-digit record — `amend adr 11`', () => {
+  const dir = fixture(madrCorpus({ revisedEdit: 'A consequence note.' }));
+  const { code, out } = run(dir, ['amend', 'adr', '11', 'revised.md']);
+  assert.equal(code, 0, out);
+});
+
+test('amend (91): renumbering is still refused through the brackets', () => {
+  const files = madrCorpus();
+  files['revised.md'] = files['revised.md'].replace('# [ADR-0011]', '# [ADR-0012]');
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'adr', '0011', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /number cannot change/);
+});
+
+test('amend (91): the space variant (`# ADR 0007:`) reads too — one live record in the reporter\'s corpus uses it', () => {
+  const files = madrCorpus();
+  files['adr/0007-webhook-delivery-quality-tracking.md'] = files['adr/0011-data-boundary-contracts.md']
+    .replace('# [ADR-0011] Data-boundary contracts', '# ADR 0007: Webhook Delivery Quality Tracking');
+  files['adr/README.md'] = files['adr/README.md'].replace(
+    '| [0011](0011-data-boundary-contracts.md) | Data-boundary contracts | Accepted | tools/check-boundary-contracts.mjs |\n',
+    '| [0007](0007-webhook-delivery-quality-tracking.md) | Webhook Delivery Quality Tracking | Accepted | tools/check-boundary-contracts.mjs |\n| [0011](0011-data-boundary-contracts.md) | Data-boundary contracts | Accepted | tools/check-boundary-contracts.mjs |\n',
+  );
+  files['revised.md'] = files['adr/0007-webhook-delivery-quality-tracking.md'].replace('## Consequences\n\n', '## Consequences\n\nA note.\n');
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'adr', '0007', 'revised.md']);
+  assert.equal(code, 0, out);
+  assert.match(readFileSync(join(dir, 'adr/0007-webhook-delivery-quality-tracking.md'), 'utf8'), /A note\./);
+});
+
+test('create (91): a 4-digit corpus mints a 4-digit file and README link — not a 3-digit row in a 4-digit table', () => {
+  const files = madrCorpus();
+  delete files['revised.md'];
+  files['draft.md'] = adrDraft({ title: 'Queue consumers run in the worker tier' });
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 0, out);
+  assert.ok(existsSync(join(dir, 'adr/0012-queue-consumers-run-in-the-worker-tier.md')), out);
+  const readme = readFileSync(join(dir, 'adr/README.md'), 'utf8');
+  assert.match(readme, /\[0012\]\(0012-queue-consumers-run-in-the-worker-tier\.md\)/);
+});
+
+test('create (91): a bracket-dialect corpus is minted in its own dialect — create writes what amend can re-read', () => {
+  const files = madrCorpus();
+  delete files['revised.md'];
+  files['draft.md'] = adrDraft({ title: 'Queue consumers run in the worker tier' });
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 0, out);
+  const written = readFileSync(join(dir, 'adr/0012-queue-consumers-run-in-the-worker-tier.md'), 'utf8');
+  assert.match(written, /^# \[ADR-0012\] Queue consumers run in the worker tier$/m);
+  // And the new record amends cleanly — the write path and the read path agree.
+  const revised = written.replace('## Consequences\n\n', '## Consequences\n\nA note.\n');
+  writeFileSync(join(dir, 'revised.md'), revised);
+  const again = run(dir, ['amend', 'adr', '0012', 'revised.md']);
+  assert.equal(again.code, 0, again.out);
+});
+
+test('create (91): a bracket draft into a bracket corpus mints one bracket pair, not two', () => {
+  const files = madrCorpus();
+  delete files['revised.md'];
+  files['draft.md'] = adrDraft({ body: adrDraft().replace('# ADR-NNN: All DB access through the repository layer', '# [ADR-NNN] All DB access through the repository layer') });
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 0, out);
+  const written = readFileSync(join(dir, 'adr/0012-all-db-access-through-the-repository-layer.md'), 'utf8');
+  assert.match(written, /^# \[ADR-0012\] All DB access through the repository layer$/m);
+  assert.doesNotMatch(written, /\[\[ADR|NNN/);
+});
+
+test('create (91): a plain-majority corpus keeps the template form even with one bracketed oddity on disk', () => {
+  const dir = fixture({
+    'docs/adr/README.md':
+      ADR_README + '| [001](001-first.md) | First | Accepted | a lint |\n| [002](002-second.md) | Second | Accepted | a lint |\n',
+    'docs/adr/001-first.md': '# ADR-001: First\n',
+    'docs/adr/002-second.md': '# [ADR-002] Second\n', // the oddity — one bracketed record
+    'draft.md': adrDraft(),
+  });
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 0, out);
+  const written = readFileSync(join(dir, 'docs/adr/003-all-db-access-through-the-repository-layer.md'), 'utf8');
+  assert.match(written, /^# ADR-003: All DB access through the repository layer$/m);
+});
+
+test('amend (91): a corpus-dialect section absence (no ## Enforcement anywhere) warns but does not refuse', () => {
+  const files = madrCorpus();
+  const strip = (t) => t.replace(/\n## Enforcement\n\ntools\/check-boundary-contracts\.mjs, wired into CI\n/, '');
+  files['adr/0011-data-boundary-contracts.md'] = strip(files['adr/0011-data-boundary-contracts.md']);
+  files['revised.md'] = strip(files['revised.md']).replace('## Consequences\n\n', '## Consequences\n\nA ruling note.\n');
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'adr', '0011', 'revised.md']);
+  assert.equal(code, 0, out);
+  assert.match(out, /WARNING — ADR-0011 has no ## Enforcement section/);
+  assert.match(readFileSync(join(dir, 'adr/0011-data-boundary-contracts.md'), 'utf8'), /A ruling note\./);
+});
+
+test('amend (91): dropping a section the record HAD is still refused — the guard is anti-degradation, not a backfill mandate', () => {
+  const files = madrCorpus(); // this corpus's record DOES carry ## Enforcement
+  files['revised.md'] = files['revised.md'].replace(/\n## Enforcement\n\ntools\/check-boundary-contracts\.mjs, wired into CI\n/, '');
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'adr', '0011', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /missing required section: ## Enforcement/);
+});
+
+test('create (91): stays strict in a dialect corpus — a new record meets the house sections whatever the corpus\'s history', () => {
+  const files = madrCorpus();
+  delete files['revised.md'];
+  files['adr/0011-data-boundary-contracts.md'] = files['adr/0011-data-boundary-contracts.md'].replace(
+    /\n## Enforcement\n\ntools\/check-boundary-contracts\.mjs, wired into CI\n/, '');
+  files['draft.md'] = adrDraft({ title: 'Queue consumers run in the worker tier' }).replace(/## Enforcement[\s\S]*?(?=## Consequences)/, '');
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /missing required section: ## Enforcement/);
+});
+
 // ------------------------------------------------------- self-install + misc
 
 test('write-record: the self-installed copy and the template are byte-identical', () => {
