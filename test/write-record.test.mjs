@@ -267,8 +267,24 @@ test('amend: a flip to Accepted over a placeholder README Enforcement cell is na
   assert.match(out, /amend adr readme/);
 });
 
-test('amend: a Decision change is refused, by name, with the supersession path', () => {
-  const files = amendableCorpus();
+/** A corpus whose record is already Accepted — the state the section guard
+ *  exists for. The Enforcement section reads as wired because validate()
+ *  refuses Accepted over "not yet built". */
+function acceptedCorpus() {
+  const existing = adrDraft({ title: 'Repository layer for all DB access', status: 'Accepted' })
+    .replace('# ADR-NNN:', '# ADR-001:')
+    .replace('**Date:** YYYY-MM-DD', '**Date:** 2026-08-01')
+    .replace('not yet built — tracking issue #99', 'scripts/check-repository-pattern.mjs, wired into npm run check');
+  return {
+    'docs/adr/README.md':
+      ADR_README + '| [001](001-repository-layer-for-all-db-access.md) | Repository layer for all DB access | Accepted | scripts/check-repository-pattern.mjs |\n',
+    'docs/adr/001-repository-layer-for-all-db-access.md': existing,
+    'revised.md': existing,
+  };
+}
+
+test('amend: a Decision change on a confirmed record is refused, by name, with the supersession path', () => {
+  const files = acceptedCorpus();
   files['revised.md'] = files['revised.md'].replace(
     'All database access goes through src/repositories/.',
     'Route handlers may import the DB driver directly.',
@@ -282,13 +298,134 @@ test('amend: a Decision change is refused, by name, with the supersession path',
   assert.equal(readFileSync(join(dir, 'docs/adr/001-repository-layer-for-all-db-access.md'), 'utf8'), before);
 });
 
-test('amend: a Context change is refused — a new rationale for the same decision is a new decision', () => {
-  const files = amendableCorpus();
+test('amend: a Context change on a confirmed record is refused — a new rationale for the same decision is a new decision', () => {
+  const files = acceptedCorpus();
   files['revised.md'] = files['revised.md'].replace('Module B queried the DB directly', 'Actually, the real reason is different');
   const dir = fixture(files);
   const { code, out } = run(dir, ['amend', 'adr', '001', 'revised.md']);
   assert.equal(code, 1, out);
   assert.match(out, /REFUSED: ## Context changed/);
+});
+
+// --------------------------- 2026-08-18: pre-confirmation revision mode (issue #88)
+// The guard cannot distinguish revising an unsigned draft from rewriting
+// history; 1.0.0 fired on both, and PDR-010's pre-signature fix had to route
+// around the script. These fixtures pin the mode in both directions: the draft
+// path lands, and every confirmed/locked path still refuses.
+
+/** A Proposed ADR (pre-confirmation — ADRs carry no Confirmed-by). */
+function proposedAdrCorpus(decisionEdit) {
+  const files = amendableCorpus();
+  if (decisionEdit) {
+    files['revised.md'] = files['revised.md'].replace(
+      'All database access goes through src/repositories/.',
+      'All database access goes through src/repositories/; read-replicas are explicitly in scope.',
+    );
+    // amendableCorpus's revised also flips Status to Accepted — keep the
+    // revised file Proposed so this is a pure draft revision.
+    files['revised.md'] = files['revised.md'].replace('**Status:** Accepted', '**Status:** Proposed');
+  }
+  return files;
+}
+
+test('amend (88): a Proposed ADR draft accepts a Decision revision', () => {
+  const dir = fixture(proposedAdrCorpus(true));
+  const { code, out } = run(dir, ['amend', 'adr', '001', 'revised.md']);
+  assert.equal(code, 0, out);
+  assert.match(out, /unsigned-draft rule/);
+  assert.match(readFileSync(join(dir, 'docs/adr/001-repository-layer-for-all-db-access.md'), 'utf8'), /read-replicas are explicitly in scope/);
+});
+
+test('amend (88): the flip to Accepted carrying a Decision edit is refused — the confirmation amend cannot smuggle the lock past itself', () => {
+  const files = amendableCorpus(); // Proposed on disk; revised flips Accepted
+  files['revised.md'] = files['revised.md'].replace(
+    'All database access goes through src/repositories/.',
+    'Route handlers may import the DB driver directly.',
+  );
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'adr', '001', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /REFUSED: ## Decision changed in the same amend that confirms the record/);
+  assert.match(out, /Land the revision while the draft is unsigned/);
+});
+
+/** A Proposed, UNCONFIRMED PDR — the observed live dialect of the unsigned
+ *  draft (PDR-010, 2026-08-14): `Confirmed by: — (drafted for …; unconfirmed)`. */
+function unsignedPdrCorpus({ confirmer = '— (drafted for Greg; unconfirmed)', status = 'Proposed', decisionEdit = false } = {}) {
+  const existing = pdrDraft({ title: 'We serve solo operators', status })
+    .replace('# PDR-NNN:', '# PDR-001:')
+    .replaceAll('YYYY-MM-DD', '2026-01-01')
+    .replace('**Confirmed by:** Greg', `**Confirmed by:** ${confirmer}`)
+    .replace('**Last confirmed:** 2026-01-01', '**Last confirmed:** —');
+  let revised = existing;
+  if (decisionEdit) {
+    revised = revised.replace(
+      'We serve solo operators billing under $500k who do their own books.',
+      'We serve solo operators billing under $500k; harness version re-keys the estimation bucket.',
+    );
+  }
+  return {
+    'docs/pdr/README.md':
+      PDR_README + '| [001](001-we-serve-solo-operators.md) | We serve solo operators | Proposed | — |\n',
+    'docs/pdr/001-we-serve-solo-operators.md': existing,
+    'revised.md': revised,
+  };
+}
+
+test('amend (88): a Proposed-unconfirmed PDR accepts a Decision revision, and README sync still runs', () => {
+  // The PDR-010 case: the draft's Decision hadn't said whether harness version
+  // re-keys the bucket, and a downstream ADR was about to rest on it.
+  const dir = fixture(unsignedPdrCorpus({ decisionEdit: true }));
+  const { code, out } = run(dir, ['amend', 'pdr', '001', 'revised.md']);
+  assert.equal(code, 0, out);
+  assert.match(out, /unsigned-draft rule/);
+  assert.match(readFileSync(join(dir, 'docs/pdr/001-we-serve-solo-operators.md'), 'utf8'), /harness version re-keys/);
+});
+
+test('amend (88): an Accepted PDR still refuses the Decision edit', () => {
+  const dir = fixture(unsignedPdrCorpus({ status: 'Accepted', confirmer: 'Greg', decisionEdit: true })
+  );
+  // Accepted requires a falsifier that passes validation — the draft has one.
+  const { code, out } = run(dir, ['amend', 'pdr', '001', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /REFUSED: ## Decision changed\./);
+  assert.match(out, /Superseded by PDR-NNN/);
+});
+
+test('amend (88): a Proposed PDR WITH a confirmer is contradictory — locked, refused by name', () => {
+  const dir = fixture(unsignedPdrCorpus({ confirmer: 'Greg', decisionEdit: true }));
+  const { code, out } = run(dir, ['amend', 'pdr', '001', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /Proposed but SIGNED/);
+  assert.match(out, /contradictory/);
+});
+
+test('amend (88): a PDR confirmation flip carrying a Decision edit is refused', () => {
+  const files = unsignedPdrCorpus({ decisionEdit: true });
+  files['revised.md'] = files['revised.md']
+    .replace('**Status:** Proposed', '**Status:** Accepted')
+    .replace('**Confirmed by:** — (drafted for Greg; unconfirmed)', '**Confirmed by:** Greg')
+    .replace('**Last confirmed:** —', `**Last confirmed:** ${TODAY}`);
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'pdr', '001', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /in the same amend that confirms the record/);
+});
+
+test('amend (88): the PDR signing amend itself lands when sections are untouched', () => {
+  // The paired half: confirm an unsigned draft with Context/Decision
+  // byte-identical — Status, Confirmed by, Last confirmed all move, README
+  // follows.
+  const files = unsignedPdrCorpus();
+  files['revised.md'] = files['revised.md']
+    .replace('**Status:** Proposed', '**Status:** Accepted')
+    .replace('**Confirmed by:** — (drafted for Greg; unconfirmed)', '**Confirmed by:** Greg')
+    .replace('**Last confirmed:** —', `**Last confirmed:** ${TODAY}`);
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'pdr', '001', 'revised.md']);
+  assert.equal(code, 0, out);
+  const readme = readFileSync(join(dir, 'docs/pdr/README.md'), 'utf8');
+  assert.match(readme, /\| Accepted \|/);
 });
 
 test('amend: the H1 number is identity — a renumbering is refused', () => {

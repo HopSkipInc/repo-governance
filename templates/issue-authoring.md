@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.2.0 · updated 2026-07-24 -->
+<!-- template: issue-authoring.md v1.3.0 · updated 2026-08-18 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -38,7 +38,7 @@ Every issue body uses this structure:
 blocked-by #X · blocks #Y · child-of #Z — or "none"
 
 ## Status
-<one line: why ready / needs-decision / blocked / deferred>
+<one line: why ready / needs-decision / blocked / deferred — dated, e.g. "ready — 2026-08-17">
 ```
 
 Rules:
@@ -50,6 +50,19 @@ Rules:
   its kind — `spec` or `inherent`. See [Agent Routing](agent-routing.md). An escalation with
   no kind is malformed: without it the tier is permanent, and the whole taxonomy stops
   being self-correcting.
+- **Every blocking claim resolves to a reference.** Under `## Dependencies`, a blocker is
+  `blocked-by #N` (same repo), `blocked-by owner/repo#N` (cross-repo — pick this one form;
+  both it and the bare `repo#N` are in live use, and a backlog running both makes the
+  detector guess), or `blocked-by external: <one line>` for a blocker that is not an issue —
+  a human decision, a vendor answer, a contract. The `external:` form exists so the detector
+  can tell *unresolvable by design* from *unparseable*: a prose claim like "blocked-by the
+  vendor" is detectable as neither. Blocking claims asserted only in body prose are invisible
+  to every control in this stack — the stale-blocker probe reads this section and nothing
+  else.
+- **Every `## Status` assertion carries a date** — `ready — 2026-08-17`, not `ready`. An
+  undated `blocked` or `needs-decision` can never age, which is exactly how a dependent sits
+  for months against a blocker that closed long ago; the probe's stale-status class reads
+  this date. Re-asserting the status means re-dating it.
 
 For **epics**: "Verifiable outcomes" = "epic closes when all child issues close" **plus** 2–3 epic-level acceptance gates; list known child issue numbers under Dependencies.
 
