@@ -123,6 +123,7 @@ Check for each of the standard governance artifacts. Score each:
 | Scheduled audit | `.github/workflows/scheduled-audit*.yml`, OR DoD mentions an in-platform scheduler ("cron state machine", "audit.*machine", "audit-data-platform"), OR `docs/governance-health.md` (implies audit is running) | PRESENT if workflow, in-platform scheduler reference, or health doc exists. ABSENT if no trace of any audit mechanism. |
 | Audit deadman | `.github/workflows/audit-deadman*.yml` | PRESENT if exists. NOT_APPLICABLE if no scheduled audit. ABSENT if audit exists but no deadman. |
 | Stale-blocker probe | `.github/workflows/stale-blocker-probe*.yml` | PRESENT if exists. NOT_APPLICABLE if the backlog carries no `blocked-by` cross-issue dependencies (nothing to probe). ABSENT if dependencies exist but no probe does. |
+| Issue routing probe | `.github/workflows/issue-routing-probe*.yml` or any scheduled workflow invoking `check-issue-routing.mjs` without `--closed` | PRESENT if the open pass runs on a schedule. PARTIAL if the open pass is wired as a per-PR gate — that wiring reds the merge queue on unrelated mid-triage issue edits (observed twice in four hours, ai-fleet 2026-08-18; see the 2026-08-18 erratum prompt). NOT_APPLICABLE if agent-routing is not applied. ABSENT if routing is applied but no open pass runs anywhere. |
 | Governance health | `docs/governance-health.md` | PRESENT if exists. ABSENT if missing. NOT_APPLICABLE if fewer than 3 audit cycles. |
 | ADR lint | any workflow/lint that checks ADR ↔ README consistency | PRESENT if exists. ABSENT if missing. NOT_APPLICABLE if no ADR directory. |
 | DB migration CI | `.github/workflows/db-migration-harness*.yml` or equivalent | PRESENT if exists. ABSENT if DB migrations exist but no harness. NOT_APPLICABLE if no DB. |
@@ -220,7 +221,8 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | **`agent-routing-records.md`** | agent-routing is applied | P1 | The per-repo records file — model→class, pin resolutions, ratio readings, calibration set. Never syncs after install. Without it the repo appends records to the policy, which the adoption check requires to be identical to the template | full |
 | **`skills/routing-triage/`** | agent-routing is applied | P1 | How tiers actually get assigned; installs a `agents/routing-classifier*` variant as its dependency | full |
 | **`agents/routing-classifier.opencode.md`** | agent-routing is applied **and** the team runs opencode | P1 | opencode does not read `.claude/agents/`, so the Claude Code pin does not bind there. Installs globally to `~/.config/opencode/agents/`. Install instead of — not alongside — the Claude Code variant on an opencode-only team | full |
-| **`scripts/check-issue-routing.mjs`** | agent-routing is applied | P1 | Mechanical enforcement of the routing rules; queries the GitHub API, so language-agnostic | full |
+| **`scripts/check-issue-routing.mjs`** | agent-routing is applied | P1 | Mechanical enforcement of the routing rules; queries the GitHub API, so language-agnostic. Wire the open pass via `workflows/issue-routing-probe.yml` — never as a per-PR gate (a backlog sweep is not a function of the PR diff) | full |
+| **`workflows/issue-routing-probe.yml`** | `scripts/check-issue-routing.mjs` is applied | P1 | The only sanctioned wiring for the open pass: a scheduled probe, R1–R3 error severity, blocking nothing. The 2026-08-14 prompt's step-3 per-PR gate wiring was retracted by the 2026-08-18 erratum after it failed two unrelated ai-fleet PRs in its first four hours | full |
 | **`skills/adr-interview/`** | Repo has load-bearing patterns and no ADRs, or ADRs without enforcement | P1 | Five-layer sweep — layer 2 | full |
 | **`skills/clean-code-interview/`** | Always | P2 | Five-layer sweep — layer 3 | full |
 | **`code-conventions.md`** | clean-code-interview is applied | P2 | The layer-3 records file — enforced / documented / **not codified**. Never syncs after install. Without it the interview's output disperses into ADRs and CLAUDE.md and no audit domain has anything to measure against, and the next refresh re-proposes every pattern the last one dropped | full |
@@ -266,7 +268,9 @@ ship (issue #<36>); the `check-enforcement-stanzas.mjs` row landed with its lint
 same day (issue #<37>). The `scripts/write-record.mjs` row was added 2026-08-13 with
 the mediated write path (issue #<81>). The `check-stale-blockers.mjs` /
 `stale-blocker-probe.yml` rows were added 2026-08-18 with the stale-blocker controls
-(issue #<89>).
+(issue #<89>). The `issue-routing-probe.yml` row was added the same day with the
+erratum retracting the 2026-08-14 prompt's per-PR gate wiring for the routing open
+pass.
 
 ### 2.3 Priority-ordered action plan
 
