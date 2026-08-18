@@ -1,0 +1,51 @@
+# template: workflows/issue-routing-probe.yml v1.0.0 · updated 2026-08-18
+name: Routing records probe — open pass
+
+# Kind: PROBE — monitors backlog routing health, never blocks merges or deploys.
+#
+# This is the ONLY sanctioned wiring for the open pass of
+# scripts/check-issue-routing.mjs. The script's own header has always said it:
+# "on: schedule + workflow_dispatch (not per-PR — it is a backlog sweep, not a
+# diff check)". The 2026-08-14 downstream prompt overrode that (step 3: wire it
+# into the per-PR lint job); ai-fleet applied it and the sweep failed two
+# unrelated PRs in its first four hours — one issue gained impl:frontier
+# mid-triage with no tier line yet (R2/R3), another was created with a tier
+# line minutes before its label (R1). Neither issue was touched by the PRs it
+# blocked. A per-PR gate must be a function of the PR's diff; this sweep's
+# input is the live issue database, which anyone with issue-write access edits
+# continuously — including people mid-triage, whose transient states are R1–R3
+# violations for minutes at a time. The 2026-08-18 erratum prompt records the
+# correction; do not re-litigate it per-repo.
+#
+# R1–R3 stay ERROR severity here — a red run means the backlog needs triage
+# attention this week, not eventually. The failure reaches the weekly audit
+# and whoever watches the workflow list; it reaches no PR's merge button.
+#
+# The closed pass (--closed) is a separate probe with its own workflow
+# (ai-fleet: routing-closed-pass.yml) — it exits 0 by design; this one fails.
+#
+# Runs Monday ahead of your weekly audit/triage so the census is fresh when a
+# human reads it. Findings live in the job log; the audit is the reader.
+
+on:
+  schedule:
+    - cron: '15 12 * * 1' # Mondays 12:15 UTC — adjust to before your weekly triage
+  workflow_dispatch:
+
+permissions:
+  contents: read # checkout (explicit block replaces the token defaults)
+  issues: read # the open pass sweeps the live backlog via gh GraphQL
+
+jobs:
+  open-pass:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Issue routing check — open pass (R1–R3, live backlog)
+        run: node scripts/check-issue-routing.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
