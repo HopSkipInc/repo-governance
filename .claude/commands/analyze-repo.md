@@ -249,6 +249,7 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | **`harness-enforcement.opencode.md`** | CLAUDE.md or AGENTS.md exists **and** the team runs opencode | P1 | opencode variant of the same stanza — `permission.edit`/`read` path rules, last-match-wins ordering documented (catch-all first). Install instead of — not alongside — the Claude Code variant on an opencode-only team; both on a mixed team | full |
 | **`scripts/check-enforcement-stanzas.mjs`** | a `harness-enforcement*` variant is applied | P1 | The install-assertion half — a stanza cannot report its own absence. Register-driven (`docs/enforcement-stanzas-register.md`); fails closed on a missing register; blocking UNREGISTERED when a CLAUDE.md-listed records file has no register entry; catches the opencode catch-all-ordering mistake statically | full |
 | **`scripts/write-record.mjs`** | a `harness-enforcement*` variant is applied | P1 | The mediated write path (issue #81) — agents publish ADRs/PDRs through a validating, append-only script while the stanza keeps denying raw edits to records paths. Without it, every records write is human hands (deny), a human keystroke (ask), or impossible (headless — ask auto-rejects, so fleet workers cannot author records). Register each corpus in `## Mediated write paths` | full |
+| **`scripts/census-record-sections.mjs`** | `scripts/write-record.mjs` is applied | P1 | The pre-backfill census (issue #97) — report-only, normalizes headings with the same rules write-record ≥1.3.0 gates on: buckets amendable-today / unblocked-by-1.3.0 / needs-content with per-record missing sections, heading-variant inventory, the P0 vacuous-guard flag, scaffold-marker collisions, Status parse failures. Run it before any Enforcement backfill — grouped counts alone are not actionable, and a census without normalization libels the corpus | full |
 | **`scripts/check-stale-blockers.mjs`** | The backlog carries cross-issue dependencies (`blocked-by` refs in issue bodies) | P1 | The phantom-blocker detector — a probe, never a gate. Five classes (phantom, unresolved-ref, unreachable→SKIPPED, mutual-deferral, stale-status); a scope the token cannot read is reported SKIPPED, never counted clean. Ships alongside the `issue-authoring.md` ref-resolution rule and the `definition-of-done.md` dependent sweep, which is the primary control — the probe is the backstop | full |
 | **`workflows/stale-blocker-probe.yml`** | `scripts/check-stale-blockers.mjs` is applied | P1 | The weekly cron that runs the probe and upserts one rolling issue, escalating to P1 when a phantom sits on a P1 issue for two consecutive runs. Needs an estate-spanning token (`STALE_BLOCKERS_TOKEN` secret) for cross-repo refs; without it the probe degrades to same-repo-only, loudly | full |
 
@@ -270,6 +271,9 @@ the mediated write path (issue #<81>). The `check-stale-blockers.mjs` /
 `stale-blocker-probe.yml` rows were added 2026-08-18 with the stale-blocker controls
 (issue #<89>). The `issue-routing-probe.yml` row was added the same day with the
 erratum retracting the 2026-08-14 prompt's per-PR gate wiring for the routing open
+pass. The `scripts/census-record-sections.mjs` row was added 2026-08-19 with the
+write-record 1.3.0 section-matching fix (issue #<97>) — the census is how a repo
+learns which records the ≥1.3.0 gate actually locks before any backfill starts
 pass.
 
 ### 2.3 Priority-ordered action plan

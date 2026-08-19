@@ -13,6 +13,46 @@
 | HopSkipInc/enrichment-pipeline | `~/repos/HopSkipInc/enrichment-pipeline` | 2026-06 | Early-mid — first audit cycle done | Code-hygiene / slop-detection most complete here; reference for that artifact class |
 | HopSkipInc/infra-ops | `~/repos/HopSkipInc/infra-ops` | 2026-08 | Bootstrap — **class: core** | First `core`-class adopter (PDR-009 dogfood; falsifier revisit 2026-11-03). Solo-maintained IaC; deploy gates already exceed the full framework's machinery |
 
+## Doorbell estate (Azure DevOps)
+
+Fifteen product repos — 14 .NET 6 in-process Azure Function Apps plus the legacy
+`browser-app` front end — live in Azure DevOps at `dev.azure.com/saratogasandboxes/Doorbell`,
+alongside `PlatformLibraries`, the shared package repo every service floats on at `1.0.*`
+(16 pipelines total; only `EventSubscriptionService` and `ImportExportService` run a test
+step). The current front end, `browser-app-v2`, is GitHub-hosted
+(`~/repos/HopSkipInc/browser-app-v2`) — the mechanical layer works there unported and it
+does not queue behind the AzDO port.
+
+Platform deltas, recorded once here instead of per repo: **no GitHub Actions** (the audit
+loop is unported — plan Phase 4(b)), **no repo-scoped backlog key** (969 open work items
+keyed by vendor/team area paths — Phase 4(c)). SourcingService additionally has **no
+SQL/migrations and no TypeScript**, which excludes those template families outright.
+
+**Pilot: SourcingService at `full` class** — bootstrap
+[2026-08-10](SourcingService/2026-08-10-bootstrap.md). The pilot's purpose is to separate
+per-repo cost from the one-time estate cost; adoption class for the remaining repos is
+deferred until that cost is measured. Plan of record:
+`~/.claude/plans/twinkling-mapping-acorn.md`.
+
+| Repo | Local path | Governance since | Maturity | Notes |
+|---|---|---|---|---|
+| SourcingService | `~/repos/Doorbell/SourcingService` | 2026-08-10 | Bootstrap — **class: full** | **Pilot.** Cosmos + Service Bus + Blob, no SQL; 96 HTTP triggers; suite exists but runs in CI nowhere |
+| PlatformLibraries | `~/repos/Doorbell/PlatformLibraries` | — | Ungoverned | The fan-in — `HopSkip.*` packages at floating `1.0.*`; no CLAUDE.md at all. Highest-leverage second target, not the biggest one |
+| ImportExportService | `~/repos/Doorbell/ImportExportService` | — | Ungoverned | House reference CLAUDE.md (120 lines); one of two repos with a CI test step |
+| ReportService | `~/repos/Doorbell/ReportService` | — | Ungoverned | Substantial CLAUDE.md (112 lines) — cheap Phase 5 adopter |
+| MVP | `~/repos/Doorbell/MVP` | — | Ungoverned | Substantial CLAUDE.md (110 lines) — cheap Phase 5 adopter |
+| NotificationService | `~/repos/Doorbell/NotificationService` | — | Ungoverned | Substantial CLAUDE.md (89 lines) — cheap Phase 5 adopter |
+| EventSubscriptionService | `~/repos/Doorbell/EventSubscriptionService` | — | Ungoverned | CLAUDE.md (58 lines); the other repo with a CI test step |
+| AIService | `~/repos/Doorbell/AIService` | — | Ungoverned | |
+| AnalyticsService | `~/repos/Doorbell/AnalyticsService` | — | Ungoverned | |
+| ContractService | `~/repos/Doorbell/ContractService` | — | Ungoverned | |
+| DocumentService | `~/repos/Doorbell/DocumentService` | — | Ungoverned | |
+| MessagingService | `~/repos/Doorbell/MessagingService` | — | Ungoverned | |
+| PlatformService | `~/repos/Doorbell/PlatformService` | — | Ungoverned | |
+| PromotionService | `~/repos/Doorbell/PromotionService` | — | Ungoverned | |
+| SellingService | `~/repos/Doorbell/SellingService` | — | Ungoverned | |
+| browser-app | `~/repos/Doorbell/browser-app` | — | Ungoverned | Legacy AzDO front end; current front end is `browser-app-v2` on GitHub |
+
 ## Routing ratio targets
 
 Per-repo, per `templates/agent-routing.md` §*The frontier ratio and what it measures*. The
@@ -111,6 +151,7 @@ decomposed, then set a target.
 | HopSkipInc/analytics-infrastructure | [2026-08-14 routing kind enforcement](2026-08-14-routing-kind-enforcement.md) | pending — **step-1 grep is free and runnable now**; full apply waits on ai-fleet completing one closed-pass cycle (PDR-010 Consequences 4); the 1.4.0 install then subsumes the pending 08-17 validator 1.3.0 (same script) |
 | HopSkipInc/enrichment-pipeline | [2026-08-14 routing kind enforcement](2026-08-14-routing-kind-enforcement.md) | pending — **step-1 grep is free and runnable now**; full apply waits on ai-fleet completing one closed-pass cycle (PDR-010 Consequences 4); the 1.4.0 install then subsumes the pending 08-17 validator 1.3.0 (same script) |
 | HopSkipInc/infra-ops | [2026-08-14 routing kind enforcement](2026-08-14-routing-kind-enforcement.md) | n/a expected — routing layer never adopted (core class), per the 2026-08-17 validator-fixes record; the step-1 grep costs one line if that record is ever doubted |
+| Doorbell/SourcingService | [2026-08-10 bootstrap](SourcingService/2026-08-10-bootstrap.md) | pending — estate pilot, class: full; AzDO platform deltas recorded in the prompt and in the Doorbell subsection above |
 | HopSkipInc/ai-fleet | [2026-08-17 routing validator fixes](2026-08-17-routing-validator-fixes.md) | pending — validator v1.2.0 → v1.3.0 + routing-triage 1.6.1 → 1.7.0 into the declared paths; this repo originated all three defects, so expect new R8 warnings on its #1306/#1167/#1294/#762-shaped tier lines (remediate with `Coverage gap: #N`, never by narrowing the lint). Owed on the ai-fleet side after the upstream PR merges: flip the three outbox rows to delivered with the PR reference |
 | HopSkipInc/analytics-infrastructure | [2026-08-17 routing validator fixes](2026-08-17-routing-validator-fixes.md) | pending — validator v1.2.0 → v1.3.0 + routing-triage 1.6.1 → 1.7.0, both byte-identical into the declared paths; policy re-sync (1.11.0 → 1.13.0) is separately owed via the sync ritual, not this prompt |
 | HopSkipInc/enrichment-pipeline | [2026-08-17 routing validator fixes](2026-08-17-routing-validator-fixes.md) | pending — validator v1.2.0 → v1.3.0 + routing-triage 1.6.1 → 1.7.0; supersedes the skill version in the pending 08-07 row (1.6.1) — one skill install takes both |

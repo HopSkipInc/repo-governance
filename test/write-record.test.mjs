@@ -695,6 +695,377 @@ test('create (91): stays strict in a dialect corpus — a new record meets the h
   assert.match(out, /missing required section: ## Enforcement/);
 });
 
+// --------------------------- 2026-08-19: section matching (issue #97)
+// Exact-equality heading matching made variant headings (`## Decision 1: …`,
+// `## Enforcement (ships with the decision, per ADR-022)`) invisible to the
+// required-section check AND the protected-section guard — which then compared
+// null === null and passed on nothing. 1.3.0 normalizes headings, hardens the
+// guard, scopes the YYYY-MM-DD marker, exempts Superseded records from
+// ## Enforcement, adds .write-record.json, and adds `check`. These fixtures
+// pin each of those — the tamper regression is the one that would have caught
+// the defect.
+
+/** ai-fleet's house shape: numbered Decision sections, suffixed Enforcement. */
+function variantCorpus() {
+  const existing = `# ADR-001: Storage backend
+
+**Status:** Accepted
+**Date:** 2026-08-01
+
+---
+
+## Context
+
+Storage was per-instance files; the second instance broke that.
+
+## Decision 1: Storage backend
+
+The events table replaces Azure Files.
+
+## Decision 2 — Data source
+
+Postgres, not blobs.
+
+## Decision 3: Retention
+
+Ninety days hot, then archive.
+
+## Enforcement (ships with the decision, per ADR-022)
+
+scripts/check-storage-backend.mjs, wired into CI
+
+## Consequences
+
+File-access code is deleted.
+`;
+  return {
+    'docs/adr/README.md':
+      ADR_README + '| [001](001-storage-backend.md) | Storage backend | Accepted | scripts/check-storage-backend.mjs |\n',
+    'docs/adr/001-storage-backend.md': existing,
+    'revised.md': existing.replace('## Consequences\n\n', '## Consequences\n\nA note.\n'),
+  };
+}
+
+test('amend (97): a variant-heading record amends — normalization satisfies the required sections, and says which headings did it', () => {
+  const dir = fixture(variantCorpus());
+  const { code, out } = run(dir, ['amend', 'adr', '001', 'revised.md']);
+  assert.equal(code, 0, out);
+  assert.match(out, /## Decision satisfied by "## Decision 1: Storage backend"/);
+  assert.match(out, /## Enforcement satisfied by "## Enforcement \(ships with the decision, per ADR-022\)"/);
+  assert.match(readFileSync(join(dir, 'docs/adr/001-storage-backend.md'), 'utf8'), /A note\./);
+});
+
+test('amend (97): TAMPER REGRESSION — a Decision edit inside a variant-heading record is refused, naming the protected section', () => {
+  // The test whose absence let the defect ship: pre-1.3.0 this was refused for
+  // the WRONG reason (missing required section), and under 1.2.0's missingOk
+  // it would have been accepted outright — the gate reporting success while a
+  // Decision was rewritten in place.
+  const files = variantCorpus();
+  files['revised.md'] = files['revised.md'].replace('The events table replaces Azure Files.', 'Azure Files stays the store of record.');
+  const dir = fixture(files);
+  const before = readFileSync(join(dir, 'docs/adr/001-storage-backend.md'), 'utf8');
+  const { code, out } = run(dir, ['amend', 'adr', '001', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /REFUSED: ## Decision changed/);
+  assert.doesNotMatch(out, /missing required section/);
+  assert.equal(readFileSync(join(dir, 'docs/adr/001-storage-backend.md'), 'utf8'), before);
+});
+
+test('amend (97): deleting one of three Decision sections is refused', () => {
+  const files = variantCorpus();
+  files['revised.md'] = files['revised.md'].replace('\n## Decision 3: Retention\n\nNinety days hot, then archive.\n', '');
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'adr', '001', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /REFUSED: ## Decision changed/);
+  assert.match(out, /3 section\(s\) on disk vs 2 .*deleting or renumbering/);
+});
+
+test('amend (97): renumbering Decision 2 → 3 is refused — the heading is part of the record of what was decided', () => {
+  const files = variantCorpus();
+  files['revised.md'] = files['revised.md'].replace('## Decision 2 — Data source', '## Decision 3 — Data source');
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'adr', '001', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /REFUSED: ## Decision changed/);
+});
+
+test('amend (97): a record with no Decision-normalizing heading is refused explicitly — a missing protected section is never a pass', () => {
+  const existing = `# ADR-001: Decision log record
+
+**Status:** Accepted
+**Date:** 2026-08-01
+
+---
+
+## Context
+
+c
+
+## Decision Log
+
+d
+
+## Enforcement
+
+scripts/x.mjs
+
+## Consequences
+
+c
+`;
+  const dir = fixture({
+    'docs/adr/README.md': ADR_README + '| [001](001-decision-log-record.md) | Decision log record | Accepted | scripts/x.mjs |\n',
+    'docs/adr/001-decision-log-record.md': existing,
+    'revised.md': existing.replace('## Consequences\n\n', '## Consequences\n\nA note.\n'),
+  });
+  const { code, out } = run(dir, ['amend', 'adr', '001', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /has no section normalizing to ## Decision/);
+  assert.match(out, /never a pass|nothing to compare/);
+});
+
+/** Draft builder for the normalizer table: the four required sections with
+ *  swappable heading text, plus optional extra sections. */
+function headingDraft({ context = '## Context', decision = '## Decision', enforcement = '## Enforcement', consequences = '## Consequences', extra = '' }) {
+  return `# ADR-NNN: Heading table probe
+
+**Status:** Proposed
+**Date:** 2026-08-01
+
+---
+
+${context}
+
+c
+
+${decision}
+
+d
+
+${enforcement}
+
+not yet built — tracking issue #99
+
+${consequences}
+
+c
+${extra}`;
+}
+
+const NORMALIZER_CASES = [
+  // [heading slot override, expected map resolution, expectError]
+  { name: 'control: bare Context resolves', over: {}, map: ['## Context  →  Context'], error: null },
+  {
+    name: '## Contextual notes does NOT satisfy Context — the \\b is what saves it',
+    over: { context: '## Contextual notes' },
+    map: ['## Contextual notes  →  (not a governed section)'],
+    error: /missing required section: ## Context/,
+  },
+  {
+    name: '## Decision Log does NOT satisfy Decision (Q1 — owner decision)',
+    over: { decision: '## Decision Log' },
+    map: ['## Decision Log  →  (not a governed section)'],
+    error: /missing required section: ## Decision/,
+  },
+  {
+    name: '## Decisions satisfies Decision',
+    over: { decision: '## Decisions' },
+    map: ['## Decisions  →  Decision'],
+    error: null,
+  },
+  {
+    name: '## Decision: <summary> satisfies Decision',
+    over: { decision: '## Decision: All tool registration goes through the tools table' },
+    map: ['## Decision: All tool registration goes through the tools table  →  Decision'],
+    error: null,
+  },
+  {
+    name: '## Consequences (PROPOSED) satisfies Consequences',
+    over: { consequences: '## Consequences (PROPOSED)' },
+    map: ['## Consequences (PROPOSED)  →  Consequences'],
+    error: null,
+  },
+  {
+    name: '## Enforcement (ships with the decision, per ADR-022) satisfies Enforcement',
+    over: { enforcement: '## Enforcement (ships with the decision, per ADR-022)' },
+    map: ['## Enforcement (ships with the decision, per ADR-022)  →  Enforcement'],
+    error: null,
+  },
+  {
+    name: '## Amendment (…): stays out of the canonical set',
+    over: { extra: '\n## Amendment (2026-07-07): revisited\n\na\n' },
+    map: ['## Amendment (2026-07-07): revisited  →  (not a governed section)'],
+    error: null,
+  },
+];
+
+for (const c of NORMALIZER_CASES) {
+  test(`check (97): ${c.name}`, () => {
+    const dir = fixture({ 'docs/adr/README.md': ADR_README, 'draft.md': headingDraft(c.over) });
+    const { code, out } = run(dir, ['check', 'adr', 'draft.md']);
+    for (const line of c.map) assert.ok(out.includes(line), `expected map line "${line}" in:\n${out}`);
+    if (c.error) {
+      assert.equal(code, 1, out);
+      assert.match(out, c.error);
+    } else {
+      assert.equal(code, 0, out);
+    }
+    // check writes nothing
+    assert.equal(readdirSync(join(dir, 'docs/adr')).filter((f) => /^\d{3}-/.test(f)).length, 0);
+  });
+}
+
+test('create (97): the house style is not forced to a single Decision — a ## Decision 1/2 draft publishes', () => {
+  const body = headingDraft({ decision: '## Decision 1: Storage backend' }).replace(
+    '## Decision 1: Storage backend\n\nd\n',
+    '## Decision 1: Storage backend\n\nd1\n\n## Decision 2: Data source\n\nd2\n',
+  );
+  const dir = fixture({ 'docs/adr/README.md': ADR_README, 'draft.md': body });
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 0, out);
+  assert.match(out, /## Decision satisfied by "## Decision 1: Storage backend"/);
+  assert.ok(existsSync(join(dir, 'docs/adr/001-heading-table-probe.md')));
+});
+
+test('create (97): three EMPTY Decision sections still fail on empty', () => {
+  const body = headingDraft({}).replace(
+    '## Decision\n\nd\n',
+    '## Decision 1: A\n\n\n## Decision 2: B\n\n## Decision 3: C\n',
+  );
+  const dir = fixture({ 'docs/adr/README.md': ADR_README, 'draft.md': body });
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /section ## Decision is empty/);
+});
+
+test('create (97): YYYY-MM-DD in a code span is legitimate prose, not scaffold (ai-fleet ADR-009)', () => {
+  const body = adrDraft().replace(
+    'Module B gets rewritten; new repos ship with the lint on day one.',
+    'Cron keys read `scheduler:<slug>:<YYYY-MM-DDTHH:mm>` — a format specifier, not an unfilled date.',
+  );
+  const dir = fixture({ 'docs/adr/README.md': ADR_README, 'draft.md': body });
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 0, out);
+});
+
+test('amend (97): an unfilled **Date:** field is the placeholder refusal, scoped to the field', () => {
+  const files = acceptedCorpus();
+  for (const k of Object.keys(files)) {
+    if (k.endsWith('.md') && k !== 'revised.md' || k === 'revised.md') files[k] = files[k].replace('**Date:** 2026-08-01', '**Date:** YYYY-MM-DD');
+  }
+  files['revised.md'] = files['revised.md'].replace('## Consequences\n\n', '## Consequences\n\nA note.\n');
+  const dir = fixture(files);
+  const { code, out } = run(dir, ['amend', 'adr', '001', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /\*\*Date:\*\* field still holds the placeholder/);
+});
+
+test('create (97): a PDR falsifier holding the placeholder date is refused — a falsifier without a real date is a wish', () => {
+  const dir = fixture({
+    'docs/pdr/README.md': PDR_README,
+    'draft.md': pdrDraft({ status: 'Accepted', falsifier: 'Revisit by YYYY-MM-DD when the pilot cohort churns' }),
+  });
+  const { code, out } = run(dir, ['create', 'pdr', 'draft.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /falsifier still holds the placeholder date/);
+});
+
+test('create (97): a Superseded record is exempt from ## Enforcement (Q2)', () => {
+  const body = adrDraft({ status: 'Superseded by ADR-001' }).replace(/## Enforcement[\s\S]*?(?=## Consequences)/, '');
+  const dir = fixture({
+    'docs/adr/README.md': ADR_README + '| [001](001-first.md) | First | Accepted | a lint |\n',
+    'docs/adr/001-first.md': '# ADR-001: First\n',
+    'draft.md': body,
+  });
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 0, out);
+});
+
+test('config (97): .write-record.json that is not valid JSON refuses closed', () => {
+  const dir = fixture({ 'docs/adr/README.md': ADR_README, '.write-record.json': '{ not json', 'draft.md': adrDraft() });
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /not valid JSON/);
+});
+
+test('config (97): an unknown key refuses closed — an unrecognized key that silently did nothing would weaken the gate', () => {
+  const dir = fixture({
+    'docs/adr/README.md': ADR_README,
+    '.write-record.json': JSON.stringify({ adr: { requires: [] } }),
+    'draft.md': adrDraft(),
+  });
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /unknown key "requires"/);
+});
+
+test('config (97): required override — a corpus that never adopted the Enforcement rule declares its own list', () => {
+  const body = adrDraft().replace(/## Enforcement[\s\S]*?(?=## Consequences)/, '');
+  const dir = fixture({
+    'docs/adr/README.md': ADR_README,
+    '.write-record.json': JSON.stringify({ adr: { required: ['Context', 'Decision', 'Consequences'] } }),
+    'draft.md': body,
+  });
+  const { code, out } = run(dir, ['create', 'adr', 'draft.md']);
+  assert.equal(code, 0, out);
+});
+
+/** A grandfather fixture: record N with an empty ## Consequences on disk. */
+function grandfatherCorpus(num, config) {
+  const pad = String(num).padStart(3, '0');
+  const existing = `# ADR-${pad}: Old record
+
+**Status:** Accepted
+**Date:** 2026-08-01
+
+---
+
+## Context
+
+c
+
+## Decision
+
+d
+
+## Enforcement
+
+scripts/x.mjs
+
+## Consequences
+`;
+  return {
+    'docs/adr/README.md': ADR_README + `| [${pad}](${pad}-old-record.md) | Old record | Accepted | scripts/x.mjs |\n`,
+    '.write-record.json': JSON.stringify(config),
+    [`docs/adr/${pad}-old-record.md`]: existing,
+    'revised.md': existing.replace('scripts/x.mjs', 'scripts/x.mjs, wired into CI'),
+  };
+}
+
+test('config (97): grandfather — a record at/below the cutoff warns on an empty required section instead of refusing', () => {
+  const dir = fixture(grandfatherCorpus(3, { adr: { grandfather: 5 } }));
+  const { code, out } = run(dir, ['amend', 'adr', '003', 'revised.md']);
+  assert.equal(code, 0, out);
+  assert.match(out, /## Consequences empty — warn-only under the corpus's grandfather cutoff \(5\)/);
+});
+
+test('config (97): grandfather — a record above the cutoff is still refused', () => {
+  const dir = fixture(grandfatherCorpus(6, { adr: { grandfather: 5 } }));
+  const { code, out } = run(dir, ['amend', 'adr', '006', 'revised.md']);
+  assert.equal(code, 1, out);
+  assert.match(out, /section ## Consequences is empty/);
+});
+
+test('check (97): a clean draft prints the map and the OK, writing nothing', () => {
+  const dir = fixture({ 'docs/adr/README.md': ADR_README, 'draft.md': adrDraft() });
+  const { code, out } = run(dir, ['check', 'adr', 'draft.md']);
+  assert.equal(code, 0, out);
+  assert.match(out, /section map/);
+  assert.match(out, /## Decision  →  Decision/);
+  assert.match(out, /nothing written/);
+});
+
 // ------------------------------------------------------- self-install + misc
 
 test('write-record: the self-installed copy and the template are byte-identical', () => {

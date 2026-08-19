@@ -1,4 +1,4 @@
-// template: scripts/write-record.mjs v1.2.0 · updated 2026-08-18
+// template: scripts/write-record.mjs v1.3.0 · updated 2026-08-19
 /**
  * write-record  [TEMPLATE — ships to governed repos]
  *
@@ -27,6 +27,7 @@
  *   node scripts/write-record.mjs create <adr|pdr> <draft-file>
  *   node scripts/write-record.mjs amend  <adr|pdr> <NNN> <revised-file>
  *   node scripts/write-record.mjs amend  <adr|pdr> readme <revised-file>
+ *   node scripts/write-record.mjs check  <adr|pdr> <draft-file>
  *
  * create  — allocate the next free number (max over files AND README links, +1;
  *           gaps are never reclaimed — a skipped number is cheaper than a
@@ -87,6 +88,39 @@
  *           absence (the record had the section; the revised file drops it).
  *           A pre-existing absence is warned on, loudly — the guard is
  *           anti-degradation, not a backfill mandate.
+ *
+ *           SECTION MATCHING (1.3.0, issue #97). Section identity is
+ *           normalized, not exact: a heading resolves to a canonical name
+ *           when, case-insensitively, it begins with the name (optional
+ *           plural) and the next thing is a boundary — end-of-line, a
+ *           colon/dash/paren, or a digit. `## Decision 1: <summary>`,
+ *           `## Decisions`, and `## Enforcement (ships with the decision,
+ *           per ADR-022)` all resolve; `## Contextual notes` and
+ *           `## Decision Log` deliberately do not. Exact-equality matching
+ *           (≤1.2.0) made every variant invisible to BOTH the
+ *           required-section check and the protected-section guard — and
+ *           the guard compared null === null and passed on nothing, so
+ *           1.2.0's warn-only missingOk turned a false-refusal into a
+ *           silent-acceptance for variant-heading records (24 live in
+ *           ai-fleet, found 2026-08-19 while amending ADR-031). The guard
+ *           now compares EVERY section normalizing to a protected name in
+ *           document order (deleting one of three `## Decision N:` sections
+ *           or renumbering 2→3 is a refusal) and refuses by name when the
+ *           record on disk has no protected section at all — a missing
+ *           protected section is never a pass. Also in 1.3.0: Superseded
+ *           records are exempt from ## Enforcement (#97 Q2 — backfilling
+ *           enforcement into a dead decision is waste); `YYYY-MM-DD` is
+ *           checked as the `**Date:**` placeholder and the PDR falsifier
+ *           date, not a whole-body substring (cron specs carry it
+ *           legitimately — ai-fleet ADR-009); `.write-record.json` declares
+ *           per-corpus required/protected sections and a grandfather
+ *           cutoff (#97 Q3); and `check` dry-runs a draft, printing the
+ *           resolved section map (#97 Q4).
+ * check   — validate a draft against create-strict rules and print the
+ *           resolved section map (every `## ` heading → its canonical
+ *           section or "(not a governed section)"), writing nothing. The
+ *           five-minute diagnosis tool: every §97 finding required reading
+ *           the script or provoking refusals against a live corpus.
  * readme  — full-file replace of the corpus README under a structural guard:
  *           prose outside the inventory table byte-identical, header row
  *           identical, no row deletions (the never-pruned rule, also
@@ -146,16 +180,19 @@ const REQUIRED_SECTIONS = {
 /** The blank forms' own fill-me markers. A draft carrying one was never filled
  *  in — this is the day-one-red class of bug, caught at the gate. Closed list,
  *  deliberately: a generic <angle-bracket> rule false-positives on generics
- *  in prose ("Array<string>" is a thing an ADR about TypeScript would say). */
+ *  in prose ("Array<string>" is a thing an ADR about TypeScript would say).
+ *  `YYYY-MM-DD` left this list in 1.3.0 (#97): it appears legitimately as a
+ *  format specifier (`scheduler:<slug>:<YYYY-MM-DDTHH:mm>` in ai-fleet
+ *  ADR-009), so it is now checked where it is actually scaffold — the
+ *  `**Date:**` front-matter field and the PDR falsifier line (validate()). */
 const SCAFFOLD_MARKERS = {
-  adr: ['<Title>', '<script name', '<npm run check', 'ADR-NNN', 'YYYY-MM-DD', 'DELETE EVERYTHING BELOW'],
+  adr: ['<Title>', '<script name', '<npm run check', 'ADR-NNN', 'DELETE EVERYTHING BELOW'],
   pdr: [
     '<Title>',
     '<the person whose call',
     '<specific observable condition>',
     '<observable condition',
     'PDR-NNN',
-    'YYYY-MM-DD',
     'DELETE EVERYTHING BELOW',
   ],
 };
@@ -204,14 +241,120 @@ function parseRecord(text) {
   return { head, sections };
 }
 
-function sectionSlice(sections, name) {
-  return sections.find((s) => s.name === name)?.slice ?? null;
+/** Canonical section resolution (1.3.0, issue #97). Real corpora do not write
+ *  bare headings — they write `## Decision 1: <summary>`, `## Decisions`,
+ *  `## Enforcement (ships with the decision, per ADR-022)`. Exact-equality
+ *  matching (≤1.2.0's sectionSlice) made every variant invisible to the
+ *  required-section check AND the protected-section guard, which then
+ *  compared null === null and passed on nothing. A heading normalizes to
+ *  canonical C when, case-insensitively, it begins with C (optional plural
+ *  `s`) and the next thing is a boundary — end-of-line, a colon, a dash, an
+ *  open paren, or a digit:
+ *
+ *    ## Decision                            → Decision
+ *    ## Decisions                           → Decision
+ *    ## Decision 1: Storage backend         → Decision
+ *    ## Decision 2 — Data source: …         → Decision
+ *    ## Decision (PROPOSED — …)             → Decision
+ *    ## Enforcement (ships with …)          → Enforcement
+ *    ## Consequences (PROPOSED)             → Consequences
+ *    ## Contextual notes                    → (none) — the \b is what saves it
+ *    ## Decision Log                        → (none) — owner decision, #97 Q1
+ *    ## Amendment (2026-07-07): …           → (none) — not a governed section
+ *    ## Enforcement discipline              → (none) — a prose section about
+ *                                             the discipline, not the gate's
+ */
+function canonicalOf(rawName, canonicals) {
+  for (const c of canonicals) {
+    const esc = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (new RegExp(`^${esc}s?\\b\\s*($|[:—–(-]|\\d)`, 'i').test(rawName)) return c;
+  }
+  return null;
 }
 
-function sectionBody(sections, name) {
-  const slice = sectionSlice(sections, name);
-  if (slice === null) return null;
+/** All sections whose raw heading normalizes to `name`, in document order.
+ *  Multiplicity matters: `## Decision 1/2/3` are three sections, and the
+ *  amend guard compares all of them. */
+function sectionMatches(sections, name, canonicals) {
+  return sections.filter((s) => canonicalOf(s.name, canonicals) === name);
+}
+
+function bodyOfSlice(slice) {
   return slice.split('\n').slice(1).join('\n').trim();
+}
+
+/** First non-empty body among the sections normalizing to `name`, else null. */
+function sectionBody(sections, name, canonicals) {
+  const matches = sectionMatches(sections, name, canonicals);
+  if (matches.length === 0) return null;
+  return matches.map((m) => bodyOfSlice(m.slice)).find((b) => b !== '') ?? '';
+}
+
+// ------------------------------------------------------------- configuration
+
+/** Per-corpus configuration (1.3.0, issue #97 Q3): `.write-record.json` at
+ *  the repo root lets a repo declare what its corpora require instead of
+ *  inheriting an instantly-locked backlog on adoption day — the failure the
+ *  §97 census measured (60 ai-fleet ADRs predating the Enforcement rule).
+ *
+ *    {
+ *      "adr": { "required": [...], "protected": [...], "grandfather": <int> },
+ *      "pdr": { ... }
+ *    }
+ *
+ *  All keys optional per kind; defaults are the house constants above.
+ *  `grandfather`: on AMEND of a record numbered ≤ the cutoff, required-section
+ *  missing/empty problems degrade to warnings — a corpus that predates the
+ *  gate is not held to sections its era never wrote. create is always strict:
+ *  a new record gets a new number, always above the cutoff.
+ *  A config the gate cannot parse is a refusal, never a pass — a silently
+ *  misread config would weaken the gate invisibly. */
+function loadConfig() {
+  const p = join(ROOT, '.write-record.json');
+  if (!existsSync(p)) return {};
+  let cfg;
+  try {
+    cfg = JSON.parse(readFileSync(p, 'utf8'));
+  } catch (e) {
+    die(`.write-record.json is not valid JSON (${e.message}) — a config the gate cannot read proves nothing; fix it or delete it`);
+  }
+  if (typeof cfg !== 'object' || cfg === null || Array.isArray(cfg)) {
+    die('.write-record.json must be a JSON object keyed by kind ("adr" / "pdr")');
+  }
+  return cfg;
+}
+
+function corpusRules(kind, config) {
+  const over = config[kind] ?? {};
+  for (const key of Object.keys(over)) {
+    if (!['required', 'protected', 'grandfather'].includes(key)) {
+      die(`.write-record.json [${kind}]: unknown key "${key}" — expected required / protected / grandfather. An unrecognized key that silently did nothing would weaken the gate invisibly`);
+    }
+  }
+  const required = over.required ?? REQUIRED_SECTIONS[kind];
+  const protectedS = over.protected ?? PROTECTED_SECTIONS;
+  const grandfather = over.grandfather ?? 0;
+  for (const [key, list] of [['required', required], ['protected', protectedS]]) {
+    if (!Array.isArray(list) || list.some((r) => typeof r !== 'string' || r.trim() === '')) {
+      die(`.write-record.json [${kind}].${key} must be an array of non-empty section names`);
+    }
+  }
+  if (!Number.isInteger(grandfather) || grandfather < 0) {
+    die(`.write-record.json [${kind}].grandfather must be a non-negative integer record number`);
+  }
+  // The lookup set: governed sections normalization resolves against. PDR's
+  // Rejected rule reads `## What would reopen this`, which is in neither
+  // required nor protected — included so variant headings resolve there too.
+  const canonicals = [...new Set([...required, ...protectedS, ...(kind === 'pdr' ? ['What would reopen this'] : [])])];
+  return { required, protected: protectedS, grandfather, canonicals };
+}
+
+/** Superseded records are exempt from ## Enforcement (1.3.0, #97 Q2):
+ *  backfilling enforcement into a dead decision is waste, and the backlog
+ *  should be honest about what is actually live. */
+function effectiveRequired(status, rules) {
+  if (/^Superseded\b/i.test(status)) return rules.required.filter((r) => r !== 'Enforcement');
+  return rules.required;
 }
 
 function statusOf(head) {
@@ -365,8 +508,8 @@ const linkTargetOf = (line) => line.match(/\((\d{3,4}-[^)]+\.md)\)/)?.[1] ?? nul
 /** The Enforcement cell is a one-line summary of the section's first content
  *  line, bullet and bold-label stripped. Best-effort display text — the PR
  *  reviewer polishes; the row exists so the number can never be reused. */
-function enforcementCell(sections) {
-  const body = sectionBody(sections, 'Enforcement');
+function enforcementCell(sections, canonicals) {
+  const body = sectionBody(sections, 'Enforcement', canonicals);
   if (!body) return '—';
   const first = body.split('\n').find((l) => l.trim() !== '');
   return first.replace(/^[-*]\s*/, '').replace(/^\*\*[^*]+:\*\*\s*/, '').trim().slice(0, 120) || '—';
@@ -383,8 +526,11 @@ function minimalReadme(kind) {
 
 function validate(kind, text, ctx) {
   const { head, sections } = parseRecord(text);
+  const rules = ctx.rules;
+  const canonicals = rules.canonicals;
   const label = LABEL[kind];
   const errors = [];
+  const notes = [];
 
   if (!/^#\s+/m.test(head)) errors.push('no `# ` title line — the record needs an H1');
 
@@ -398,17 +544,41 @@ function validate(kind, text, ctx) {
     );
   }
 
-  for (const name of REQUIRED_SECTIONS[kind]) {
-    const body = sectionBody(sections, name);
+  for (const name of effectiveRequired(status, rules)) {
+    const matches = sectionMatches(sections, name, canonicals);
     // ctx.missingOk (amend only, 1.2.0/#91): the record ON DISK never had this
     // section — a MADR corpus has no ## Enforcement anywhere, and punishing a
     // Consequences amend for a pre-existing, corpus-wide absence is the
     // dialect assumption wearing a rule's clothes. Absence the amend itself
     // creates (the record had it, the revised file drops it) stays an error —
     // the guard is anti-degradation, not a backfill mandate.
-    if (body === null && ctx.missingOk?.includes(name)) continue;
-    if (body === null) errors.push(`missing required section: ## ${name}`);
-    else if (body === '') errors.push(`section ## ${name} is empty`);
+    // ctx.grandfathered (amend only, 1.3.0/#97 Q3): the record predates the
+    // gate by the corpus's own declaration — missing/empty degrade to notes.
+    if (matches.length === 0) {
+      if (ctx.missingOk?.includes(name)) continue;
+      if (ctx.grandfathered) {
+        notes.push(`## ${name} absent — warn-only under the corpus's grandfather cutoff (${rules.grandfather}); the absence predates the gate`);
+        continue;
+      }
+      errors.push(`missing required section: ## ${name}`);
+      continue;
+    }
+    const bodies = matches.map((m) => ({ raw: m.name, body: bodyOfSlice(m.slice) }));
+    if (bodies.every((b) => b.body === '')) {
+      // ## Decision 1/2/3 collectively satisfy Decision — but a record whose
+      // Decision sections are ALL empty still fails on empty.
+      if (ctx.grandfathered) {
+        notes.push(`## ${name} empty — warn-only under the corpus's grandfather cutoff (${rules.grandfather})`);
+        continue;
+      }
+      errors.push(`section ## ${name} is empty`);
+      continue;
+    }
+    // Legibility (§97): when normalization is what satisfied the section, say
+    // which heading did it — a normalizer whose decisions are invisible is
+    // how this defect class survives.
+    const satisfiedBy = bodies.find((b) => b.body !== '');
+    if (satisfiedBy.raw !== name) notes.push(`## ${name} satisfied by "## ${satisfiedBy.raw}"`);
   }
 
   for (const marker of SCAFFOLD_MARKERS[kind]) {
@@ -417,9 +587,24 @@ function validate(kind, text, ctx) {
     }
   }
 
+  // YYYY-MM-DD as a PLACEHOLDER (1.3.0/#97): the blank form's Date field and
+  // the PDR falsifier date. A whole-body substring check refused real records
+  // over format specifiers in prose (ai-fleet ADR-009's cron key spec).
+  const dateVal = (head.match(/^\*\*Date:\*\*\s*(.*)$/m)?.[1] ?? '').trim();
+  if (/^Y{4}-M{2}-D{2}$/.test(dateVal) || /^<.*>$/.test(dateVal)) {
+    errors.push('the **Date:** field still holds the placeholder — give the record its real date');
+  }
+  if (kind === 'pdr') {
+    for (const m of text.matchAll(FALSIFIER)) {
+      if (m[0].includes('YYYY-MM-DD')) {
+        errors.push('the falsifier still holds the placeholder date — a falsifier without a real date is a wish');
+      }
+    }
+  }
+
   if (/^Accepted\b/i.test(status)) {
     if (kind === 'adr') {
-      const enf = sectionBody(sections, 'Enforcement') ?? '';
+      const enf = sectionBody(sections, 'Enforcement', canonicals) ?? '';
       if (/not yet built/i.test(enf)) {
         errors.push(
           'Status is Accepted but Enforcement says "not yet built" — that phrase is the Proposed marker; an ADR reaches Accepted only with enforcement wired and passing',
@@ -444,11 +629,11 @@ function validate(kind, text, ctx) {
 
   if (/^Rejected\b/i.test(status)) {
     if (kind === 'adr') {
-      const enf = sectionBody(sections, 'Enforcement') ?? '';
+      const enf = sectionBody(sections, 'Enforcement', canonicals) ?? '';
       if (!/n\/a\s*[—-]\s*Rejected/i.test(enf)) {
         errors.push('a Rejected ADR\'s Enforcement section reads `n/a — Rejected`, heading kept — it promises nothing');
       }
-    } else if (!sectionBody(sections, 'What would reopen this') || !/Reopen when/i.test(text)) {
+    } else if (!sectionBody(sections, 'What would reopen this', canonicals) || !/Reopen when/i.test(text)) {
       errors.push('a Rejected PDR needs `## What would reopen this` with a `- [ ] Reopen when <condition>` line');
     }
   }
@@ -477,7 +662,7 @@ function validate(kind, text, ctx) {
     );
   }
 
-  return errors;
+  return { errors, notes };
 }
 
 // --------------------------------------------------------------- lint runner
@@ -528,6 +713,7 @@ function runCorpusLints(kind) {
 
 function cmdCreate(kind, draftPath) {
   if (!existsSync(draftPath)) die(`draft not found: ${draftPath}`);
+  const rules = corpusRules(kind, loadConfig());
   let text = readFileSync(draftPath, 'utf8').replace(/\r\n/g, '\n');
 
   let dir = findCorpusDir(kind);
@@ -560,8 +746,9 @@ function cmdCreate(kind, draftPath) {
   text = [head, ...sections.map((s) => s.slice)].join('\n\n');
 
   const lensRequired = kind === 'adr' && (findLint('check-design-lens.mjs') !== null || existsSync(join(ROOT, 'docs', 'design-lenses.md')));
-  const errors = validate(kind, text, { corpusDir: dir, lensRequired });
+  const { errors, notes } = validate(kind, text, { corpusDir: dir, lensRequired, rules });
   if (errors.length) dieAll(errors);
+  for (const n of notes) console.log(`write-record: note — ${n}`);
 
   const slug = slugify(title);
   if (!slug) die(`could not derive a filename slug from title "${title}"`);
@@ -583,7 +770,7 @@ function cmdCreate(kind, draftPath) {
   const table = splitInventoryTable(readmeText, `${dir}/README.md`);
   const row =
     kind === 'adr'
-      ? rowOf([`[${num}](${file})`, title, statusOf(parseRecord(text).head), enforcementCell(parseRecord(text).sections)])
+      ? rowOf([`[${num}](${file})`, title, statusOf(parseRecord(text).head), enforcementCell(parseRecord(text).sections, rules.canonicals)])
       : rowOf([`[${num}](${file})`, title, statusOf(parseRecord(text).head), TODAY]);
   const out = [...table.lines.slice(0, table.end), row, ...table.lines.slice(table.end)].join('\n');
   writeFileSync(readmePath, out.endsWith('\n') ? out : `${out}\n`);
@@ -595,6 +782,7 @@ function cmdCreate(kind, draftPath) {
 
 function cmdAmendRecord(kind, numArg, revisedPath) {
   if (!existsSync(revisedPath)) die(`revised file not found: ${revisedPath}`);
+  const rules = corpusRules(kind, loadConfig());
   const dir = findCorpusDir(kind);
   if (!dir) die(`no ${LABEL[kind]} corpus found — nothing to amend`);
   const corpusDir = join(ROOT, dir);
@@ -634,10 +822,25 @@ function cmdAmendRecord(kind, numArg, revisedPath) {
   const signedProposal =
     kind === 'pdr' && /^Proposed\b/i.test(statusOf(oldParsed.head)) && !draftBefore;
 
-  for (const name of PROTECTED_SECTIONS) {
-    const before = sectionSlice(oldParsed.sections, name);
-    const after = sectionSlice(newParsed.sections, name);
-    if (before === after || revisionMode) continue;
+  for (const name of rules.protected) {
+    // Compare EVERY section normalizing to the protected name, in document
+    // order (1.3.0/#97): with `## Decision 1/2/3`, comparing only the first
+    // leaves the rest freely rewritable — and deleting one, or renumbering
+    // 2→3, changes the record of what was decided exactly as an edit does.
+    const befores = sectionMatches(oldParsed.sections, name, rules.canonicals);
+    const afters = sectionMatches(newParsed.sections, name, rules.canonicals);
+    if (revisionMode) continue;
+    if (befores.length === 0) {
+      // The latent hole, refused by name: under exact matching the guard
+      // compared null === null and PASSED, and 1.2.0's warn-only missingOk
+      // unmasked it — a variant-heading record could have its Decision
+      // rewritten with the gate reporting success. Missing is never a pass.
+      die(
+        `REFUSED: ${dir}/${file} has no section normalizing to ## ${name} — the guard has nothing to compare, and amending would leave ${name} unprotected against silent rewrite. Give the record a ## ${name} section first (a human edit through the stanza's ask path), or declare the corpus's real section names in .write-record.json.`,
+      );
+    }
+    const unchanged = befores.length === afters.length && befores.every((b, i) => b.slice === afters[i].slice);
+    if (unchanged) continue;
     if (draftBefore && !draftAfter) {
       die(
         `REFUSED: ## ${name} changed in the same amend that confirms the record. The flip to signed/Accepted is what locks Context and Decision — a confirmation amend carries them byte-identical. Land the revision while the draft is unsigned, then confirm in a separate amend the PR can read on its own.`,
@@ -648,17 +851,34 @@ function cmdAmendRecord(kind, numArg, revisedPath) {
         `REFUSED: ## ${name} changed, and this PDR is Proposed but SIGNED (Confirmed by is filled) — a contradictory state. The signature is the confirmation: the record is locked from that point. If the signature was premature, remove the confirmer (a Status/front-matter amend, sections untouched) and then revise; otherwise the path is supersession.`,
       );
     }
+    const multiplicity =
+      befores.length > 1 || afters.length > 1
+        ? ` (${befores.length} section(s) on disk vs ${afters.length} in the revision, compared in document order — deleting or renumbering ${name} sections is a change)`
+        : '';
     die(
-      `REFUSED: ## ${name} changed. A ${name} is never edited in place on a confirmed record — write a NEW record that supersedes ${LABEL[kind]}-${oldNum} (create), then amend this one's Status to \`Superseded by ${LABEL[kind]}-NNN\`. The record of what was believed and why it changed is the most valuable thing in the corpus.`,
+      `REFUSED: ## ${name} changed${multiplicity}. A ${name} is never edited in place on a confirmed record — write a NEW record that supersedes ${LABEL[kind]}-${oldNum} (create), then amend this one's Status to \`Superseded by ${LABEL[kind]}-NNN\`. The record of what was believed and why it changed is the most valuable thing in the corpus.`,
     );
   }
 
   const lensRequired = kind === 'adr' && (findLint('check-design-lens.mjs') !== null || existsSync(join(ROOT, 'docs', 'design-lenses.md')));
   // Sections the record never had stay its history, not this amend's
-  // obligation (1.2.0/#91) — said out loud, per the fail-loud convention.
-  const missingOk = REQUIRED_SECTIONS[kind].filter((n) => sectionBody(oldParsed.sections, n) === null);
-  const errors = validate(kind, newText, { corpusDir: dir, num, lensRequired, allowUnsignedDraft: revisionMode, missingOk });
+  // obligation (1.2.0/#91) — said out loud, per the fail-closed convention.
+  // Computed against the OLD record's effective required set (1.3.0/#97): a
+  // Superseded flip does not make Enforcement droppable mid-flight.
+  const oldRequired = effectiveRequired(statusOf(oldParsed.head), rules);
+  const missingOk = oldRequired.filter((n) => sectionMatches(oldParsed.sections, n, rules.canonicals).length === 0);
+  const grandfathered = rules.grandfather > 0 && Number(oldNum) <= rules.grandfather;
+  const { errors, notes } = validate(kind, newText, {
+    corpusDir: dir,
+    num,
+    lensRequired,
+    allowUnsignedDraft: revisionMode,
+    missingOk,
+    grandfathered,
+    rules,
+  });
   if (errors.length) dieAll(errors);
+  for (const n of notes) console.log(`write-record: note — ${n}`);
   if (missingOk.length) {
     console.log(
       `write-record: WARNING — ${LABEL[kind]}-${oldNum} has no ## ${missingOk.join(' / ## ')} section (a corpus-dialect absence, predating this amend; left as-is). The house form requires it of every NEW record — create stays strict.`,
@@ -783,19 +1003,54 @@ function cmdAmendReadme(kind, revisedPath) {
   console.log('OK: README amended.');
 }
 
+/** check (1.3.0, #97 Q4): dry-run a draft against create-strict validation
+ *  and print the resolved section map, writing nothing. Every diagnosis in
+ *  the §97 report required reading the script or provoking refusals against
+ *  a live corpus — this is the five-minute version. */
+function cmdCheck(kind, draftPath) {
+  if (!existsSync(draftPath)) die(`draft not found: ${draftPath}`);
+  const rules = corpusRules(kind, loadConfig());
+  const text = readFileSync(draftPath, 'utf8').replace(/\r\n/g, '\n');
+  const dir = findCorpusDir(kind);
+  const { head, sections } = parseRecord(text);
+
+  console.log(`write-record check: ${LABEL[kind]} draft ${draftPath}${dir ? `, corpus ${dir}/` : ' — no corpus dir found; corpus-context checks skipped'}`);
+  console.log('section map (raw heading → governed section):');
+  for (const s of sections) {
+    console.log(`  ## ${s.name}  →  ${canonicalOf(s.name, rules.canonicals) ?? '(not a governed section)'}`);
+  }
+
+  const lensRequired = kind === 'adr' && (findLint('check-design-lens.mjs') !== null || existsSync(join(ROOT, 'docs', 'design-lenses.md')));
+  // Validate what create would validate: create allocates the H1 number and
+  // fills the date fields BEFORE validating, so a draft carrying the form's
+  // placeholders in exactly those positions is the expected input, not
+  // scaffold. Placeholders anywhere else still fire.
+  let probeHead = head.replace(/^#\s+.+$/m, (l) => l.replace(new RegExp(`${LABEL[kind]}-N{2,5}`), `${LABEL[kind]}-000`));
+  probeHead = fixFrontField(fixFrontField(probeHead, 'Date', TODAY), 'Last confirmed', TODAY);
+  const probe = [probeHead, ...sections.map((s) => s.slice)].join('\n\n');
+  const { errors, notes } = validate(kind, probe, { corpusDir: dir ?? undefined, lensRequired, rules });
+  for (const n of notes) console.log(`write-record: note — ${n}`);
+  if (errors.length) dieAll(errors);
+  console.log('OK: the draft would pass create validation — nothing written');
+}
+
 // --------------------------------------------------------------------- main
 
 const [, , verb, kindArg, a, b] = process.argv;
 const usage = `usage:
   node scripts/write-record.mjs create <adr|pdr> <draft-file>
   node scripts/write-record.mjs amend  <adr|pdr> <NNN> <revised-file>
-  node scripts/write-record.mjs amend  <adr|pdr> readme <revised-file>`;
+  node scripts/write-record.mjs amend  <adr|pdr> readme <revised-file>
+  node scripts/write-record.mjs check  <adr|pdr> <draft-file>`;
 
-if (!['create', 'amend'].includes(verb) || !['adr', 'pdr'].includes(kindArg)) die(usage);
+if (!['create', 'amend', 'check'].includes(verb) || !['adr', 'pdr'].includes(kindArg)) die(usage);
 
 if (verb === 'create') {
   if (!a) die(usage);
   cmdCreate(kindArg, a);
+} else if (verb === 'check') {
+  if (!a) die(usage);
+  cmdCheck(kindArg, a);
 } else if (a === 'readme') {
   if (!b) die(usage);
   cmdAmendReadme(kindArg, b);
