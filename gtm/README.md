@@ -50,3 +50,5 @@ For longer conversations, Claude Code with this repo open in a workspace can tak
 - Methodology documents (those are at repo root and in `templates/`)
 - Client-specific deliverables like spec reviews — those belong in the client's repo or in private working files
 - Anything client-confidential without explicit consent for inclusion
+
+<!-- fleet smoke test 2026-08-19 — sparse-turning-spire; safe to delete -->
