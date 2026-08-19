@@ -18,7 +18,7 @@ There is no `package.json` — deliberately, since this repo is not a publishabl
 Everything runs directly under Node.
 
 ```bash
-node --test test/*.test.mjs          # the test suite (180 cases)
+node --test test/*.test.mjs          # the test suite (261 cases)
 
 node scripts/check-template-versions.mjs --base <ref>   # stamps + bump-on-change
 node scripts/check-analyze-repo-coverage.mjs            # every template in the matrix
@@ -30,6 +30,7 @@ node scripts/check-issue-routing.mjs                    # backlog sweep; needs g
 node scripts/check-downstream-drift.mjs                 # client version drift; run by hand
 node scripts/check-lens-promotion.mjs                   # cross-repo lens extensions; run by hand
 node scripts/check-claim-coverage.mjs                   # claim-coverage enumerator; health-report input, run by hand
+node scripts/census-record-sections.mjs                 # records-section census (write-record ≥1.3.0 semantics); report-only, run by hand
 ```
 
 **Quote the glob and the tests silently do not run.** `node --test 'test/*.test.mjs'` is
