@@ -41,7 +41,7 @@ Of fourteen decisions the first pass queued as blocking:
 | #1425 gates the Query Gateway epic | closed by ADR-068 | 2 days |
 | #1564 gates pricing M2 | closed and shipped | — |
 | #1752 hard-vs-soft delete undecided | decided; migration `0397` merged | 1 day after the body was written |
-| #1747 is the last open row of #1112 | closed; every child of #1112 merged | 11 days |
+| #1747 is the last open row of #1112 | closed; every child of #1112 merged | 10 days |
 | #1253 / #1254 are the second-tenant blockers | both closed; 4 of 7 children of #1252 done | 1 month |
 
 Two epics (#1097, #1112) had every child merged while still reading as open work.
@@ -138,8 +138,9 @@ Five rules, each earned from a specific error in the incident:
 ## 4. The PDR-010 seam — keyed now, computed later
 
 PDR-010 is Accepted (2026-08-17). This section aligns the roadmap to it **without** building
-estimation, because coverage in ai-fleet is 15% against a ≥70% target and any estimate today
-would be noise.
+estimation: fleet-telemetry coverage of the routing population in ai-fleet is ~15%
+(`docs/agent-routing-records.md`, 2026-08-17), so any estimate today would be noise — and
+Consequences 4 forbids the template before one window has run regardless.
 
 What the generator must get right now, because retrofitting it is a rewrite:
 
