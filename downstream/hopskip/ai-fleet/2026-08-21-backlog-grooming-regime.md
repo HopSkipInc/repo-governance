@@ -334,18 +334,20 @@ false-positive review — does ride the audit ritual; that is human time already
   `isRlsIsolationEnabled()` returning `true` unconditionally.
 - A generated roadmap contains no assertion whose only source is an epic body.
 
-## 7. Open questions for the governance team
+## 7. Questions for the governance team
 
-1. **Gate or probe for C2?** A body citing a closed blocker is always wrong, but the fix is a
-   prose edit and gating those on merge may cost more friction than it buys. Pilot's instinct:
-   C1/C3/C4 gate, C2/C5/C6 probe.
-2. **Who owns the correction?** The skill proposes, a human merges. At what finding volume does
-   that stop scaling, and is a fleet worker behind a review gate the answer?
-3. **Per-repo or estate-wide?** The lint is repo-local. The interesting roadmap joins several
-   repos' graphs, which is where a cross-repo `Resolves: <repo>#N` form starts mattering.
-4. **Grandfathering.** The structure linter grandfathers pre-schema issues by date. Currency has
-   no equivalent — a stale body is stale regardless of age. Confirm that is intended before the
-   first run produces ~36 findings.
+1. **Gate or probe for C2?** — **CONFIRMED 2026-08-21 (Greg):** the pilot's instinct stands.
+   C1/C3/C4 promote to gates after the two report-only cycles; C2/C5/C6 stay probes. A body
+   citing a closed blocker is always wrong, but the fix is a prose edit, and gating those on
+   merge costs more friction than it buys.
+2. **Who owns the correction?** — open. The skill proposes, a human merges. At what finding
+   volume does that stop scaling, and is a fleet worker behind a review gate the answer?
+3. **Per-repo or estate-wide?** — open. The lint is repo-local. The interesting roadmap joins
+   several repos' graphs, which is where a cross-repo `Resolves: <repo>#N` form starts
+   mattering.
+4. **Grandfathering** — **CONFIRMED 2026-08-21 (Greg): none.** A stale body is stale
+   regardless of age; the structure linter's date-based grandfathering does not extend to
+   currency. The first run takes the hit — expect ~36 findings, every one dispositioned.
 
 ## 8. When this becomes a template
 
