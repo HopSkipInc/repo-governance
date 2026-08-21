@@ -219,18 +219,33 @@ estimation lands later as **data in an existing column**, never as a redesign:
 | Column | Rule |
 |---|---|
 | `status` | Derived — child graph, ADR header, or tree check. Never asserted from a body |
-| `provenance` | Which of the three produced it, with the command or query used |
+| `provenance` | Which of the four produced it — child graph, ADR header, tree check, or a dated product-owner statement — with the command, query, or source used |
 | `block type` | `decision` / `credential` / `dependency` / `deliberate-wait` |
 | `expires` | What invalidates the row — a date or a named trigger |
 | `intent` | The only body-sourced column: the why, the sequencing rationale, the gate definitions |
 | `estimate` | Renders `thin` until the bucket reaches minimum `n` — the PDR-010 seam, §4 |
 
-**The convergence path, stated once.** This roadmap is the trustworthy substrate; PDR-010
-estimation layers on top of it for product and engineering capacity planning. What v1 keys
-now, so the layer needs no retrofit: `Issue: #N` join keys on every generated row,
-declared-at-dispatch attribution, bucket keys (tier, kind, files, existing test coverage, work
-type, model, harness identity), `thin` below minimum `n`, gross and billable as separate
-columns, and caps never derived by the estimation pass.
+**The trust model, stated once.** The substrate is the **backlog**, not the roadmap — and it
+is trustworthy only conditionally: the checks pass, and grooming runs on a cadence the repo
+owner sets. The roadmap is a **projection** of that substrate plus the product owner's
+future-facing statements. In the audiences this estate targets, product owner and repo owner
+are usually the same person, so the whole mechanism must stay a one-person job. PDR-010
+estimation then layers on the projection for capacity planning. What v1 keys now, so the
+layer needs no retrofit: `Issue: #N` join keys on every generated row, declared-at-dispatch
+attribution, bucket keys (tier, kind, files, existing test coverage, work type, model,
+harness identity), `thin` below minimum `n`, gross and billable as separate columns, and caps
+never derived by the estimation pass.
+
+Two consequences of getting the substrate right:
+
+- **Every projection carries the substrate's trust state in its header** — lint last green,
+  and last groom pass measured against the owner-configured cadence. A lapsed cadence makes
+  the projection untrusted by default and the header says so, because a stale roadmap that
+  looks fresh is the incident this prompt exists to retire.
+- **Owner statements are a provenance class, not a free pass.** A future-facing statement
+  enters the projection dated and attributed. It asserts intent about the future, so Layer 2
+  claim-checking does not apply to it — but it expires like everything else, and if it names
+  work, C5's markers pressure it into the backlog.
 
 ## 4. The PDR-010 seam — keyed now, computed later
 
@@ -280,6 +295,10 @@ What the generator must get right now, because retrofitting it is a rewrite:
   `gh issue list`.
 - Add one DoD line to the epic work type: **when a child closes, the parent's milestone table is
   updated in the same PR, or the lint's C6 finding stands as the record.**
+- Declare the **grooming cadence** as a DoD line owned by the repo owner — in the target
+  audiences the product owner and repo owner are usually the same person, so this stays a
+  one-person setting. The projection's header renders `last groomed` against it (Layer 3),
+  and a lapsed cadence is what untrusts the substrate.
 - Make `Resolves: <repo>#N` mandatory in the ADR template (C3 depends on it).
 
 ## 6. How the applying repo proves it worked
