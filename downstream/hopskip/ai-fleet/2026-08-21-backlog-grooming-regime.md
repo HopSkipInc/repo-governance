@@ -2,9 +2,12 @@
 
 **Applies to:** HopSkipInc/ai-fleet (pilot and reporting repo). Other `full`-class repos take
 the lint on a later sync; the remediation numbers and the self-test below are ai-fleet's.
-**Ships with:** nothing yet — this prompt requests the templates. Proposed shape:
+**Ships with:** nothing yet — this prompt requests the templates and carries the v1 design
+(§3 detection semantics, Layer 3 artifact schema, §8 extraction gate). Proposed shape:
 `templates/scripts/check-backlog-currency.mjs` (new) and
-`templates/skills/backlog-groom/SKILL.md` (new).
+`templates/skills/backlog-groom/SKILL.md` (new). The `blocked-by` half is **not** rebuilt:
+`templates/scripts/check-stale-blockers.mjs` v1.0.0 shipped upstream 2026-08-18 and is
+installed as step 0 (§2, §5).
 **Source report:** the 2026-08-20 roadmap session in ai-fleet. Every failure class in §2 was
 observed in that session, not hypothesised.
 
@@ -69,8 +72,19 @@ Audited against the tree, 2026-08-21.
 | `docs/definition-of-done.md` § Stale issue sweep | Two `gh` commands plus eyeballing: issues whose fixing PR omitted `Fixes #N`; "any open issue describing work that is visibly already complete" | Manual, unscheduled, and scoped to the **inverse** failure — closed work still open. #1097 and #1112 sat fully-merged-and-open through it regardless |
 | `grep -rl "sub_issues\|child_of" tools/ scripts/ host/scripts/ .claude/skills/` | — | **Zero hits.** Nothing in the repo compares an epic to its children |
 
-**The gap is a missing axis, not a missing rule.** Every existing check looks inside one issue.
-Adding a rule to any of them cannot reach this.
+One slice of this table stopped being true upstream three days before this prompt.
+`templates/scripts/check-stale-blockers.mjs` v1.0.0 shipped from repo-governance on
+2026-08-18 and already detects the `blocked-by` half of C2 (its `phantom` class: dependent
+open, blocker closed), with the probe-never-gate exit contract and the SKIPPED-not-clean rule
+this regime wants. It is **not installed in ai-fleet**, and no downstream prompt carries it
+yet. The regime installs it as step 0 (§5) rather than rebuilding it, and the currency lint
+below never parses `blocked-by` prose — two detectors sharing one citation grammar is the
+two-enumerators hazard PDR-008 names.
+
+**The gap is a missing axis, not a missing rule** — with that one correction registered. What
+no installed *or* templated check reaches is the **sub-issue graph**: every existing mechanism
+reads citation prose or a single issue; nothing compares an epic to its children. That is the
+axis the new lint owns.
 
 ## 3. The regime
 
@@ -82,7 +96,7 @@ DB, no MCP.
 | # | Class | Detection | Clears when |
 |---|---|---|---|
 | C1 | Epic fully delivered, still open | ≥1 sub-issue and `sub_issues_summary.percent_completed == 100` | Closed, or a body line states why it stays open |
-| C2 | Body cites a blocker that closed | Parse `blocked-by #N`, `gates`, `blocking child is #N`, `Gate: #N`; report any `N` in state `closed` | Body edited, or the reference reworded to past tense |
+| C2 | Body cites a blocker that closed | **`check-stale-blockers.mjs` owns `blocked-by` refs** in `## Dependencies` (step 0); the currency lint owns the observed epic-prose form `Blocked on #N` (semantics below) | Status surface no longer asserts the block — see the clearing rule below |
 | C3 | Label contradicts the graph | `status:blocked` with zero open blockers; `status:needs-decision` where a merged ADR carries `Resolves: <repo>#N` for this issue | Label flipped |
 | C4 | Declared hierarchy not linked | Parse `child-of #N` / `Parent epic: #N` from the body; diff against the sub-issue graph | Linked, or the prose corrected |
 | C5 | Named-but-unfiled work | Scan bodies and ADR Known-Gaps tables for `(unfiled)`, `not yet filed`, `to file`, `no issue exists` | An issue number replaces the marker |
@@ -92,9 +106,54 @@ C3's ADR half is mechanical **only because the record format already carries the
 ADR-068's header reads `Resolves: ai-fleet#1425`. If the ADR template does not mandate that
 line, add it in the same change; otherwise C3 degrades to the label half alone.
 
-Output: one line per finding, `severity #issue class message`, consumable by the existing audit.
-**Report-only for two cycles**, then promote C1/C3/C4 to gates. A cold start on ~36 open epics
-produces a wall, and a wall gets ignored.
+#### Detection semantics — v1 decisions
+
+Everything below reads the GitHub issue graph via `gh` (REST) — no host DB, no MCP. If `gh`
+is absent or unauthenticated the lint reports `SKIPPED`, never PASS: a check that fails open
+reads as evidence. All section parsing is line-scanned, never a `\Z` regex — JavaScript has no
+`\Z` anchor, and that bug already cost the routing lint every correctly-formatted issue in a
+live backlog. The parse forms below are the dialects observed in the four self-test issues on
+2026-08-21, not an invented grammar.
+
+- **C1.** Do not trust `sub_issues_summary.percent_completed` alone — it counts closed
+  sub-issues without partitioning `state_reason`. Fetch the sub-issue list and partition: all
+  `completed` → *fully delivered, still open*; any `not_planned` → a different finding
+  (*children closed without delivery — verify disposition*), which a percentage conflates.
+  Clears when the epic closes or the body carries a `Stays open: <reason>` line.
+- **C2.** Ownership is split so no two detectors share a grammar. `check-stale-blockers` owns
+  every `blocked-by` form inside a `## Dependencies` section — its dialect already covers the
+  `**blocked-by:** #N` emphasis-colon form #1426 uses. The currency lint owns exactly one
+  epic-prose form: `Blocked on #N` outside a Dependencies section. Reverse-direction `X gates
+  #Y` prose is **out of v1 scope** — it asserts facts about *other* issues' blocker lists, and
+  parsing it double-maintains the graph in prose. Documented exclusion, candidate for 1.1.
+  **Clearing rule:** a citation line that discloses its own staleness does **not** clear the
+  finding while any status surface — label, milestone-table row, `## Status` line — still
+  asserts the blocked state. #1922's *"Blocked on #1563, which has landed — this blocker is
+  likely stale"* sits beside a milestone row that still reads `| #1569 | blocked |`:
+  disclosure without correction is the finding.
+- **C3.** Label half: `status:blocked` with zero open blockers per the graph. ADR half:
+  line-scan `docs/adr/*.md` headers for `Resolves:.*#N` naming a `status:needs-decision`
+  issue. Clears when the label flips.
+- **C4.** Declared hierarchy parses the three observed dialects: `children: #a, #b` inline
+  lists, `Child issues` bullet lists, and milestone-table rows. The house already uses the
+  clearing annotation in the wild (`**closed as superseded:** #1580, #1920` in #1922) — adopt
+  it as the lint's clear-condition rather than inventing a second convention. A declared child
+  missing from the sub-issue graph is the finding.
+- **C5.** Marker scan of open-issue bodies and ADR Known-Gaps tables: `(unfiled)`, `not yet
+  filed`, `to file`, `no issue exists`, bare `unfiled`. #1426 carries two live instances
+  (*"not yet filed as issues"*, *"unblocked, unfiled, and time-boxed"*). An issue number
+  replacing the marker clears it.
+- **C6.** Conservative by design: flag a milestone-table row only when **every** cited issue
+  in the row is closed while the row still claims pending / blocked / in-progress. Partial
+  rows stay silent in v1 — a chatty lint gets ignored, and §7.4 already expects ~36 cold-start
+  findings.
+- **Trigger (not a finding).** `info #epic TRIGGER children-changed-since-body-update` when a
+  child's `closed_at` is newer than the epic's `updated_at`. Layer 2's scheduler consumes
+  exactly this line.
+
+Output: one line per finding, `<gate|probe|info> #issue <class> <message>`, consumable by the
+existing audit. **Report-only for two cycles** (ADR-026 probe), then C1/C3/C4 promote to
+gates. A cold start on ~36 open epics produces a wall, and a wall gets ignored.
 
 ### Layer 2 — `backlog-groom` skill (judgment)
 
@@ -113,8 +172,25 @@ Contract:
    unattended — the body is the author's, and an agent silently editing epics is how intent
    gets laundered. A human or a PR merges.
 
-Trigger: any epic whose children changed since its own `updated_at`, which Layer 1 can emit as
-its own finding class.
+Two clauses earned during this prompt's own review (2026-08-21):
+
+6. **Read the comments, not just the body.** #1426's Dependencies section was stale from
+   2026-08-02 to 2026-08-17 while the correction sat in a comment the whole time — the body
+   now carries a note saying exactly that. A correction living in comments is a stale-body
+   finding. That is the eighth observed class, and it is judgment, not a parse rule — it
+   belongs here, not in Layer 1.
+7. For each `unverifiable` claim, name the command or surface that *would* verify it.
+   `unverifiable` without a named gap is where claims go to be forgotten.
+
+Trigger: any epic whose children changed since its own `updated_at`, which Layer 1 emits as
+its `TRIGGER` line.
+
+**Relationship to the existing `groom-backlog` fleet skill** (local, v1.0.0): that skill is
+*prioritization* — now/next/later scoring plus mechanical label fixes. This skill is
+*currency* — verifying what bodies assert. The lint's findings are the grooming fleet's input
+queue, and a stale claim discovered mid-scoring is a C7 finding, not something the scoring
+pass silently works around. One regime, two passes — currency before prioritization, because
+a priority computed from a stale body is the incident this prompt exists to retire.
 
 ### Layer 3 — the roadmap is generated, not authored
 
@@ -134,6 +210,27 @@ Five rules, each earned from a specific error in the incident:
 - **Distinguish decision / credential / dependency / deliberate wait.** Four things that all
   present as "blocked" and need entirely different actions. Collapsing them makes a credential
   look like an open question.
+
+#### The artifact schema — v1
+
+One row per work item, generated. The column set is the contract; it exists from day one so
+estimation lands later as **data in an existing column**, never as a redesign:
+
+| Column | Rule |
+|---|---|
+| `status` | Derived — child graph, ADR header, or tree check. Never asserted from a body |
+| `provenance` | Which of the three produced it, with the command or query used |
+| `block type` | `decision` / `credential` / `dependency` / `deliberate-wait` |
+| `expires` | What invalidates the row — a date or a named trigger |
+| `intent` | The only body-sourced column: the why, the sequencing rationale, the gate definitions |
+| `estimate` | Renders `thin` until the bucket reaches minimum `n` — the PDR-010 seam, §4 |
+
+**The convergence path, stated once.** This roadmap is the trustworthy substrate; PDR-010
+estimation layers on top of it for product and engineering capacity planning. What v1 keys
+now, so the layer needs no retrofit: `Issue: #N` join keys on every generated row,
+declared-at-dispatch attribution, bucket keys (tier, kind, files, existing test coverage, work
+type, model, harness identity), `thin` below minimum `n`, gross and billable as separate
+columns, and caps never derived by the estimation pass.
 
 ## 4. The PDR-010 seam — keyed now, computed later
 
@@ -172,6 +269,9 @@ What the generator must get right now, because retrofitting it is a rewrite:
 
 ## 5. Enforcement and DoD changes
 
+- **Step 0: install `check-stale-blockers.mjs` v1.0.0** (template shipped 2026-08-18 — no new
+  build) and wire it per ADR-026 as a scheduled probe. It covers the `blocked-by` half of C2
+  on day one; #1426's `**blocked-by:** #1425` fires on its existing dialect.
 - Wire the lint per ADR-026 — report-only probe, then C1/C3/C4 as gates — and declare it in the
   lint-coverage manifest so it cannot rot unwired. ai-fleet has a live precedent: a validator
   sat declared-but-invoked-by-nothing for two weeks.
@@ -186,9 +286,10 @@ What the generator must get right now, because retrofitting it is a rewrite:
 
 - The lint runs clean, or every finding carries an accepted disposition.
 - **Self-test against the incident.** Reconstruct ai-fleet's state as of 2026-08-20 and assert
-  the lint flags: **#1097, #1112** (C1); **#1252, #1426, #1922, #1533** (C2); **#1426** (C3);
-  **#989** (C4); **#1454, #1426** (C5). A regime that cannot catch the incident that motivated
-  it is not done.
+  the **regime** — both probes plus the skill — flags: **#1097, #1112** (C1); **#1252, #1426,
+  #1922, #1533** (C2 — #1426 via `check-stale-blockers`, the rest via the currency lint's
+  prose form); **#1426** (C3); **#989** (C4); **#1454, #1426** (C5). A regime that cannot
+  catch the incident that motivated it is not done.
 - One `backlog-groom` pass on #1252 reports the RLS claim `stale`, citing
   `isRlsIsolationEnabled()` returning `true` unconditionally.
 - A generated roadmap contains no assertion whose only source is an epic body.
@@ -205,3 +306,23 @@ What the generator must get right now, because retrofitting it is a rewrite:
 4. **Grandfathering.** The structure linter grandfathers pre-schema issues by date. Currency has
    no equivalent — a stale body is stale regardless of age. Confirm that is intended before the
    first run produces ~36 findings.
+
+## 8. When this becomes a template
+
+Per PDR-010 Consequences 4 the lint and the skill are built in ai-fleet and run one full cycle
+before extraction. The extraction gate — all four required:
+
+1. The §6 self-test passes against the reconstructed 2026-08-20 state.
+2. Two scheduled probe cycles complete with every finding dispositioned (fixed, accepted, or
+   the parse rule adjusted).
+3. **False-positive review.** Any class that cried wolf gets its parse rule tightened in
+   ai-fleet first — the template inherits the tuned rules, not the naive ones.
+4. `backlog-groom` has run on ≥3 epics with the proposed corrections merged by a human.
+
+The templates then ship contract-style, like everything else under `templates/`:
+`templates/scripts/check-backlog-currency.mjs` and `templates/skills/backlog-groom/`, each
+with a version stamp, an `/analyze-repo` matrix row, and fixture tests that fire on the
+known-bad input and clear on the known-good — the self-test issues are the ready-made
+fixtures. A `gh`-dependent template has precedent (`check-issue-routing.mjs`); PDR-010's
+network foreclosure binds the *estimation* artifacts, which is why §4's column stays
+contract-only.
