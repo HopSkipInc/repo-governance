@@ -285,8 +285,12 @@ What the generator must get right now, because retrofitting it is a rewrite:
 ## 5. Enforcement and DoD changes
 
 - **Step 0: install `check-stale-blockers.mjs` v1.0.0** (template shipped 2026-08-18 — no new
-  build) and wire it per ADR-026 as a scheduled probe. It covers the `blocked-by` half of C2
-  on day one; #1426's `**blocked-by:** #1425` fires on its existing dialect.
+  build) and wire it per ADR-026 as a scheduled probe using the companion
+  `templates/workflows/stale-blocker-probe.yml` (weekly cron, one rolling issue, P1 escalation
+  on two consecutive runs). It covers the `blocked-by` half of C2 on day one; #1426's
+  `**blocked-by:** #1425` fires on its existing dialect. The one judgment call is the
+  `STALE_BLOCKERS_TOKEN` secret: ai-fleet's backlog references analytics-infrastructure, so an
+  estate-spanning token is what keeps the cross-repo classes out of SKIPPED.
 - Wire the lint per ADR-026 — report-only probe, then C1/C3/C4 as gates — and declare it in the
   lint-coverage manifest so it cannot rot unwired. ai-fleet has a live precedent: a validator
   sat declared-but-invoked-by-nothing for two weeks.
@@ -300,6 +304,23 @@ What the generator must get right now, because retrofitting it is a rewrite:
   one-person setting. The projection's header renders `last groomed` against it (Layer 3),
   and a lapsed cadence is what untrusts the substrate.
 - Make `Resolves: <repo>#N` mandatory in the ADR template (C3 depends on it).
+
+**Why the mechanical half is not a folder in the weekly audit** — four reasons, each earned:
+
+1. The audit is an *authored* document. Transcribing mechanical findings into it builds
+   another artifact that decays between issues of itself — one more epic body. The audit cites
+   the probe's trend line in its backlog domain, never the findings list.
+2. The trigger is per-event: a child closing starts the clock, and #1752 went stale one day
+   after its body was written. A weekly batch hides exactly that class.
+3. ADR-026 keeps noisy probes off shared status surfaces, and the projection's trust header
+   needs the probe's state queryable whether or not the audit ran this week.
+4. The DoD's stale-issue sweep was manual and unscheduled — that is why it missed #1097/#1112
+   (§2). Routing the mechanical half through a human-invoked ritual re-introduces that
+   dependency.
+
+PDR-008 made the same call for the claim enumerator: health metric plus repo-local
+enumerator, not a ninth audit domain. The *judgment* half — groom passes, dispositions, the
+false-positive review — does ride the audit ritual; that is human time already blocked.
 
 ## 6. How the applying repo proves it worked
 
