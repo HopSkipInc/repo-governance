@@ -168,17 +168,19 @@ Every DbUp project must expose at minimum:
 | `migrate` | Apply pending migrations to the target DB |
 | `test-harness` | Spin up ephemeral DB, apply all migrations, run verification scripts, drop DB |
 | `dump-schema` | Export current schema (use `--minimal` to strip noise) |
-| `generate-migration` | Scaffold a new timestamped empty migration file |
+| `generate-migration` | Scaffold a new empty migration file in the repo's own naming convention, *including* the author-local issue token (taken as a required argument — the generator is the natural place to allocate both tokens) |
 | `verify` | Non-destructive parse/execute of each script inside a rollback transaction |
 
 See enrichment-pipeline `dbmigrations/README.md` for the full CLI contract.
 
-> **Check what `generate-migration` actually emits before relying on it.** In all three of
-> this fleet's DbUp projects the command scaffolds `yyyyMMddHHmmss-slug.sql` — a filename
-> that matches no repo's convention and would fail every repo's numbering lint. The command
-> this table mandates is therefore used nowhere. Either fix the generator to emit the repo's
-> real convention *including* the author-local token — the generator is the natural place to
-> allocate it — or stop claiming the command.
+> **Check what `generate-migration` actually emits — and whether it exists — before
+> relying on it.** When this row was written, every copy of the command in this fleet
+> scaffolded `yyyyMMddHHmmss-slug.sql` — a filename that matches no repo's convention and
+> would fail every repo's numbering lint — and one DbUp project had no generator at all.
+> The mandated command was therefore used nowhere. Either fix the generator to emit the
+> repo's real convention *including* the author-local token — the generator is the natural
+> place to allocate it — or stop claiming the command, and record a "no generator"
+> deviation in the repo's Synced-templates row rather than leaving the absence silent.
 
 ## CI/CD requirements (required PR gate)
 
@@ -285,6 +287,6 @@ Governance audits should verify all of the following:
 - [ ] `scripts/migrations/NOTES.md` is present and documents any numbering quirks, intentional gaps, and squash history
 - [ ] Migration filenames carry an **author-local** uniqueness token (issue number or equivalent) — no scheme in which two open branches compute the same name
 - [ ] If the repo gates on both prefix uniqueness and migration immutability, the lint itself states which one yields when a race reaches the base branch, and any register of accepted collisions is documented as **permanent** rather than as burn-down debt
-- [ ] `generate-migration` emits a filename that satisfies the repo's own numbering lint
+- [ ] `generate-migration` emits a filename that satisfies the repo's own numbering lint — or the repo records a sanctioned "no generator" deviation in its Synced-templates row
 - [ ] Nothing in the repo claims that a date prefix — or any corpus-derived sequence — makes a filename unique; a per-date sequence provides ordering only
 - [ ] Repo-local schema-change docs match the append-only discipline — no stale instructions telling developers or agents to edit existing migration files after deployment. Check all agent instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/`, `.github/copilot-instructions.md`, `GEMINI.md`, etc.), ADRs, README, and contributing guides. Search for patterns like "both changes in the same file", "add to the CREATE TABLE block", or "ALTER TABLE ADD section below" that describe the pre-DbUp idempotent-replay model

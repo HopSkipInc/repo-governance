@@ -70,20 +70,35 @@ The §Key rules list gains the naming rule and the reason. The existing successo
 
 Do not describe the ordinal as unique. It is a label.
 
+**Added post-application — the ADR this step missed:** `docs/adr/002-idempotent-nondestructive-ddl.md`
+Decision §5 states "**Numeric file prefixes are unique**" and names this lint as its
+enforcement, so the relaxed rule 5 contradicts an Accepted record, not just prose. A dated
+Consequences note via the mediated path was attempted during application and **refused** —
+ADR-002 predates the required `## Enforcement` section, and adding one is bucket-B
+human-batched backfill. The revision is carried by the catchup prompt (amend-by-new-ADR,
+the ADR-023→ADR-018 pattern), not by editing the Decision in place.
+
 ## 4. Declare the template
 
 Add `db-migration-governance.md` to `### Synced templates` at **v1.1.0**, noting the
 deviation: this repo runs a flat `NNN_` prefix, not the template's `YYYYMMDD_NNNN`, which
 v1.1.0 explicitly sanctions.
 
-## 5. Check what `generate-migration` emits
+## 5. Check what `generate-migration` emits — **and whether it exists**
 
-`sql/dbmigrations` exposes the command the template mandates. In the other two DbUp repos it
-scaffolds `yyyyMMddHHmmss-slug.sql` — a name that fails their own numbering lints, which is
-why nobody uses it. Check this repo's implementation. If it has the same defect, either fix
-it to emit `NNN_ISSUE_description.sql` (the generator is the natural place to allocate both
-tokens) or record that the command is unused here. Do not leave a mandated command emitting
-names the repo's own gate rejects.
+**Corrected post-application:** this step's premise was wrong for this repo —
+`sql/dbmigrations` has **no** `generate-migration` command at all (`Program.cs` exposes
+`migrate` and `test-harness` only), so "check this repo's implementation" had nothing to
+check. The template mandates the command fleet-wide; the absence is a template deviation
+that needs a decision, not a silent gap. That decision is carried by the catchup prompt
+(`2026-08-28-migration-numbering-catchup.md`), not improvised during this sync. What was
+applied (PR HopSkipInc/analytics-infrastructure#603): the absence recorded in the
+Applied-governance-updates entry.
+
+(In the two repos that *do* have the command it scaffolded `yyyyMMddHHmmss-slug.sql` — a
+name that fails their own numbering lints, which is why nobody used it. enrichment-pipeline
+fixed the reference implementation in PR HopSkipInc/enrichment-pipeline#507; ai-fleet's
+copy is ported by its catchup prompt.)
 
 ## 6. Verification — observe the effect, never grep the file you just wrote
 
@@ -105,3 +120,16 @@ names the repo's own gate rejects.
 Append to `### Applied governance updates` in `CLAUDE.md` with the verification results and
 PR number. If any path or claim here does not match the repo, **stop and report upstream
 instead of adapting silently.**
+
+## Applied — 2026-08-28
+
+HopSkipInc/analytics-infrastructure#603 — rule 5 keys on the `NNN_ISSUE` pair, token
+required on added files (merge-base **working-tree** diff; SKIPPED, never failed-open, when
+no base resolves); rule 7 untouched in force (its base-name parse strips the optional token,
+so cross-issue successors still collide — probe-verified); `ci.yml` lint job gained
+`fetch-depth: 0` (without it the token check would have SKIPPED on every PR); CLAUDE.md
+§Key rules + Synced templates at v1.1.0 (flat-prefix deviation). All six verification
+probes observed as specified.
+
+**Deviations:** §5's premise (corrected inline above); the ADR-002 §5 contradiction (see
+§3's added note — carried to the catchup prompt).

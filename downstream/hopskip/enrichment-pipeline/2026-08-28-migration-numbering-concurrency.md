@@ -111,7 +111,12 @@ the naming convention (step 2) and the register's framing (step 3).
 
 1. **The generator produces a usable name.** Run `generate-migration` with an issue number
    and confirm the emitted filename matches `^\d{8}_\d{4}_\d+_` and lands in
-   `scripts/migrations/`. Delete the scaffold.
+   `scripts/migrations/`. Delete the scaffold. If the file lands anywhere else — e.g. a
+   directory literally named `scripts\migrations` — the default script-folder path is not
+   platform-neutral: fix the default (forward slashes are accepted by .NET on Windows
+   too), do **not** work around it with an explicit `-s`. *(Found live during application:
+   the pre-existing default `scripts\migrations` wrote probes to a garbage directory on
+   Linux; fixed in the same PR.)*
 2. **A same-day pair is expressible.** Generate two migrations on the same day for different
    issues and confirm both names are distinct with no suffix hack needed. Delete both.
 3. **The harness still applies the corpus from scratch.** Run
@@ -126,3 +131,12 @@ the naming convention (step 2) and the register's framing (step 3).
 Append to `### Applied governance updates` in `CLAUDE.md` with the verification results and
 the PR number. If any path or claim here does not match the repo, **stop and report upstream
 instead of adapting silently.**
+
+## Applied — 2026-08-28
+
+HopSkipInc/enrichment-pipeline#507 — generator emits `YYYYMMDD_NNNN_ISSUE_description.sql`
+with `--issue` required; `NOTES.md` uniqueness claim corrected to ordering-only, register
+reframed permanent, non-collision `20260102`/`20260103` rows dropped; no-lint decision
+recorded in `docs/code-conventions.md` §3 with the revisit trigger (first same-day pair
+authored after 2026-08-28); template declared v1.1.0. Verification step 1 caught the
+Windows-path default (see the note inline there); `test-harness --spawn-container` PASS.

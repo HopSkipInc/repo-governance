@@ -61,8 +61,12 @@ Two changes in that file, both in check 4:
    `check-migration-immutability.mjs` does (`GITHUB_BASE_REF` → `origin/master` →
    `origin/main`, and **SKIP with a message if none resolves** — a lint that hard-fails a
    detached checkout gets disabled). For each file added in `git diff --name-status
-   <merge-base>...HEAD`, fail if it does not match `^\d{4}_\d+_`. Files already on the
-   base branch are never checked for the token.
+   <merge-base>` — two dots, against the **working tree**, matching the immutability
+   lint's own shape, so a staged-but-uncommitted file is caught at `npm run check` time,
+   which is exactly when an author runs it — fail if it does not match `^\d{4}_\d+_`.
+   Files already on the base branch are never checked for the token.
+   *(Corrected post-application: this step originally read `...HEAD`, which misses
+   uncommitted work; the applied implementation uses the working-tree form.)*
 
 Leave `GRANDFATHERED_DUPLICATE_PREFIXES` in place — the nine historical entries are still
 the record — but update its comment: the set is **permanent and closed**, not burn-down
@@ -74,20 +78,33 @@ Check 5 is unaffected — it parses `^(\d{4})_` and only reads the prefix.
 
 ## 3. Amend ADR-008 Rule 4
 
-Through the mediated path, never a raw edit:
+Through the mediated path, never a raw edit. **Corrected post-application:** the command
+originally printed here (`write-record.mjs amend adr 008 --section Decision`) does not
+exist — no write-record version (1.1.0–1.3.0) has a `--section` flag; `amend` is a
+full-file replace under section guards. And the guard locks an **Accepted** record's
+`## Context` and `## Decision` byte-identical, so "Rule 4 becomes …" is not
+agent-executable as a Decision edit in any repo. The house channel for a dated rule
+change on an Accepted record — and what was actually applied (PR
+HopSkipInc/ai-fleet#2342) — is:
 
 ```bash
-node host/scripts/write-record.mjs amend adr 008 --section Decision
+# revise a full copy of the record: dated Consequences note + the Enforcement
+# table row; Context/Decision byte-identical
+node host/scripts/write-record.mjs amend adr 008 <revised-file>
 ```
 
-Rule 4 becomes: migration numbers are a human label, not a unique key; uniqueness comes
-from the issue token; `next = max(existing) + 1` is a convenience, not a contract. Keep
-the honest reasoning — Rule 4's current text already concedes that "duplicates don't break
-apply order today, but they do break the audit log", and the audit log is `git log`, which
-orders by commit. Add the finding the `0430` incident produced: a dedupe-by-rename rule and
-an immutability rule cannot both be enforced once a race is journaled.
+The Consequences note carries: migration numbers are a human label, not a unique key;
+uniqueness comes from the issue token; `next = max(existing) + 1` is a convenience, not a
+contract. Keep the honest reasoning — Rule 4's text already concedes that "duplicates
+don't break apply order today, but they do break the audit log", and the audit log is
+`git log`, which orders by commit. Add the finding the `0430` incident produced: a
+dedupe-by-rename rule and an immutability rule cannot both be enforced once a race is
+journaled. The note itself flags the Decision text as still reading "must be unique",
+with revision owed as a human-decided follow-up (see the catchup prompt:
+`2026-08-28-migration-numbering-catchup.md`).
 
-Update the ADR's `## Enforcement` table row for `lint:adr008` to describe the new Rule 4.
+Update the ADR's `## Enforcement` table row for `lint:adr008` to describe the new Rule 4
+(that section is not guard-protected; the amend lands it).
 
 **Do not** claim the ordering property. Nothing in this repo verifies that filename order
 matches prod apply order — `VerifyCommand` and `TestHarnessCommand` never compare
@@ -157,3 +174,21 @@ verification results, and the PR numbers. If any step's target turns out not to 
 repo as described, **stop and report upstream rather than adapting silently** — that is the
 failure mode the 2026-08-05 prompt produced here, and this prompt names live paths
 precisely so it can be checked.
+
+## Applied — 2026-08-28
+
+- **§4 (dead pre-commit gate):** HopSkipInc/ai-fleet#2341 — fixed #1627; the dry-run
+  section's `db/migrate.py` target was deleted in the cutover, so the section was retired
+  (its coverage lives in the dev-pg apply + the harness workflow). Also installed
+  `lint:githooks-migration-path` and 12 fire-the-hook vitest cases per the issue.
+- **§1–3, 5–6 (numbering):** HopSkipInc/ai-fleet#2342 — check 4 keys on `NNNN_ISSUE`,
+  token required on added files (working-tree diff, not `...HEAD` — see §2), ADR-008
+  amended via the Consequences+Enforcement channel (see §3), `NOTES.md` §Naming added,
+  template declared v1.1.0 with the flat-prefix deviation.
+- **Found in application:** `check-migration-immutability.mjs` diffed the whole migrations
+  directory unfiltered and would have failed *any* `NOTES.md` edit — never exercised
+  because the lint (#1657) postdates the last NOTES.md edit by one day. Scoped to the
+  journaled set (`*.sql`) in #2342, probe-verified both directions.
+- **Deviations from this prompt's letter:** the §2 diff shape and the §3 amend mechanism,
+  both corrected inline above; the ADR-008 Decision revision is carried by the catchup
+  prompt.
