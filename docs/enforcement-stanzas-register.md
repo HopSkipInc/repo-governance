@@ -15,8 +15,8 @@ blocking UNREGISTERED — registration is a decision, not a silence.
 
 | harness | config path | Since | Note |
 |---|---|---|---|
-| `claude-code` | `.claude/settings.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.md` v1.2.0 (stamp bumped 2026-08-13 alongside the write-record install — the stanza content is unchanged; v1.2.0 is the mediated-write-paths section) — stamp is a `"_governance_install"` string key, **not** a `//` comment: Claude Code parses this file as strict JSON and discards it entirely on a comment. This repo's own config carried the comment form from 2026-08-08 to 2026-08-11 and enforced nothing (v1.0.0 install; see the v1.1.0 template's stamp table). The `ask`/`deny` mode note that used to ride as a comment here lives in the mode paragraph at the bottom of this file, which was always its authoritative home |
-| `opencode` | `opencode.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.opencode.md` v1.0.0 — catch-all `"*": "allow"` first, denies after (last-match-wins). Stamp bump to v1.1.0 (mediated-write-paths section) is pending — `opencode.json` carries unrelated uncommitted work from the SourcingService pilot; bump lands when that does |
+| `claude-code` | `.claude/settings.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.md` v1.3.0 (content unchanged since v1.2.0's install; v1.3.0 2026-09-15 extends the mediated-write-paths prose for `append-row`, issue #104 — no config change) — stamp is a `"_governance_install"` string key, **not** a `//` comment: Claude Code parses this file as strict JSON and discards it entirely on a comment. This repo's own config carried the comment form from 2026-08-08 to 2026-08-11 and enforced nothing (v1.0.0 install; see the v1.1.0 template's stamp table). The `ask`/`deny` mode note that used to ride as a comment here lives in the mode paragraph at the bottom of this file, which was always its authoritative home |
+| `opencode` | `opencode.json` | 2026-08-08 | Stanza from `templates/harness-enforcement.opencode.md` v1.0.0 — catch-all `"*": "allow"` first, denies after (last-match-wins). Stamp bump to v1.1.0/v1.2.0 (mediated-write-paths sections) is pending — `opencode.json` carries unrelated uncommitted work from the SourcingService pilot; bump lands when that does |
 
 ## Records paths
 
@@ -48,11 +48,21 @@ permission layer cannot express — append-only creation, section-level amendmen
 guards, README registration, corpus lints run post-write — and the stanza is
 what funnels agents to it. Each row asserts the script exists and stamps the
 declared version. This repo has no ADR corpus (CLAUDE.md: the layer is not run
-here), so only the PDR corpus is listed.
+here), so only the PDR corpus is listed for `create`/`amend`.
+
+Issue #104 adds a second mediated verb, `append-row`, for the two singleton
+records this stanza also gates — it locates one named table by its exact
+header-cell fingerprint and inserts exactly one row; the caller never submits
+a whole revised file, so there is nothing for a guard to diff. Registering the
+row here does not, by itself, change this repo's `ask` mode for these two
+paths (see the mode paragraph below) — it only means the funnel exists if the
+mode ever moves.
 
 | path | script | version | note |
 |---|---|---|---|
-| `docs/pdr/` | `scripts/write-record.mjs` | `1.3.0` | Installed 2026-08-13 (v1.0.0); 1.1.0 2026-08-18 adds the pre-confirmation revision mode (issue #88) — unsigned drafts may revise Context/Decision, confirmed records stay locked; 1.2.0 2026-08-18 derives the corpus dialect from disk (issue #91) — MADR bracket H1s read and mint, pad width follows the corpus instead of a constant; 1.3.0 2026-08-19 normalizes section headings and hardens the amend guard (issue #97) — variant headings (`## Decision 1: …`) resolve, a missing protected section is an explicit refusal never a `null === null` pass, `YYYY-MM-DD` scopes to the `**Date:**` placeholder, Superseded drops `## Enforcement`, `.write-record.json` and `check` land. Byte-identical self-copy asserted by the write-record fixture suite |
+| `docs/pdr/` | `scripts/write-record.mjs` | `1.4.0` | Installed 2026-08-13 (v1.0.0); 1.1.0 2026-08-18 adds the pre-confirmation revision mode (issue #88) — unsigned drafts may revise Context/Decision, confirmed records stay locked; 1.2.0 2026-08-18 derives the corpus dialect from disk (issue #91) — MADR bracket H1s read and mint, pad width follows the corpus instead of a constant; 1.3.0 2026-08-19 normalizes section headings and hardens the amend guard (issue #97) — variant headings (`## Decision 1: …`) resolve, a missing protected section is an explicit refusal never a `null === null` pass, `YYYY-MM-DD` scopes to the `**Date:**` placeholder, Superseded drops `## Enforcement`, `.write-record.json` and `check` land; 1.4.0 2026-09-15 adds the unrelated `append-row` verb (issue #104) — same script, no PDR-path behavior change. Byte-identical self-copy asserted by the write-record fixture suite |
+| `docs/testing-strategy.md` | `scripts/write-record.mjs` | `1.4.0` | Installed 2026-09-15 (issue #104) — `append-row` only; table keys: `coverage-floor-log`, `coverage-map`, `deliberately-untested`, `test-levels`, `false-green`, `not-verified`, `review-log` |
+| `docs/code-conventions.md` | `scripts/write-record.mjs` | `1.4.0` | Installed 2026-09-15 (issue #104) — `append-row` only; table keys: `enforced-conventions`, `promotion-clock`, `not-codified`, `enforcement-without-record`, `contradictions`, `review-log` |
 
 **Mode, on the record:** this repo runs its records paths at **`ask`**, not `deny`
 (decision 2026-08-08, review feedback on PR #64). Records maintenance here is a daily

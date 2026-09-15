@@ -1,4 +1,4 @@
-// template: scripts/write-record.mjs v1.3.0 · updated 2026-08-19
+// template: scripts/write-record.mjs v1.4.0 · updated 2026-09-15
 /**
  * write-record  [TEMPLATE — ships to governed repos]
  *
@@ -23,11 +23,26 @@
  * The human checkpoint moves to the PR merge — where it already sits for every
  * other artifact, and the only checkpoint that exists for fleet workers.
  *
+ * SINGLETON RECORDS (1.4.0, issue #104). `create`/`amend` mediate the two
+ * numbered corpora. `docs/testing-strategy.md` and `docs/code-conventions.md`
+ * are records too (same CLAUDE.md paragraph, same stanza) but are singleton
+ * living documents, not numbered files — hit live when analytics-infrastructure
+ * ran testing-strategy.md at hard deny with no verb in this script able to
+ * touch it at all, so routine mechanical maintenance (append a coverage-map
+ * row, bump the review log) fell to a human typing it in. `append-row` closes
+ * that gap for exactly two files, append-only, row-insertion only — no cell
+ * edits, no prose changes. Unlike `amend`, it never accepts a whole revised
+ * file to diff against a guard: the caller supplies only the new row's cell
+ * values, and the script performs 100% of the file surgery, which is a
+ * narrower gate than "diff a submission" needs to be. `agent-routing-records.md`
+ * is deliberately not covered — its calibration set stays by-hand.
+ *
  * Usage:
  *   node scripts/write-record.mjs create <adr|pdr> <draft-file>
  *   node scripts/write-record.mjs amend  <adr|pdr> <NNN> <revised-file>
  *   node scripts/write-record.mjs amend  <adr|pdr> readme <revised-file>
  *   node scripts/write-record.mjs check  <adr|pdr> <draft-file>
+ *   node scripts/write-record.mjs append-row <testing-strategy|code-conventions> <table-key> <row-file.json>
  *
  * create  — allocate the next free number (max over files AND README links, +1;
  *           gaps are never reclaimed — a skipped number is cheaper than a
@@ -164,6 +179,39 @@ const CORPUS_DIRS = {
 };
 const LABEL = { adr: 'ADR', pdr: 'PDR' };
 const LINT_HOMES = ['scripts', 'host/scripts', 'tools'];
+
+/** Singleton living-document records (issue #104) — not numbered corpora, so
+ *  `append-row` locates a table by its exact header-cell fingerprint rather
+ *  than by heading name. Fingerprints, not headings, because some headings
+ *  carry two tables (testing-strategy §1 has a fixed spec table AND a growing
+ *  dated log; only the log is appendable) and the fingerprint is what tells
+ *  them apart without a second locator. `agent-routing-records.md` is
+ *  deliberately absent — its calibration set stays a by-hand edit. */
+const SINGLETON_DOCS = {
+  'testing-strategy': {
+    path: 'docs/testing-strategy.md',
+    tables: {
+      'coverage-floor-log': ['Date', 'Floor', 'Actual', 'Note'],
+      'coverage-map': ['Module / path', 'Test levels present', 'Status', 'Risk surface?', 'Tracking'],
+      'deliberately-untested': ['Path', 'Why it is not tested', 'Would we notice if it broke?', 'Reviewed'],
+      'test-levels': ['Level', 'What it covers', 'Where it lives', 'How it runs', 'Runtime'],
+      'false-green': ['What', 'Where', 'Kind', 'Disposition'],
+      'not-verified': ['Property not verified', 'Surface', 'What a silent failure looks like', 'Tracking'],
+      'review-log': ['Date', 'Trigger', 'What changed'],
+    },
+  },
+  'code-conventions': {
+    path: 'docs/code-conventions.md',
+    tables: {
+      'enforced-conventions': ['#', 'Convention', 'ADR', 'Enforcement (rule or script)', 'Gate or report', 'Since'],
+      'promotion-clock': ['#', 'Report since', 'Promotes to gate when', 'Current violation count'],
+      'not-codified': ['Pattern', 'Why it is not a standard'],
+      'enforcement-without-record': ['Check', 'Where wired', 'Convention it implies', 'Disposition'],
+      contradictions: ['Contradiction', 'Side A (cite)', 'Side B (cite)', 'Tracking'],
+      'review-log': ['Date', 'Trigger', 'What changed'],
+    },
+  },
+};
 
 /** Sections an amend may never rewrite once the record is confirmed. The
  *  templates' rule is "never edit a Decision in place"; Context rides with it
@@ -504,6 +552,78 @@ function splitInventoryTable(text, what) {
 const cellsOf = (line) => line.split('|').slice(1, -1).map((c) => c.trim());
 const rowOf = (cells) => `| ${cells.join(' | ')} |`;
 const linkTargetOf = (line) => line.match(/\((\d{3,4}-[^)]+\.md)\)/)?.[1] ?? null;
+
+// -------------------------------------------------------- singleton records
+
+/** Resolve a singleton-doc key against the built-in map, layered with
+ *  `.write-record.json`'s optional "tables" key (1.4.0, #104). A repo may
+ *  override a built-in doc's path, add table keys to a built-in doc, or
+ *  declare an entirely new doc this template does not ship — the last case
+ *  must supply its own "path". */
+function resolveSingletonDoc(docKey, config) {
+  const builtIn = SINGLETON_DOCS[docKey];
+  const over = config.tables?.[docKey];
+  if (!builtIn && over === undefined) {
+    die(`append-row: unknown doc "${docKey}" — expected one of: ${Object.keys(SINGLETON_DOCS).join(', ')} (or declare it under .write-record.json "tables")`);
+  }
+  if (over !== undefined) {
+    if (typeof over !== 'object' || over === null || Array.isArray(over)) {
+      die(`.write-record.json tables.${docKey} must be an object with "path" and/or "tables"`);
+    }
+    if (over.path !== undefined && (typeof over.path !== 'string' || over.path.trim() === '')) {
+      die(`.write-record.json tables.${docKey}.path must be a non-empty string`);
+    }
+    if (over.tables !== undefined) {
+      if (typeof over.tables !== 'object' || over.tables === null || Array.isArray(over.tables)) {
+        die(`.write-record.json tables.${docKey}.tables must be an object keyed by table name`);
+      }
+      for (const [tkey, cols] of Object.entries(over.tables)) {
+        if (!Array.isArray(cols) || cols.length === 0 || cols.some((c) => typeof c !== 'string' || c.trim() === '')) {
+          die(`.write-record.json tables.${docKey}.tables.${tkey} must be a non-empty array of non-empty column names`);
+        }
+      }
+    }
+  }
+  if (!builtIn && !over?.path) {
+    die(`.write-record.json tables.${docKey} must declare a "path" — there is no built-in default for this doc`);
+  }
+  return {
+    path: over?.path ?? builtIn.path,
+    tables: { ...(builtIn?.tables ?? {}), ...(over?.tables ?? {}) },
+  };
+}
+
+/** Locate the one table in `lines` whose header cells exactly match
+ *  `headerCells` — a fingerprint, not a heading name (see SINGLETON_DOCS).
+ *  Zero matches means the file drifted from the configured fingerprint;
+ *  more than one means the fingerprint itself is ambiguous. Neither is
+ *  guessed at. */
+function findNamedTable(lines, headerCells, what) {
+  const blocks = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (lines[i].trim().startsWith('|')) {
+      let j = i;
+      while (j < lines.length && lines[j].trim().startsWith('|')) j++;
+      blocks.push({ start: i, end: j });
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  const matches = blocks.filter((b) => {
+    if (b.end - b.start < 2) return false; // no separator row — not a table
+    const header = cellsOf(lines[b.start]);
+    return header.length === headerCells.length && header.every((c, idx) => c === headerCells[idx]);
+  });
+  if (matches.length === 0) {
+    die(`${what}: no table found with header [${headerCells.join(' | ')}] — the file's table headers may have drifted from the configured fingerprint`);
+  }
+  if (matches.length > 1) {
+    die(`${what}: ${matches.length} tables match header [${headerCells.join(' | ')}] — the fingerprint is ambiguous; declare a more specific header in .write-record.json`);
+  }
+  return matches[0];
+}
 
 /** The Enforcement cell is a one-line summary of the section's first content
  *  line, bullet and bold-label stripped. Best-effort display text — the PR
@@ -1003,6 +1123,60 @@ function cmdAmendReadme(kind, revisedPath) {
   console.log('OK: README amended.');
 }
 
+/** append-row (1.4.0, #104): the mediated write path for singleton records.
+ *  Unlike amend, this never accepts a whole revised file to diff against a
+ *  guard — the caller supplies only the new row's cell values, and the
+ *  script performs 100% of the file surgery (locate table by header
+ *  fingerprint, insert exactly one line, nothing else moves). That is a
+ *  narrower gate than "diff a submission" needs to be, and it is why no
+ *  separate guard function exists here the way splitInventoryTable's caller
+ *  needs one. */
+function cmdAppendRow(docKey, tableKey, rowFile) {
+  const config = loadConfig();
+  const doc = resolveSingletonDoc(docKey, config);
+  const headerCells = doc.tables[tableKey];
+  if (!headerCells) {
+    die(`append-row: unknown table "${tableKey}" for doc "${docKey}" — expected one of: ${Object.keys(doc.tables).join(', ')}`);
+  }
+
+  const docPath = join(ROOT, doc.path);
+  if (!existsSync(docPath)) {
+    die(`append-row: ${doc.path} does not exist — this repo has not bootstrapped this record yet`);
+  }
+  if (!existsSync(rowFile)) die(`row file not found: ${rowFile}`);
+
+  let rowValues;
+  try {
+    rowValues = JSON.parse(readFileSync(rowFile, 'utf8'));
+  } catch (e) {
+    die(`${rowFile} is not valid JSON (${e.message}) — expected a JSON array of cell strings`);
+  }
+  if (!Array.isArray(rowValues) || rowValues.some((v) => typeof v !== 'string')) {
+    die(`${rowFile} must be a JSON array of strings, one per column`);
+  }
+  if (rowValues.length !== headerCells.length) {
+    die(`REFUSED: ${rowFile} has ${rowValues.length} cell(s), table "${tableKey}" has ${headerCells.length} column(s) [${headerCells.join(' | ')}]`);
+  }
+  if (rowValues.some((v) => /\r|\n/.test(v))) {
+    die('REFUSED: a cell contains a newline — table rows are one line each');
+  }
+
+  const text = readFileSync(docPath, 'utf8').replace(/\r\n/g, '\n');
+  const lines = text.split('\n');
+  const table = findNamedTable(lines, headerCells, `${doc.path} (table "${tableKey}")`);
+
+  const cells = rowValues.map((v) => v.trim().replace(/(?<!\\)\|/g, '\\|'));
+  const rowLine = rowOf(cells);
+
+  // `lines` already carries a trailing '' element when `text` ends in a
+  // newline (split's own behaviour) — join reproduces that exactly, so no
+  // separate trailing-newline bookkeeping is needed or wanted here.
+  const newLines = [...lines.slice(0, table.end), rowLine, ...lines.slice(table.end)];
+  writeFileSync(docPath, newLines.join('\n'));
+  const rowCount = table.end - table.start - 2 + 1;
+  console.log(`write-record: appended row to ${doc.path} — table "${tableKey}", now ${rowCount} row(s). Every other line is unchanged.`);
+}
+
 /** check (1.3.0, #97 Q4): dry-run a draft against create-strict validation
  *  and print the resolved section map, writing nothing. Every diagnosis in
  *  the §97 report required reading the script or provoking refusals against
@@ -1036,12 +1210,21 @@ function cmdCheck(kind, draftPath) {
 
 // --------------------------------------------------------------------- main
 
-const [, , verb, kindArg, a, b] = process.argv;
 const usage = `usage:
   node scripts/write-record.mjs create <adr|pdr> <draft-file>
   node scripts/write-record.mjs amend  <adr|pdr> <NNN> <revised-file>
   node scripts/write-record.mjs amend  <adr|pdr> readme <revised-file>
-  node scripts/write-record.mjs check  <adr|pdr> <draft-file>`;
+  node scripts/write-record.mjs check  <adr|pdr> <draft-file>
+  node scripts/write-record.mjs append-row <testing-strategy|code-conventions> <table-key> <row-file.json>`;
+
+if (process.argv[2] === 'append-row') {
+  const [, , , docKey, tableKey, rowFile] = process.argv;
+  if (!docKey || !tableKey || !rowFile) die(usage);
+  cmdAppendRow(docKey, tableKey, rowFile);
+  process.exit(0);
+}
+
+const [, , verb, kindArg, a, b] = process.argv;
 
 if (!['create', 'amend', 'check'].includes(verb) || !['adr', 'pdr'].includes(kindArg)) die(usage);
 

@@ -131,3 +131,4 @@ line it would cite.
 | Date | Trigger | What changed |
 |---|---|---|
 | 2026-07-27 | bootstrap | Floor set as a rule rather than a percentage. 19 fixture cases across 4 lints + 6 bootstrap-smoke cases, all wired into CI. Two bugs found by writing the tests: `check-blank-form-naming` R1 could not see a form numbered like a record (R3 added), and its record pattern matched date-prefixed files. One live defect found by the smoke test: GETTING_STARTED's ADR block never copied `README.md`, so a repo following it exactly had red CI on day one — live since session 13 |
+| 2026-09-15 | write-record.mjs 1.4.0 | append-row shipped (issue #104) — testing-strategy.md and code-conventions.md now have a mediated write path for table-row appends, alongside PDR create/amend |
