@@ -1,4 +1,4 @@
-<!-- template: harness-enforcement.md v1.2.0 · updated 2026-08-13 -->
+<!-- template: harness-enforcement.md v1.3.0 · updated 2026-09-15 -->
 # Harness enforcement — Claude Code settings stanza
 
 Two invariants, enforced by the harness before the action lands — not by the model, and
@@ -122,7 +122,7 @@ A repo running records paths at `ask` records the mode and the reason in
 requires `deny` for secrets rules. The downgrade moves a rule from `deny` to
 `ask` — it never deletes one.
 
-## Mediated write paths (v1.2.0, issue #81)
+## Mediated write paths (v1.3.0, issue #104; v1.2.0, issue #81)
 
 The stanza gates paths, not intent — so left alone it cannot tell "agent
 creates ADR-063" from "agent `cp`s a blank form over ADR-022", and every
@@ -140,6 +140,16 @@ path**, and it works *because* this stanza stays at full strength:
   rows under section guards (`## Decision` / `## Context` are immutable — the
   blank form's own rule, made mechanical; README rows are editable but never
   deletable).
+- **`append-row` (issue #104) covers the singleton living-document records** —
+  `docs/testing-strategy.md` and `docs/code-conventions.md` — which are named
+  in the same CLAUDE.md records paragraph and gated by the same stanza, but
+  are not numbered corpora, so `create`/`amend` cannot reach them. It locates
+  one named table by its exact header-cell fingerprint and inserts exactly one
+  row; the caller supplies only the new row's cell values, never a whole
+  revised file, so there is nothing for a guard to diff — the script performs
+  all the file surgery itself. `docs/agent-routing-records.md` is deliberately
+  not covered: its model→class mapping and calibration set stay a by-hand
+  edit, on the record in `docs/enforcement-stanzas-register.md`.
 - **The deny rules stay exactly as shipped.** They close the accident vector —
   the one-shot Edit/Write/`cp` onto an existing record — and they are what
   makes the funnel work: the raw path errors out, the script is the easy path.

@@ -1066,6 +1066,199 @@ test('check (97): a clean draft prints the map and the OK, writing nothing', () 
   assert.match(out, /nothing written/);
 });
 
+// ------------------------------------------------------------- append-row (104)
+
+const TESTING_STRATEGY_FIXTURE = `# Testing Strategy — Records for demo
+
+**Last refreshed:** 2026-01-01 by Demo (\`test-coverage-interview\`)
+**Refresh trigger that fired:** bootstrap
+
+---
+
+## 1. Coverage floor
+
+| | |
+|---|---|
+| **Floor** | 60% |
+| **Actual at last refresh** | 61% (2026-01-01) |
+
+| Date | Floor | Actual | Note |
+|---|---|---|---|
+| 2026-01-01 | 60% | 61% | floor set to actual at bootstrap |
+
+## 2. Coverage map
+
+| Module / path | Test levels present | Status | Risk surface? | Tracking |
+|---|---|---|---|---|
+| \`src/foo/\` | unit | covered | no | — |
+
+## Review log
+
+| Date | Trigger | What changed |
+|---|---|---|
+| 2026-01-01 | bootstrap | initial |
+`;
+
+const CODE_CONVENTIONS_FIXTURE = `# Code Conventions — Records for demo
+
+**Last refreshed:** 2026-01-01 by Demo (\`clean-code-interview\`)
+**Refresh trigger that fired:** bootstrap
+
+---
+
+## 1. Enforced conventions
+
+| # | Convention | ADR | Enforcement (rule or script) | Gate or report | Since |
+|---|---|---|---|---|---|
+| 1 | Every file carries a version stamp | — | \`scripts/check-template-versions.mjs\` | gate | 2026-01-01 |
+
+## 3. Not codified (deliberate)
+
+| Pattern | Why it is not a standard |
+|---|---|
+| camelCase identifiers | Language default |
+`;
+
+test('append-row: happy path appends a coverage-map row, every other line unchanged', () => {
+  const dir = fixture({
+    'docs/testing-strategy.md': TESTING_STRATEGY_FIXTURE,
+    'row.json': JSON.stringify(['src/bar/', 'none', 'gap', 'yes', '#12']),
+  });
+  const before = readFileSync(join(dir, 'docs/testing-strategy.md'), 'utf8');
+  const { code, out } = run(dir, ['append-row', 'testing-strategy', 'coverage-map', 'row.json']);
+  assert.equal(code, 0, out);
+  assert.match(out, /now 2 row\(s\)/);
+  const after = readFileSync(join(dir, 'docs/testing-strategy.md'), 'utf8');
+  const beforeLines = before.split('\n');
+  const afterLines = after.split('\n');
+  assert.equal(afterLines.length, beforeLines.length + 1, 'exactly one line should have been inserted');
+  // Every line from `before` still appears in `after`, in the same order —
+  // the property that matters: nothing else moved or changed.
+  let cursor = 0;
+  for (const line of afterLines) {
+    if (cursor < beforeLines.length && line === beforeLines[cursor]) cursor++;
+  }
+  assert.equal(cursor, beforeLines.length, 'not every original line survived unchanged, in order');
+  assert.ok(after.includes('| src/bar/ | none | gap | yes | #12 |'), 'new row missing from file');
+});
+
+test('append-row: happy path appends to code-conventions enforced-conventions table', () => {
+  const dir = fixture({
+    'docs/code-conventions.md': CODE_CONVENTIONS_FIXTURE,
+    'row.json': JSON.stringify(['2', 'A blank form is _-prefixed', '—', '`scripts/check-blank-form-naming.mjs`', 'gate', '2026-01-02']),
+  });
+  const { code, out } = run(dir, ['append-row', 'code-conventions', 'enforced-conventions', 'row.json']);
+  assert.equal(code, 0, out);
+  const after = readFileSync(join(dir, 'docs/code-conventions.md'), 'utf8');
+  assert.ok(after.includes('| 2 | A blank form is _-prefixed | — | `scripts/check-blank-form-naming.mjs` | gate | 2026-01-02 |'));
+  // §3's table must be untouched by a §1 append.
+  assert.match(after, /\| camelCase identifiers \| Language default \|/);
+});
+
+test('append-row: wrong cell count is refused, nothing written', () => {
+  const dir = fixture({
+    'docs/testing-strategy.md': TESTING_STRATEGY_FIXTURE,
+    'row.json': JSON.stringify(['src/bar/', 'none', 'gap']),
+  });
+  const before = readFileSync(join(dir, 'docs/testing-strategy.md'), 'utf8');
+  const { code, out } = run(dir, ['append-row', 'testing-strategy', 'coverage-map', 'row.json']);
+  assert.equal(code, 1, out);
+  assert.match(out, /REFUSED.*3 cell\(s\).*5 column\(s\)/s);
+  assert.equal(readFileSync(join(dir, 'docs/testing-strategy.md'), 'utf8'), before);
+});
+
+test('append-row: a cell containing a bare pipe is escaped, not left to corrupt the table', () => {
+  const dir = fixture({
+    'docs/testing-strategy.md': TESTING_STRATEGY_FIXTURE,
+    'row.json': JSON.stringify(['src/baz/', 'unit | integration', 'covered', 'no', '—']),
+  });
+  const { code, out } = run(dir, ['append-row', 'testing-strategy', 'coverage-map', 'row.json']);
+  assert.equal(code, 0, out);
+  const after = readFileSync(join(dir, 'docs/testing-strategy.md'), 'utf8');
+  assert.ok(after.includes('unit \\| integration'), 'bare pipe should have been escaped');
+});
+
+test('append-row: a cell containing a newline is refused', () => {
+  const dir = fixture({
+    'docs/testing-strategy.md': TESTING_STRATEGY_FIXTURE,
+    'row.json': JSON.stringify(['src/bar/', 'none\nmore', 'gap', 'yes', '#12']),
+  });
+  const { code, out } = run(dir, ['append-row', 'testing-strategy', 'coverage-map', 'row.json']);
+  assert.equal(code, 1, out);
+  assert.match(out, /a cell contains a newline/);
+});
+
+test('append-row: unknown doc is refused', () => {
+  const dir = fixture({ 'docs/testing-strategy.md': TESTING_STRATEGY_FIXTURE, 'row.json': '[]' });
+  const { code, out } = run(dir, ['append-row', 'agent-routing-records', 'anything', 'row.json']);
+  assert.equal(code, 1, out);
+  assert.match(out, /unknown doc "agent-routing-records"/);
+});
+
+test('append-row: unknown table for a known doc is refused', () => {
+  const dir = fixture({ 'docs/testing-strategy.md': TESTING_STRATEGY_FIXTURE, 'row.json': '[]' });
+  const { code, out } = run(dir, ['append-row', 'testing-strategy', 'not-a-real-table', 'row.json']);
+  assert.equal(code, 1, out);
+  assert.match(out, /unknown table "not-a-real-table"/);
+});
+
+test('append-row: a doc that has not been bootstrapped yet is refused', () => {
+  const dir = fixture({ 'row.json': JSON.stringify(['a', 'b', 'c', 'd', 'e']) });
+  const { code, out } = run(dir, ['append-row', 'testing-strategy', 'coverage-map', 'row.json']);
+  assert.equal(code, 1, out);
+  assert.match(out, /does not exist — this repo has not bootstrapped/);
+});
+
+test('append-row: a table whose header drifted from the fingerprint is refused, not guessed at', () => {
+  const drifted = TESTING_STRATEGY_FIXTURE.replace(
+    '| Module / path | Test levels present | Status | Risk surface? | Tracking |',
+    '| Module | Levels | Status | Risk | Tracking |',
+  );
+  const dir = fixture({
+    'docs/testing-strategy.md': drifted,
+    'row.json': JSON.stringify(['src/bar/', 'none', 'gap', 'yes', '#12']),
+  });
+  const { code, out } = run(dir, ['append-row', 'testing-strategy', 'coverage-map', 'row.json']);
+  assert.equal(code, 1, out);
+  assert.match(out, /no table found with header/);
+});
+
+test('append-row: .write-record.json can add a table key to a built-in doc', () => {
+  const withExtraSection = `${TESTING_STRATEGY_FIXTURE}\n## 7. Extra local section\n\n| Thing | Note |\n|---|---|\n| a | b |\n`;
+  const dir = fixture({
+    'docs/testing-strategy.md': withExtraSection,
+    '.write-record.json': JSON.stringify({ tables: { 'testing-strategy': { tables: { 'extra-local': ['Thing', 'Note'] } } } }),
+    'row.json': JSON.stringify(['c', 'd']),
+  });
+  const { code, out } = run(dir, ['append-row', 'testing-strategy', 'extra-local', 'row.json']);
+  assert.equal(code, 0, out);
+  const after = readFileSync(join(dir, 'docs/testing-strategy.md'), 'utf8');
+  assert.ok(after.includes('| c | d |'));
+});
+
+test('append-row: .write-record.json can declare an entirely new doc with its own path', () => {
+  const dir = fixture({
+    'docs/notes.md': '# Notes\n\n| A | B |\n|---|---|\n| 1 | 2 |\n',
+    '.write-record.json': JSON.stringify({ tables: { notes: { path: 'docs/notes.md', tables: { main: ['A', 'B'] } } } }),
+    'row.json': JSON.stringify(['3', '4']),
+  });
+  const { code, out } = run(dir, ['append-row', 'notes', 'main', 'row.json']);
+  assert.equal(code, 0, out);
+  const after = readFileSync(join(dir, 'docs/notes.md'), 'utf8');
+  assert.ok(after.includes('| 3 | 4 |'));
+});
+
+test('append-row: a table with two tables sharing the configured header is an ambiguity, refused', () => {
+  const doubled = `${TESTING_STRATEGY_FIXTURE}\n## 2b. Duplicate\n\n| Module / path | Test levels present | Status | Risk surface? | Tracking |\n|---|---|---|---|---|\n| \`src/dup/\` | unit | covered | no | — |\n`;
+  const dir = fixture({
+    'docs/testing-strategy.md': doubled,
+    'row.json': JSON.stringify(['src/bar/', 'none', 'gap', 'yes', '#12']),
+  });
+  const { code, out } = run(dir, ['append-row', 'testing-strategy', 'coverage-map', 'row.json']);
+  assert.equal(code, 1, out);
+  assert.match(out, /tables match header.*ambiguous/s);
+});
+
 // ------------------------------------------------------- self-install + misc
 
 test('write-record: the self-installed copy and the template are byte-identical', () => {

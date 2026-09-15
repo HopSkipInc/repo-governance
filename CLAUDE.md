@@ -73,7 +73,11 @@ Records are **written via `scripts/write-record.mjs`** — the mediated write pa
 #81): `create` publishes a new numbered record append-only, `amend` lands status flips,
 consequences, and README rows under section guards, and the harness stanza keeps denying
 raw edits to records paths so agents are funneled here. The human checkpoint is the PR
-merge, not human typing.
+merge, not human typing. `docs/testing-strategy.md` and `docs/code-conventions.md` are
+singleton records, not numbered corpora — `create`/`amend` cannot reach them, so they go
+through the same script's `append-row` verb instead (issue #104): it inserts one row into
+one named table, never accepts a whole revised file. `docs/agent-routing-records.md` has
+no mediated path — its calibration set stays a by-hand edit.
 
 ## This repo's own governance
 
