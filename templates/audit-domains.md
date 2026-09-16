@@ -8,44 +8,87 @@
 
 ---
 
-## Why this file exists — the incident
+## Why this file exists — the divergence
 
-Until v1.0.0 of this file, the domain definitions lived **inside the prompt of
-`scheduled-audit.yml`**. That works exactly as long as every governed repo runs the audit
-as a GitHub Actions workflow.
+An audit needs a definition of what it checks. Until v1.0.0 that definition existed in
+several places at once and canonically in none.
 
-They don't. A repo that moves its audit in-platform — into a scheduler, a skill, a fleet
-dispatch — has to hand-port each domain, and nothing reconciles the two sets afterward. By
-2026-09-16 the divergence was already live and already invisible: one repo's audit skill
-spawned **six** agents against the template's **eight** domains, and the one domain it had
-ported carried its provenance as a comment naming a template version, which is the only
-record anywhere that the port ever happened.
+**The primary substrate is a cron-scheduled fleet.** In an estate with fleet workers, the
+staleness audit is a state machine in the fleet host's database: a cron trigger fires it,
+it dispatches a worker, the worker scans the repo and opens the audit PR. The domain list
+lives **inline in that machine's goal text** — a row in Postgres — amended by migrations
+that string-replace into the stored definition under guards on its current wording.
 
-**An audit that omits a domain looks exactly like an audit that ran it and found nothing.**
-The omission does not surface at audit time. It surfaces months later as "why did the audit
-never flag this."
+**The fallback substrate is `workflows/scheduled-audit.yml`**, for estates with no fleet
+workers to dispatch. As of 2026-09-16 it is installed in no repo in the reference estate.
+What remains in use from the YAML side is its companion `audit-deadman.yml`, which watches
+for the artifact the fleet produces and goes red when none appears.
+
+Two properties of the primary substrate are why a single definition is needed:
+
+1. **Each machine carries its own copy, and they have already diverged.** The reference
+   estate runs three audit machines — one per governed repo family. One migration added a
+   code-hygiene domain to several of them; a later migration added the
+   quality-and-coverage domain to exactly one. **The three audits are running different
+   domain sets today, and nothing reconciles them.** Each individual edit is careful — the
+   wording guards make a drifted goal fail loudly rather than half-apply — but a guard
+   protects one machine's edit. Nothing compares machines.
+2. **A copy inside a database is invisible to every check that reads files.** Version
+   stamps, drift checks, template-coverage lints, and `git diff` all see nothing. The
+   domain set a given audit ran cannot be recovered from the repository at all.
+
+The failure both produce is silent. **An audit that omits a domain returns a report
+indistinguishable from one that ran the domain and found nothing.** It does not surface at
+audit time. It surfaces much later, as "why did the audit never flag this."
 
 This is the same failure `check-analyze-repo-coverage.mjs` exists to close for templates,
-and the same remedy: one definition, version-stamped, that every consumer reads rather than
-copies.
+and the same remedy: one definition, version-stamped, that every consumer reads at run
+time instead of holding a copy of.
 
 ---
 
 ## How a consumer uses this file
 
+Whatever the substrate, the contract is the same four rules:
+
 1. **Read it at run time.** Do not transcribe the domains into the consumer. A copy is a
    fork with a delay.
-2. **Run every domain listed.** A consumer that runs a subset declares which and why, in
-   its own text, where a reader will see it.
-3. **Fail loudly when this file is absent.** A consumer that cannot find it must stop and
-   say so. It must never substitute a domain list of its own invention — that produces a
-   report indistinguishable from a real one, which is worse than no audit.
-4. **Record the version.** Echo this file's stamp into the run log, so a report can be
+2. **Run every domain listed.** A consumer that deliberately runs a subset declares which
+   and why, in its own text, where a reader will see it.
+3. **Fail loudly when this file is absent.** Stop and say so. Never substitute a domain
+   list of your own invention — that produces a report indistinguishable from a real one,
+   which is worse than no audit.
+4. **Record the version.** Put this file's stamp in the audit document, so a report can be
    traced to the domain set that produced it.
 
-Domains are **probes, not gates.** No domain here blocks a merge. Several read intent from
-prose and will produce false positives; the correct response to uncertainty is a lower
-severity, not a confident guess.
+### Fleet or machine-driven audits
+
+The machine's goal holds a **pointer to this file, never a copy of its contents**:
+
+> Read `docs/audit-domains.md` from the checked-out repository. It defines every domain to
+> check, the severity scale, and the finding-ID convention. Run every domain it lists. If
+> the file is absent, stop and report that — do not substitute your own domains.
+
+Replacing an inline domain block with that pointer is a **one-time migration** against the
+stored definition, and it is the only migration this mechanism ever needs. Afterwards,
+adding domain 10 is an edit to this file and a template version bump — no migration, no
+DB write, and no risk of the machines diverging again, because there is only one copy to
+edit.
+
+Two consequences worth stating before anyone runs that migration. It **converges machines
+that have drifted**, so any machine currently running a reduced domain set will begin
+running the full one: that is a behaviour change on the first run after the migration, and
+it belongs in the migration's own notes rather than being discovered in the resulting PR.
+And a goal that references repo paths its domains depend on — a legacy directory, a
+renamed records file — carries those references into this file's domain text or loses
+them; check before replacing.
+
+### Workflow-driven audits
+
+`workflows/scheduled-audit.yml` v2.0.0 and later reads `docs/audit-domains.md` and **fails
+the job** when it is missing, rather than letting the agent proceed without a domain list.
+Installing that workflow without this file is a configuration error the workflow reports
+for you.
 
 ---
 
@@ -317,4 +360,4 @@ whichever consumer is running the audit, because it differs by substrate:
 
 | Version | Date | Change |
 |---|---|---|
-| 1.0.0 | 2026-09-16 | Extracted from `workflows/scheduled-audit.yml` v1.1.0, which held domains 1–8 inline in its prompt and was therefore reachable only by repos running the Actions workflow. Domains 1–8 carried over verbatim. Adds domain 9 (configuration and secrets), the `LAYER` token for domain 7 (previously unregistered), and the consumer contract in "How a consumer uses this file" |
+| 1.0.0 | 2026-09-16 | First single definition. Domains 1–8 carried over verbatim from `workflows/scheduled-audit.yml` v1.1.0, which held them inline in its prompt; the cron state machines that actually run the audits in the reference estate hold their own inline copies in the fleet host database, and those copies have already diverged from each other. Adds domain 9 (configuration and secrets), the `LAYER` token for domain 7 (previously unregistered — the convention listed eight tokens covering seven domains), and the consumer contract, including the pointer-migration path for machine-driven audits |
