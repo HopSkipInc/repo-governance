@@ -122,11 +122,18 @@ test('the audit sweep globs directories the bootstrap actually creates', () => {
   // The renamed-directory case: a sweep pointed at a directory nobody creates
   // matches nothing and reports nothing, which reads exactly like a clean run.
   const dir = bootstrap();
-  const workflow = readFileSync(join(dir, '.github/workflows/scheduled-audit.yml'), 'utf8');
+  // The domain definitions moved out of the workflow prompt into docs/audit-domains.md
+  // (scheduled-audit.yml 2.0.0), so the sweep globs now live there. Both files are read:
+  // the union is a superset of what the single-file read covered, never a subset.
+  const sources = ['docs/audit-domains.md', '.github/workflows/scheduled-audit.yml']
+    .map((rel) => join(dir, rel))
+    .filter((abs) => existsSync(abs))
+    .map((abs) => readFileSync(abs, 'utf8'));
+  assert.equal(sources.length, 2, 'both the domain definitions and the workflow must be installed by Step 1');
   const globbed = new Set(
-    [...workflow.matchAll(/\bdocs\/([a-z-]+)\/\*/g)].map((m) => `docs/${m[1]}`)
+    sources.flatMap((src) => [...src.matchAll(/\bdocs\/([a-z-]+)\/\*/g)].map((m) => `docs/${m[1]}`))
   );
-  assert.ok(globbed.size > 0, 'expected the audit prompt to sweep at least one docs/ directory');
+  assert.ok(globbed.size > 0, 'expected the audit domains to sweep at least one docs/ directory');
   for (const d of globbed) {
     assert.ok(
       existsSync(join(dir, d)) || existsSync(join(dir, `${d}.md`)),

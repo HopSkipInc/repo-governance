@@ -1,4 +1,4 @@
-<!-- template: definition-of-done.md v1.5.0 · updated 2026-08-18 -->
+<!-- template: definition-of-done.md v1.6.0 · updated 2026-09-16 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit
@@ -239,6 +239,16 @@ catch drift. Run the refresh skill for any layer whose staleness trigger has fir
 | Clean code | Lint/formatter config changed since last refresh, or new modules violate existing conventions, or audit finds convention drift, or `docs/code-conventions.md` §4 has an unresolved row | `clean-code-interview refresh` |
 | Test coverage | Coverage dropped below the floor in `docs/testing-strategy.md` §1, or a new module has no row in the coverage map, or a false-green test was found, or a §3 exemption no longer holds | `test-coverage-interview refresh` |
 | Agent instructions | Commands or paths in CLAUDE.md/AGENTS.md don't match repo reality, or tooling migrated, or directory structure changed | `agent-instructions-interview refresh` |
+| Configuration *(not a layer — see below)* | Audit domain 9 raised a `CONFIG` or `SECRET` finding, or a declared floor's stated cap reason has become false (the missing capability now exists), or variables appear in the declaration sites with no row in the records file, or a new principal class appeared (first agent worker, first CI-only credential) | `configuration-interview refresh` |
+
+**The last row is a sixth trigger, not a sixth layer.** Configuration governance is a
+cross-cutting policy like design lenses or DB migration governance — it is not a kind of
+decision that gets recorded in its own corpus, and the five-layer frame is unchanged. It
+earns a row here because this table's job is *what fires a refresh skill*, and
+`configuration-interview` has no host layer to hang off: unlike the lens policy, whose
+staleness shows up inside ADRs and is therefore caught by the ADR row, the configuration
+records file lives outside every layer's artifacts. A trigger with no row is a refresh
+that never runs.
 
 **Checklist for a layer refresh:**
 

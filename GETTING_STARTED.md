@@ -37,6 +37,7 @@ of `.claude/commands/analyze-repo.md`.
 mkdir -p docs/audits .github/workflows
 cp path/to/repo-governance/templates/definition-of-done.md docs/definition-of-done.md
 cp path/to/repo-governance/templates/pull_request_template.md .github/pull_request_template.md
+cp path/to/repo-governance/templates/audit-domains.md docs/audit-domains.md
 cp path/to/repo-governance/templates/workflows/scheduled-audit.yml .github/workflows/scheduled-audit.yml
 cp path/to/repo-governance/templates/workflows/audit-deadman.yml .github/workflows/audit-deadman.yml
 ```

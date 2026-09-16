@@ -1,4 +1,4 @@
-# template: workflows/scheduled-audit.yml v1.1.0 · updated 2026-07-27
+# template: workflows/scheduled-audit.yml v2.0.0 · updated 2026-09-16
 name: Scheduled Staleness Audit
 
 # Kind: PROBE — monitors repo reality, never blocks merges.
@@ -38,171 +38,39 @@ jobs:
           PRIOR=$(ls docs/audits/audit-*.md 2>/dev/null | sort | tail -1 || echo "none")
           echo "path=$PRIOR" >> "$GITHUB_OUTPUT"
 
+      # FAILS CLOSED. The domain definitions live in docs/audit-domains.md, installed
+      # from repo-governance templates/audit-domains.md. Without it the agent has no
+      # domain list, and an audit that invents its own is worse than no audit — it
+      # produces a report that reads exactly like a real one.
+      - name: Require audit domains
+        run: |
+          if [ ! -f docs/audit-domains.md ]; then
+            echo "::error::docs/audit-domains.md is missing. Install it from repo-governance templates/audit-domains.md — the audit cannot know what to check."
+            exit 1
+          fi
+          echo "audit domains: $(head -1 docs/audit-domains.md)"
+
       - name: Run staleness audit via Claude Code
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Run a staleness audit on this repository. Check eight domains in parallel:
+            Run a staleness audit on this repository.
 
-            1. **ADR coherence** — if ADRs exist in docs/adr/, are they internally consistent,
-               reflected in the code, and do they have the enforcement they promised?
-               Flag ADRs whose status says Accepted but whose promised lints don't exist.
+            FIRST, read `docs/audit-domains.md`. It is the single definition of what this
+            audit checks: every domain, the severity scale, the P2 aging rule, and the
+            finding-ID convention. Run every domain it lists, in parallel.
 
-            2. **Docs vs reality drift** — do files in docs/ describe the system that actually
-               exists? Flag: present-tense claims for things that are planned or deleted,
-               internal contradictions, file paths and function names that don't exist,
-               issue/PR numbers that point nowhere.
+            Do NOT substitute a domain list of your own. If `docs/audit-domains.md` is
+            missing or unreadable, stop and say so rather than proceeding — an audit that
+            invents its domains produces a report indistinguishable from one that ran the
+            real ones. The workflow step above this one already fails the job in that case;
+            if you have somehow reached this prompt without the file, that guard has broken
+            and the fact is itself the finding.
 
-            3. **Codebase discipline** — dead code still imported, retired patterns still in use,
-               TODO/FIXME comments without tracking issues, migration naming violations,
-               Bicep/IaC referencing deleted resources.
+            Quote the file's version stamp (line 1) at the top of the audit document, so a
+            report can be traced to the domain set that produced it.
 
-            4. **GitHub backlog** — open issues with no activity in >30 days, open issues whose
-               fix is likely already merged (look for related PR titles), PRs open >7 days with
-               green CI and no review activity.
-
-            5. **Watch-list sweep** — scan docs/watch-items/*.md for unchecked watch-list
-               lines (grep pattern: `- [ ] **Watch list`) AND docs/pdr/*.md for unchecked
-               falsifier lines (grep pattern: `- [ ] Revisit by`). A product bet with a
-               check condition is structurally a watch item; sweep both the same way.
-               **Skip any file whose name starts with `_` (e.g. `_template.md`) and any
-               README.md** — those are blank forms and indexes, not records. The form's
-               own placeholder falsifier ("Revisit by YYYY-MM-DD when <condition>") will
-               otherwise be reported as a real Future item on every single run.
-               List each hit under a `## Future items` section in the audit report: the
-               item text, source doc path, doc date, and stated revisit condition. Do NOT
-               file issues for items whose revisit condition has not arrived. If a
-               condition has arrived (date passed, named external event occurred), raise
-               it as a P2 finding ("watch item due — re-evaluate or check it off in the
-               source doc"); normal P2 carry rules apply. A checked-off line is resolved
-               — never report it.
-
-            6. **PDR coherence** — if docs/pdr/ exists, check the product decision corpus.
-               This domain reads intent from prose and will produce false positives; that
-               is why it is a probe and never a merge gate. When unsure, report at lower
-               severity rather than guessing confidently.
-
-               **A record is a file matching `NNN-*.md`. Nothing else in the directory is
-               a record** — `_template.md` is the blank form and `README.md` is the index.
-               The form lists every Status value on one line ("Proposed | Accepted | ...")
-               and carries a placeholder falsifier; read it as a record and you will report
-               findings against a document nobody wrote.
-
-               - Any PDR with Status **Accepted** and no `- [ ] Revisit by` falsifier line
-                 → P1. A decision without a falsifier is a wish; Accepted requires one.
-               - Any PDR whose falsifier condition is not observable (no date, no named
-                 event, no threshold — e.g. "revisit later", "revisit at next planning")
-                 → P2. The sweep cannot tell whether it is due.
-               - Any PDR whose `Last confirmed` date is more than 90 days old → P2
-                 ("bet unconfirmed for a quarter — re-confirm or supersede"). Nobody
-                 having looked at it is the condition under which stale bets survive.
-               - **Orphan check:** for feature PRs merged since the prior audit, and open
-                 issues labelled epic, check for a `Serves: PDR-NNN` reference. Report the
-                 count and list orphans as a single P2, not one finding each. `Serves:
-                 none` with a stated reason is a legitimate answer and is NOT an orphan —
-                 but if the `Serves: none` rate is above half, raise that as the finding
-                 instead: it means the corpus does not describe what the team is building.
-               - **Non-goal violation:** for each PDR whose Decision states something the
-                 project will deliberately NOT do, check whether work shipped since the
-                 prior audit contradicts it → P1. This is the highest-signal check in the
-                 domain. Cite the PDR number and the specific PR or file. If the non-goal
-                 was genuinely reconsidered, the fix is a superseding PDR, not silence.
-               - Any PDR file not registered in docs/pdr/README.md → P1, and note that
-                 lint:adr-readme-sync should have caught it (the lint is missing or not
-                 wired into CI).
-
-            7. **Governance layer staleness** — check whether any of the five governance
-               layers (PDRs, ADRs, clean code, test coverage, agent instructions) have
-               drifted from the codebase and need a refresh. Read the `### Layer refresh
-               log` in CLAUDE.md (or AGENTS.md) for the last-refreshed date of each layer.
-               For each layer, check its staleness trigger (see `docs/definition-of-done.md`
-               → Governance layer refresh for the trigger table):
-
-               - **PDRs:** any `Last confirmed` > 90 days? any falsifier fired since last
-                 audit? → recommend `pdr-interview refresh`
-               - **ADRs:** any lints in CI or scripts/ without a corresponding ADR? any
-                 ADRs stuck in Proposed for 3+ audit cycles? any module contradictions
-                 found in this audit's codebase discipline domain? → recommend
-                 `adr-interview refresh`
-               - **Clean code:** has lint/formatter config changed since the last refresh
-                 (check git log for .eslintrc, .prettierrc, pyproject.toml [tool.ruff],
-                 .editorconfig)? did domain 8 raise any QUALITY finding? is
-                 `docs/code-conventions.md` §4 (enforcement without a record) non-empty?
-                 → recommend `clean-code-interview refresh`
-               - **Test coverage:** did domain 8 raise any COVERAGE finding? has actual
-                 coverage dropped since the last audit? are there source directories with
-                 no row in the coverage map? → recommend `test-coverage-interview refresh`
-
-               **Domains 7 and 8 are a pair: 8 measures, 7 decides what to do about it.**
-               Do not report a layer stale on a trigger domain 8 did not actually produce
-               evidence for — a staleness recommendation with no finding behind it trains
-               the reader to skip this section.
-               - **Agent instructions:** do the commands in CLAUDE.md/AGENTS.md actually
-                 exist in package.json/Makefile? do referenced paths exist? has tooling
-                 changed (check git log for package.json dependency changes, config file
-                 renames)? → recommend `agent-instructions-interview refresh`
-
-               Report each stale layer as a P2 finding with the trigger that fired and the
-               recommended refresh skill. Layers that are not stale are not reported — this
-               domain is informational, not a gate. A layer that has never been refreshed
-               (log shows `—`) is not stale; it was bootstrapped at onboarding and the
-               staleness clock starts from that date.
-
-            8. **Code quality and coverage** — audit the codebase *against* the two records
-               files, `docs/code-conventions.md` and `docs/testing-strategy.md`. Skip the
-               half whose file does not exist and say so; do not infer a strategy from the
-               tests. Finding IDs: `QUALITY` for conventions, `COVERAGE` for tests.
-
-               **Conventions (`docs/code-conventions.md`):**
-               - §1 row whose Enforcement cell is empty, aspirational ("to be wired",
-                 "planned"), or names a rule/script that does not exist or is not wired
-                 into CI → **P1**. Same shape as an ADR that reached Accepted without its
-                 lint: the record claims enforcement the repo does not have.
-               - §1 report-mode row whose promotion condition is met (violation count
-                 reached the stated number) → **P2** "promote to gate".
-               - Any lint or formatter rule wired in CI that appears nowhere in §1, §2 or
-                 §4 → **P2**, disposition "add to §4". These are conventions the team
-                 already paid to enforce and never wrote down.
-               - §5 contradiction with no tracking issue, carried across three audits →
-                 **P2**, escalate per the aging rule.
-               - **Never file a finding against §2 (Documented)** — those are preferences,
-                 and a preference with an audit finding attached is a rule nobody agreed to.
-               - **Never propose anything listed in §3 (Not codified).** That section exists
-                 to be read before proposing, and re-proposing a recorded drop is the
-                 failure it was written to prevent. If §3 looks wrong, that is a refresh
-                 trigger for domain 7, not a finding here.
-
-               **Coverage (`docs/testing-strategy.md`):**
-               - Actual coverage below the §1 floor → **P1**. If §1 claims the floor is a
-                 required check and CI is nonetheless green, → **P0**: the gate is not
-                 wired, and every PR since it was claimed merged past a check that does
-                 not exist.
-               - Floor set far below actual (more than ~15 points) → **P2**. A floor
-                 nothing is near is a report wearing a gate's clothes.
-               - Any source directory with no row in the §2 coverage map → **P1**. A module
-                 absent from the map is invisible to every later measurement, including the
-                 routing coverage lever.
-               - §2 row marked `gap` or `hard to test` with no tracking issue, or whose
-                 tracking issue is closed while the row still says gap → **P1**.
-               - §3 exemption whose "Would we notice if it broke?" cell is empty or answers
-                 no → **P2**. That is a gap recorded as a decision.
-               - **False-green scan** — this is the domain that produces the evidence
-                 domain 7 asks about. Search the test suite for: no-op assertions
-                 (`expect(true).toBe(true)` and equivalents), skipped or pending tests with
-                 no tracking issue, stub test scripts (`echo "not implemented" && exit 0`),
-                 catch-all handlers that pass regardless, and tests with no assertions.
-                 Each is **P1** — CI is green and the code is not verified. Any hit absent
-                 from the §5 register means the register is stale; say so once rather than
-                 per hit.
-               - §6 line (properties no test verifies) whose surface has since gained a
-                 test → **P2** "record is stale in the good direction, and the routing
-                 coverage lever is reading an out-of-date map".
-
-               Report the two numbers domain 7 consumes even when there is no finding:
-               **actual coverage and its delta since the prior audit**, and the
-               **false-green count**. A domain that reports nothing is indistinguishable
-               from one that did not run.
 
             Prior audit: ${{ steps.prior.outputs.path }}
             ${{ github.event.inputs.notes && format('Context note: {0}', github.event.inputs.notes) || '' }}
@@ -257,10 +125,10 @@ jobs:
             --title "docs: staleness audit ${DATE}" \
             --body "Scheduled staleness audit — Phase 1 (read-only scan).
 
-Review the findings below. To remediate: check out this branch, apply dispositions (fix P0s, file issues for P1s, WONT-FIX P2s), update the audit doc inline with dispositions, and push to this same PR. See \`docs/definition-of-done.md\` → Audit remediation for the checklist." \
+          Review the findings below. To remediate: check out this branch, apply dispositions (fix P0s, file issues for P1s, WONT-FIX P2s), update the audit doc inline with dispositions, and push to this same PR. See \`docs/definition-of-done.md\` → Audit remediation for the checklist." \
             --label "audit,documentation" || \
           gh pr create \
             --title "docs: staleness audit ${DATE}" \
             --body "Scheduled staleness audit — Phase 1 (read-only scan).
 
-Review the findings below. To remediate: check out this branch, apply dispositions (fix P0s, file issues for P1s, WONT-FIX P2s), update the audit doc inline with dispositions, and push to this same PR. See \`docs/definition-of-done.md\` → Audit remediation for the checklist."
+          Review the findings below. To remediate: check out this branch, apply dispositions (fix P0s, file issues for P1s, WONT-FIX P2s), update the audit doc inline with dispositions, and push to this same PR. See \`docs/definition-of-done.md\` → Audit remediation for the checklist."
