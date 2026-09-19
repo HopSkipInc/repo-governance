@@ -18,11 +18,20 @@ two ways of producing pull requests that author under *different* identities:
 - An agent dispatched by the platform pushes under a **bot** identity. A human can
   approve it.
 - An agent running in an interactive harness pushes under the **operator's own**
-  identity. That operator cannot approve it. Nobody else exists to.
+  identity. That operator cannot approve it.
 
-A single `required_approving_review_count >= 1` rule cannot be right for both. Set
-it, and every interactive-harness pull request is unmergeable except by administrative
-bypass. The observed end state (2026-09-19, ai-fleet): every open pull request
+A second machine identity *can*: where the platform reviews with an App that is not the
+pull request's author, a dispatched review run casts a binding approval on either path.
+So the requirement is not strictly unsatisfiable — it is unsatisfiable **by the person who
+is actually there**, and satisfiable otherwise only by dispatching a run, per pull request,
+at a cost, as a separate deliberate act. Read the history before concluding which you have:
+a repository where the capability exists and the approval rate is still near zero has a
+requirement nobody is exercising, which is the same bypass habit by a longer route.
+
+A single `required_approving_review_count >= 1` rule cannot be right for both. Set it,
+and every interactive-harness pull request is unmergeable by the operator sitting in front
+of it — it waits on a dispatched review run or on administrative bypass, and in practice it
+gets the bypass. The observed end state (2026-09-19, ai-fleet): every open pull request
 authored by the operator, a fully green check set on each, and a merge path whose
 only exit was the bypass dialog. The approval requirement had become a second
 confirmation click carrying no signal — strictly worse than no requirement, because

@@ -6,9 +6,12 @@
  * GitHub refuses APPROVE and REQUEST_CHANGES from a pull request's own author.
  * A repository whose pull requests are produced under two different identities —
  * a bot for platform-dispatched agents, the operator's own account for agents
- * running in an interactive harness — cannot satisfy one approval rule with
- * both. Setting `required_approving_review_count >= 1` makes every
- * operator-authored pull request unmergeable except by administrative bypass.
+ * running in an interactive harness — cannot satisfy one approval rule with both
+ * FROM THE PEOPLE PRESENT. A machine identity that is not the author can approve
+ * either path, so the rule is satisfiable in principle; it is satisfiable in
+ * practice only by dispatching a review run per pull request, which is why the
+ * history half exists. A capability nobody exercises and an impossibility look
+ * identical in the configuration and completely different in the merge log.
  *
  * Observed end state (2026-09-19, ai-fleet): six open pull requests, all
  * authored by the operator, 29 green checks apiece, and a merge path whose only
