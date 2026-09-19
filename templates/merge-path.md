@@ -1,4 +1,4 @@
-<!-- template: merge-path.md v1.0.0 · updated 2026-09-19 -->
+<!-- template: merge-path.md v1.1.0 · updated 2026-09-19 -->
 # Merge path
 
 How a reviewed change becomes a merged change, and which of those steps a human
@@ -18,11 +18,20 @@ two ways of producing pull requests that author under *different* identities:
 - An agent dispatched by the platform pushes under a **bot** identity. A human can
   approve it.
 - An agent running in an interactive harness pushes under the **operator's own**
-  identity. That operator cannot approve it. Nobody else exists to.
+  identity. That operator cannot approve it.
 
-A single `required_approving_review_count >= 1` rule cannot be right for both. Set
-it, and every interactive-harness pull request is unmergeable except by administrative
-bypass. The observed end state (2026-09-19, ai-fleet): every open pull request
+A second machine identity *can*: where the platform reviews with an App that is not the
+pull request's author, a dispatched review run casts a binding approval on either path.
+So the requirement is not strictly unsatisfiable — it is unsatisfiable **by the person who
+is actually there**, and satisfiable otherwise only by dispatching a run, per pull request,
+at a cost, as a separate deliberate act. Read the history before concluding which you have:
+a repository where the capability exists and the approval rate is still near zero has a
+requirement nobody is exercising, which is the same bypass habit by a longer route.
+
+A single `required_approving_review_count >= 1` rule cannot be right for both. Set it,
+and every interactive-harness pull request is unmergeable by the operator sitting in front
+of it — it waits on a dispatched review run or on administrative bypass, and in practice it
+gets the bypass. The observed end state (2026-09-19, ai-fleet): every open pull request
 authored by the operator, a fully green check set on each, and a merge path whose
 only exit was the bypass dialog. The approval requirement had become a second
 confirmation click carrying no signal — strictly worse than no requirement, because
@@ -34,12 +43,22 @@ configuration and obvious in history, which is why the check below reads both.
 
 ## 2. Decisions
 
-**D1. A machine verdict is a check run, not a review.**
+**D1. The verdict branch protection depends on is a check run, not a review.**
 Check runs carry no author restriction. The same rule therefore covers bot-authored
 and human-authored pull requests, and the identity of the pull request's author stops
 being an input to whether the repository's rules are satisfiable. A reviewing agent
-that can only ever land a `COMMENT` on its own side's work delivers no verdict at all;
-promoted to a check, the identical analysis becomes a gate.
+that can only ever land a `COMMENT` on its own side's work delivers no verdict the
+rules can read; the identical analysis, reported as a check, is a gate.
+
+This governs **what the rules read, not what a review is.** A review run whose
+deliverable is an inline GitHub review — findings anchored to diff lines, in a thread
+the author can answer — is untouched by this and remains the right shape for findings;
+a check run is a verdict with nowhere to put the reasoning. The two are complementary:
+the thread carries the argument, the check carries the answer. Where a repository has
+both, state which one the branch rules read. A repository whose written policy says
+"the machine verdict is a check" while its review agents are instructed to produce
+reviews has not chosen — it has two half-mechanisms and a gate that reads neither,
+which is §1's failure wearing a different hat.
 
 **D2. Branch rules are expressed as required checks, not required approvals.**
 `required_approving_review_count` stays at 0 unless the repository has human reviewers
@@ -76,6 +95,28 @@ non-empty. A repository with auto-merge enabled, one click to merge, and nothing
 required is not a streamlined merge path — it is an unreviewed one. The check treats
 this combination as its only blocking finding.
 
+**D8. A merge queue is required once merge volume makes "up to date" a treadmill — and it
+has one prerequisite that deadlocks the repository if skipped.**
+
+"Require branches to be up to date" is correct in principle and unusable at volume: every
+merge invalidates every other open pull request's up-to-date status, so on a repository
+merging ten or more changes a day it converts one click into a serial update loop. A merge
+queue is the mechanism that keeps the guarantee — nothing merges untested against what is
+actually ahead of it — without the treadmill. It also tests the *merged result* rather than
+a stale head, which is the only way a conflict-shaped failure gets a CI signal before it
+lands.
+
+The prerequisite: **every workflow supplying a required check must also trigger on
+`merge_group`.** The queue builds a temporary branch and waits for the required checks to
+report on *it*. A workflow that triggers only on `pull_request` never runs there, the check
+never reports, and the entry waits forever — so turning the queue on without this does not
+degrade the merge path, it stops it completely, for every pull request at once. Enable the
+triggers first, in their own change, and confirm they run; flip the setting second.
+
+Below roughly ten merges a day, skip the queue. It adds a wait and a failure mode, and
+"require branches up to date" alone is survivable at that rate. This is a threshold, not a
+principle.
+
 ## 3. Configuration
 
 On the default branch:
@@ -85,7 +126,8 @@ On the default branch:
 | Require a pull request before merging | on | — |
 | Required approving reviews | **0** | D2 |
 | Required status checks | the repository's gates, **non-empty** | D7 |
-| Require branches up to date | on where traffic permits | — |
+| Require branches up to date | on **only without a queue** — the queue supersedes it | D8 |
+| Require merge queue | on above ~10 merges/day, **after** `merge_group` triggers ship | D8 |
 | Require linear history | on | D4 |
 | Block force pushes | on | — |
 | Bypass list | **empty** | D5 |
@@ -116,6 +158,7 @@ weekly, which is exactly the failure in §1.
 | `merge-friction` | config | report (D4) |
 | `self-authored-block` | history | report (§1 — the cause) |
 | `decorative-approval` | history | report (D5 — the symptom) |
+| `merge-queue-deadlock` | config + workflows | **blocking** under `--gate` (D8) |
 | `unreachable` | — | SKIPPED, never clean; exit 2 under `--gate` |
 
 **Observed baseline (ai-fleet, 2026-08-19 → 2026-09-19, the repository this policy

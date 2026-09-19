@@ -1,0 +1,87 @@
+# template: workflows/merge-path-probe.yml v1.0.0 · updated 2026-09-19
+name: Merge-path probe
+
+# Kind: PROBE (ADR-026) — reports on the repository's own merge configuration and
+# merge history. Never blocks a merge or a deploy. A lint that could block merges
+# because the merge path is misconfigured would be its own punchline.
+#
+# The failure this watches (merge-path.md §1): GitHub refuses APPROVE from a pull
+# request's own author. A repository producing pull requests under two identities
+# — a bot for dispatched agent runs, the operator's own account for runs in an
+# interactive harness — cannot make one approval requirement satisfiable for both,
+# so it degrades into a bypass habit. Configuration alone cannot see a bypass
+# habit, which is why the script reads merge history too.
+#
+# It is deliberately NOT a per-PR gate: the merge path is not a function of the
+# diff. Findings land in ONE rolling issue rather than one issue per finding.
+# The body is rewritten wholesale each run.
+#
+# CONFIGURE BEFORE USE:
+#   - The default GITHUB_TOKEN can read this repository's settings, rules and
+#     pull requests, which is the whole scope the probe needs. If the job log
+#     shows SKIPPED scopes, widen the token — do not quieten the probe. The
+#     script never counts an unreadable scope as clean.
+#   - Adjust the cron to land before your weekly triage.
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Mondays 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the probe (probe mode — never fails the job)
+        id: run
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          node scripts/check-merge-path.mjs | tee probe-output.txt
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Upsert the rolling issue
+        env:
+          RUN_DATE: ${{ steps.run.outputs.date }}
+        run: |
+          set -euo pipefail
+
+          gh label create merge-path-probe \
+            --repo "$GITHUB_REPOSITORY" \
+            --description "Rolling output of the weekly merge-path probe" \
+            --color 0E8A16 --force
+
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --label merge-path-probe --json number --jq '.[0].number // empty')
+
+          TITLE="merge-path probe — rolling findings (last run $RUN_DATE)"
+          {
+            echo "Weekly output of \`.github/workflows/merge-path-probe.yml\` against"
+            echo "\`docs/merge-path.md\`. Rewritten each run — do not edit by hand."
+            echo ""
+            echo "A SKIPPED line means a scope could not be read. That run is NOT evidence"
+            echo "that the merge path is sound; widen the token rather than ignoring it."
+            echo ""
+            echo '```'
+            cat probe-output.txt
+            echo '```'
+          } > rolling-body.md
+
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --body-file rolling-body.md
+            echo "Updated rolling issue #$EXISTING."
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --label merge-path-probe \
+              --body-file rolling-body.md
+          fi

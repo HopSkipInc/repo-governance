@@ -60,7 +60,21 @@ function stub(spec) {
   chmodSync(join(bin, 'gh'), 0o755);
   const specPath = join(dir, 'spec.json');
   writeFileSync(specPath, JSON.stringify(spec));
-  return { PATH: `${bin}:${process.env.PATH}`, GH_STUB: specPath, MERGE_PATH_REPO: 'fixture/repo' };
+
+  // Workflow files are read from disk, not the API, so every run gets its own
+  // fixture directory. Left unset, the script would read the REAL
+  // .github/workflows of whatever checkout the suite runs in — a test that
+  // passes or fails on this repo's own CI config is not a fixture test.
+  const wf = join(dir, 'workflows');
+  mkdirSync(wf, { recursive: true });
+  for (const [name, body] of Object.entries(spec.workflows ?? {})) writeFileSync(join(wf, name), body);
+
+  return {
+    PATH: `${bin}:${process.env.PATH}`,
+    GH_STUB: specPath,
+    MERGE_PATH_REPO: 'fixture/repo',
+    MERGE_PATH_WORKFLOWS_DIR: wf,
+  };
 }
 
 function run(spec, args = []) {
@@ -303,4 +317,87 @@ test('a fully conformant repository reports clean', () => {
   });
   assert.deepEqual(r.json.findings, []);
   assert.deepEqual(r.json.unreachable, []);
+});
+
+// -------------------------------------------------------- merge-queue-deadlock
+
+const QUEUE_RULES = [
+  { type: 'pull_request', parameters: { required_approving_review_count: 0 } },
+  { type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'check' }] } },
+  { type: 'merge_queue', parameters: {} },
+];
+
+const PR_ONLY_WORKFLOW = 'name: tests\non:\n  push:\n    branches: [master]\n  pull_request:\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n';
+const QUEUE_READY_WORKFLOW = 'name: tests\non:\n  push:\n    branches: [master]\n  pull_request:\n  merge_group:\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n';
+
+test('merge-queue-deadlock fires: queue required, workflow never runs in it', () => {
+  const r = run({
+    repo: GOOD_REPO,
+    rules: QUEUE_RULES,
+    pulls: [],
+    workflows: { 'run-tests.yml': PR_ONLY_WORKFLOW },
+  });
+  assert.ok(classes(r).includes('merge-queue-deadlock'));
+  assert.match(r.json.findings.find((f) => f.class === 'merge-queue-deadlock').message, /run-tests\.yml/);
+});
+
+test('merge-queue-deadlock clears: the workflow triggers on merge_group', () => {
+  const r = run({
+    repo: GOOD_REPO,
+    rules: QUEUE_RULES,
+    pulls: [],
+    workflows: { 'run-tests.yml': QUEUE_READY_WORKFLOW },
+  });
+  assert.ok(!classes(r).includes('merge-queue-deadlock'));
+});
+
+test('merge-queue-deadlock does not fire when no merge queue is required', () => {
+  const r = run({
+    repo: GOOD_REPO,
+    rules: GOOD_RULES, // no merge_queue rule
+    pulls: [],
+    workflows: { 'run-tests.yml': PR_ONLY_WORKFLOW },
+  });
+  assert.ok(!classes(r).includes('merge-queue-deadlock'));
+});
+
+test('a declared pull-request-only workflow is exempt, an undeclared one is not', () => {
+  const declared = PR_ONLY_WORKFLOW.replace('name: tests', 'name: tests\n# merge-queue: not-required — PR-shaped by design');
+  const exempt = run({ repo: GOOD_REPO, rules: QUEUE_RULES, pulls: [], workflows: { 'a.yml': declared } });
+  const bare = run({ repo: GOOD_REPO, rules: QUEUE_RULES, pulls: [], workflows: { 'a.yml': PR_ONLY_WORKFLOW } });
+  assert.ok(!classes(exempt).includes('merge-queue-deadlock'));
+  assert.ok(classes(bare).includes('merge-queue-deadlock'));
+});
+
+test('merge-queue-deadlock blocks under --gate: the failure mode is total', () => {
+  const r = run(
+    { repo: GOOD_REPO, rules: QUEUE_RULES, pulls: [], workflows: { 'run-tests.yml': PR_ONLY_WORKFLOW } },
+    ['--gate'],
+  );
+  assert.equal(r.status, 1);
+});
+
+test('an unreadable workflow directory is SKIPPED, never a clean deadlock check', () => {
+  const env = stub({ repo: GOOD_REPO, rules: QUEUE_RULES, pulls: [] });
+  env.MERGE_PATH_WORKFLOWS_DIR = join(env.MERGE_PATH_WORKFLOWS_DIR, 'does-not-exist');
+  let stdout = '';
+  try {
+    stdout = execFileSync('node', [SCRIPT, '--json'], {
+      encoding: 'utf8',
+      env: { ...process.env, ...env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (err) {
+    stdout = (err.stdout ?? '').toString();
+  }
+  const json = JSON.parse(stdout);
+  assert.ok(json.unreachable.some((u) => u.what === 'workflow files'));
+  assert.ok(!json.findings.some((f) => f.class === 'merge-queue-deadlock'));
+});
+
+test('the census reports whether a merge queue is required', () => {
+  const on = run({ repo: GOOD_REPO, rules: QUEUE_RULES, pulls: [], workflows: { 'a.yml': QUEUE_READY_WORKFLOW } });
+  const off = run({ repo: GOOD_REPO, rules: GOOD_RULES, pulls: [] });
+  assert.equal(on.json.census.merge_queue_required, true);
+  assert.equal(off.json.census.merge_queue_required, false);
 });

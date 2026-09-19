@@ -1,14 +1,17 @@
 #!/usr/bin/env node
-// template: scripts/check-merge-path.mjs v1.0.0 · updated 2026-09-19
+// template: scripts/check-merge-path.mjs v1.1.0 · updated 2026-09-19
 /**
  * lint:merge-path  [governance template — copy to <project>/scripts/]
  *
  * GitHub refuses APPROVE and REQUEST_CHANGES from a pull request's own author.
  * A repository whose pull requests are produced under two different identities —
  * a bot for platform-dispatched agents, the operator's own account for agents
- * running in an interactive harness — cannot satisfy one approval rule with
- * both. Setting `required_approving_review_count >= 1` makes every
- * operator-authored pull request unmergeable except by administrative bypass.
+ * running in an interactive harness — cannot satisfy one approval rule with both
+ * FROM THE PEOPLE PRESENT. A machine identity that is not the author can approve
+ * either path, so the rule is satisfiable in principle; it is satisfiable in
+ * practice only by dispatching a review run per pull request, which is why the
+ * history half exists. A capability nobody exercises and an impossibility look
+ * identical in the configuration and completely different in the merge log.
  *
  * Observed end state (2026-09-19, ai-fleet): six open pull requests, all
  * authored by the operator, 29 green checks apiece, and a merge path whose only
@@ -41,6 +44,14 @@
  *   decorative-approval  approvals are required AND a threshold share of recent
  *                        merges landed with zero approving reviews. This is the
  *                        SYMPTOM — the rule is being walked through
+ *   merge-queue-deadlock a merge queue is REQUIRED on the branch and a workflow
+ *                        supplying pull-request checks does not trigger on
+ *                        `merge_group`. The queue builds a temporary branch and
+ *                        waits for required checks to report on IT; a workflow
+ *                        triggered only on `pull_request` never runs there, so
+ *                        the entry waits forever. This does not degrade the
+ *                        merge path, it stops it completely, for every pull
+ *                        request at once — which is why it blocks (D8)
  *   unreachable          an API call failed. Reported SKIPPED, never counted
  *                        clean
  *
@@ -53,7 +64,9 @@
  * EXIT CONTRACT — a merge-path lint must never be the reason a merge is blocked
  * for a cause unrelated to the diff (ADR-026):
  *   probe (default)   exits 0 whether or not it finds anything
- *   --gate            `ungated` exits 1. Nothing else gates
+ *   --gate            `ungated` and `merge-queue-deadlock` exit 1. Both are
+ *                     deterministic from config plus files on disk, and both
+ *                     have a total failure mode. Nothing else gates
  *   --gate + skipped  any unreachable scope exits 2 — distinct from clean (0)
  *                     and from findings (1), so a degraded gate cannot read as
  *                     green. Same contract as R6 in check-issue-routing.mjs: a
@@ -81,8 +94,18 @@
  */
 
 import { execFileSync } from 'child_process';
+import { readdirSync, readFileSync } from 'fs';
 
 // ---------------------------------------------------------------- configure
+
+/** Where workflow files live, relative to the repo root. Override with
+ *  MERGE_PATH_WORKFLOWS_DIR when running outside a checkout. */
+const WORKFLOWS_DIR = process.env.MERGE_PATH_WORKFLOWS_DIR ?? '.github/workflows';
+
+/** A workflow deliberately scoped to pull requests only declares itself with
+ *  this marker, the same way every other exemption here is declared rather than
+ *  inferred. An undeclared omission is the deadlock, not a preference. */
+const QUEUE_OPT_OUT = /merge-queue:\s*not-required/;
 
 /** Recent merged pull requests sampled for the history half. */
 const DEFAULT_LIMIT = 30;
@@ -210,6 +233,47 @@ if (repo) {
   }
 }
 
+// ---- merge queue ----------------------------------------------------------
+
+const queueRule = ruleOf('merge_queue');
+
+if (queueRule) {
+  let workflows = null;
+  try {
+    workflows = readdirSync(WORKFLOWS_DIR).filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'));
+  } catch (err) {
+    unreachable.push({
+      what: 'workflow files',
+      path: WORKFLOWS_DIR,
+      detail: `a merge queue is required but the workflow directory could not be read (${err.code ?? 'error'}) — the deadlock check did not run`,
+    });
+  }
+
+  const offenders = [];
+  for (const file of workflows ?? []) {
+    let body;
+    try {
+      body = readFileSync(`${WORKFLOWS_DIR}/${file}`, 'utf8');
+    } catch {
+      unreachable.push({ what: `workflow ${file}`, path: `${WORKFLOWS_DIR}/${file}`, detail: 'unreadable' });
+      continue;
+    }
+    // Trigger keys sit at two-space indent under `on:`; a bare substring match
+    // would also hit the words in a comment or a job name.
+    const triggersOnPr = /^\s{2}pull_request(_target)?:/m.test(body);
+    const triggersOnQueue = /^\s{2}merge_group:/m.test(body);
+    if (triggersOnPr && !triggersOnQueue && !QUEUE_OPT_OUT.test(body)) offenders.push(file);
+  }
+
+  if (offenders.length > 0) {
+    add(
+      'merge-queue-deadlock',
+      `a merge queue is required on ${branch} and ${offenders.length} workflow(s) never run in it: ${offenders.join(', ')}`,
+      'The queue waits for required checks to report on its temporary branch. A workflow triggered only on `pull_request` never runs there, so every queued entry waits forever. Add `merge_group:` to each `on:` block, or declare the workflow pull-request-only with a `merge-queue: not-required` comment (merge-path.md D8).',
+    );
+  }
+}
+
 // ---- history half ---------------------------------------------------------
 
 let sampled = 0;
@@ -265,6 +329,7 @@ const census = {
   required_approvals: requiredApprovals,
   required_checks: requiredChecks.map((c) => c.context ?? c),
   auto_merge: repo?.allow_auto_merge ?? null,
+  merge_queue_required: Boolean(ruleOf('merge_queue')),
   delete_branch_on_merge: repo?.delete_branch_on_merge ?? null,
   sampled_merges: sampled,
   merged_without_approval: bypassed,
@@ -300,5 +365,5 @@ if (!JSON_OUT && unreachable.length > 0) {
 }
 
 if (GATE && unreachable.length > 0) process.exit(2);
-if (GATE && findings.some((f) => f.class === 'ungated')) process.exit(1);
+if (GATE && findings.some((f) => f.class === 'ungated' || f.class === 'merge-queue-deadlock')) process.exit(1);
 process.exit(0);
