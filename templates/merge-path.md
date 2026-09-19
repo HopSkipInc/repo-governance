@@ -1,4 +1,4 @@
-<!-- template: merge-path.md v1.0.0 · updated 2026-09-19 -->
+<!-- template: merge-path.md v1.1.0 · updated 2026-09-19 -->
 # Merge path
 
 How a reviewed change becomes a merged change, and which of those steps a human
@@ -76,6 +76,28 @@ non-empty. A repository with auto-merge enabled, one click to merge, and nothing
 required is not a streamlined merge path — it is an unreviewed one. The check treats
 this combination as its only blocking finding.
 
+**D8. A merge queue is required once merge volume makes "up to date" a treadmill — and it
+has one prerequisite that deadlocks the repository if skipped.**
+
+"Require branches to be up to date" is correct in principle and unusable at volume: every
+merge invalidates every other open pull request's up-to-date status, so on a repository
+merging ten or more changes a day it converts one click into a serial update loop. A merge
+queue is the mechanism that keeps the guarantee — nothing merges untested against what is
+actually ahead of it — without the treadmill. It also tests the *merged result* rather than
+a stale head, which is the only way a conflict-shaped failure gets a CI signal before it
+lands.
+
+The prerequisite: **every workflow supplying a required check must also trigger on
+`merge_group`.** The queue builds a temporary branch and waits for the required checks to
+report on *it*. A workflow that triggers only on `pull_request` never runs there, the check
+never reports, and the entry waits forever — so turning the queue on without this does not
+degrade the merge path, it stops it completely, for every pull request at once. Enable the
+triggers first, in their own change, and confirm they run; flip the setting second.
+
+Below roughly ten merges a day, skip the queue. It adds a wait and a failure mode, and
+"require branches up to date" alone is survivable at that rate. This is a threshold, not a
+principle.
+
 ## 3. Configuration
 
 On the default branch:
@@ -85,7 +107,8 @@ On the default branch:
 | Require a pull request before merging | on | — |
 | Required approving reviews | **0** | D2 |
 | Required status checks | the repository's gates, **non-empty** | D7 |
-| Require branches up to date | on where traffic permits | — |
+| Require branches up to date | on **only without a queue** — the queue supersedes it | D8 |
+| Require merge queue | on above ~10 merges/day, **after** `merge_group` triggers ship | D8 |
 | Require linear history | on | D4 |
 | Block force pushes | on | — |
 | Bypass list | **empty** | D5 |
@@ -116,6 +139,7 @@ weekly, which is exactly the failure in §1.
 | `merge-friction` | config | report (D4) |
 | `self-authored-block` | history | report (§1 — the cause) |
 | `decorative-approval` | history | report (D5 — the symptom) |
+| `merge-queue-deadlock` | config + workflows | **blocking** under `--gate` (D8) |
 | `unreachable` | — | SKIPPED, never clean; exit 2 under `--gate` |
 
 **Observed baseline (ai-fleet, 2026-08-19 → 2026-09-19, the repository this policy
