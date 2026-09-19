@@ -43,12 +43,22 @@ configuration and obvious in history, which is why the check below reads both.
 
 ## 2. Decisions
 
-**D1. A machine verdict is a check run, not a review.**
+**D1. The verdict branch protection depends on is a check run, not a review.**
 Check runs carry no author restriction. The same rule therefore covers bot-authored
 and human-authored pull requests, and the identity of the pull request's author stops
 being an input to whether the repository's rules are satisfiable. A reviewing agent
-that can only ever land a `COMMENT` on its own side's work delivers no verdict at all;
-promoted to a check, the identical analysis becomes a gate.
+that can only ever land a `COMMENT` on its own side's work delivers no verdict the
+rules can read; the identical analysis, reported as a check, is a gate.
+
+This governs **what the rules read, not what a review is.** A review run whose
+deliverable is an inline GitHub review — findings anchored to diff lines, in a thread
+the author can answer — is untouched by this and remains the right shape for findings;
+a check run is a verdict with nowhere to put the reasoning. The two are complementary:
+the thread carries the argument, the check carries the answer. Where a repository has
+both, state which one the branch rules read. A repository whose written policy says
+"the machine verdict is a check" while its review agents are instructed to produce
+reviews has not chosen — it has two half-mechanisms and a gate that reads neither,
+which is §1's failure wearing a different hat.
 
 **D2. Branch rules are expressed as required checks, not required approvals.**
 `required_approving_review_count` stays at 0 unless the repository has human reviewers
