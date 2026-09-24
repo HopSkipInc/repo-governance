@@ -1,10 +1,12 @@
-<!-- template: agent-routing-records.md v1.0.0 · updated 2026-07-26 -->
+<!-- template: agent-routing-records.md v1.1.0 · updated 2026-09-24 -->
 # Agent Routing — Records for repo-governance
 
-**Policy version these records were written against:** 1.10.0
-**Last reviewed:** 2026-07-26 — full pin/class review against 1.9.0. The pointer above moved to
-1.10.0 on 2026-08-02 (re-sync, commit d897351) *without* a fresh pin/class review; the 1.10.0
-delta is the coverage rule, which touches neither. Next full review resets this line.
+**Policy version these records were written against:** 1.15.0
+**Last reviewed:** 2026-09-24 — pin/class review. The classifier binding moved from a pinned
+model name to a class binding gated by `check-classifier-pin-drift.mjs` (design:
+`docs/classifier-class-binding.md`, ai-fleet #3097). The previous review was 2026-07-26
+(against 1.9.0); the 1.10.0–1.14.0 deltas touched neither the class table nor the pins, so this
+line was not reset until now.
 **Policy:** [`docs/agent-routing.md`](agent-routing.md)
 
 > **This file never syncs.** It is the per-repo counterpart to the policy, which is
@@ -54,12 +56,22 @@ used, so an empty cell never reads as a capability judgement.
 
 ## 3. Classifier pins
 
-| Harness | Pin file | Resolves to (model) | Class | Reviewed |
+| Harness | Pin file | Class | Resolved via | Reviewed |
 |---|---|---|---|---|
-| Claude Code | `.claude/agents/routing-classifier.md` | Claude Opus 5 (`opus`) | frontier | 2026-07-26 |
-| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | Claude Opus 5 (`opencode/claude-opus-5`) | frontier | 2026-07-26 |
+| Claude Code | `.claude/agents/routing-classifier.md` | frontier | §1/§2 → Claude Opus 5 (`opus`) | 2026-09-24 |
+| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | frontier | §1/§2 → Claude Opus 5 (`opencode/claude-opus-5`) | 2026-09-24 |
 
-Both pins resolve to a model this file lists as `frontier`. ✅
+Both pins bind `frontier` and resolve to a model §1 lists there. The Claude Code pin is
+lint-gated here; the opencode pin is global (outside the repo) and is reviewed at re-sync, not
+by the lint.
+
+**2026-09-24 — the binding moved from a name to a class (ai-fleet #3097).** The pin declares
+`# routing-class: frontier`; the concrete `model:` slug is a *resolved binding*, not a
+capability claim, and `check-classifier-pin-drift.mjs` asserts it against §1/§2. The design —
+and the intended end state where the gateway resolves the class and no repo names a model — is
+in [`docs/classifier-class-binding.md`](classifier-class-binding.md). Until the gateway
+resolves classes, a repo whose harness can only read a concrete slug is served by an
+install-time generated bridge; this repo's install is by hand and gated by the lint.
 
 **Both pins are live in this environment.** The 2026-07-24 record named only the Claude Code
 path; the opencode global agent was installed the same day and went unrecorded until the

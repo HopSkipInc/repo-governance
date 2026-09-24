@@ -36,6 +36,7 @@ it never proposes anything in §3.
 | 5 | Every script in `scripts/` has a fixture test asserting it fires on a known-bad input and clears on a known-good one | — | `test/lints.test.mjs`, run in CI | gate | 2026-07-27 |
 | 6 | Every record in `docs/adr/` and `docs/pdr/` is registered in its README index | — | `scripts/check-adr-readme-sync.mjs` | gate | 2026-07-27 |
 | 7 | An Accepted PDR carries a falsifier, and not one of the phrasings the form rules out | [PDR corpus](pdr/README.md) | `scripts/check-pdr-falsifiers.mjs` R1–R2 (R3–R4 report) | gate + report | 2026-07-27 |
+| 8 | The routing-classifier pin binds a class (`# routing-class: <class>`) and its `model:` slug is the class map's model for that class — a resolved binding, not an authored capability claim | — | `scripts/check-classifier-pin-drift.mjs` | gate | 2026-09-24 |
 
 **Row 7 is the first with anything in the ADR column** — pointing at the PDR corpus rather than an ADR, because the decision it enforces is a product-layer one. Rows 1–6 remain empty for the reason below.
 
@@ -104,3 +105,4 @@ a record._
 | 2026-07-27 | PDR bootstrap | Rows 6–7 added — record-index sync and PDR falsifier enforcement, both gates. The PDR corpus now exists (`docs/pdr/`), so this repo runs 4 of the 5 layers on itself; the ADR layer is still the outstanding one |
 | 2026-08-02 | drift-lint disposition (#14) | §5's drift contradiction resolved — the gate has a trigger (Step 5.0, #21), its false positives are fixed (#19/#20), and its surviving findings are disposed on the record. §4 emptied for the first time |
 | 2026-09-15 | write-record.mjs 1.4.0 | append-row shipped (issue #104) — this file and testing-strategy.md now have a mediated write path for table-row appends, alongside PDR create/amend |
+| 2026-09-24 | ai-fleet #3097 | Row 8 added — the classifier pin binds a capability class; `check-classifier-pin-drift.mjs` gates pin-vs-map agreement, fail-closed (design: `docs/classifier-class-binding.md`) |
