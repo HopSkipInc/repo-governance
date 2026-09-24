@@ -16,7 +16,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
@@ -137,6 +137,108 @@ test("blank-form-naming: GitHub's magic filenames are exempt", () => {
   });
   const { code, out } = run('check-blank-form-naming.mjs', dir);
   assert.equal(code, 0, out);
+});
+
+// --------------------------------------- 2026-09-24: classifier pin drift
+//
+// ai-fleet #3097. §3's "every pin resolves to a frontier model" was a human
+// re-sync step — the check that stops happening. This lint mechanizes it and
+// fails closed, so a drifted pin cannot read as green. The fixtures prove both
+// directions: fire on drift, clear on agreement.
+
+const RECORDS_MAP = [
+  '# Records',
+  '',
+  '## 1. Model → class',
+  '',
+  '| Class | Models | As of |',
+  '|---|---|---|',
+  '| standard | Sonnet | 2026-01-01 |',
+  '| frontier | Opus | 2026-01-01 |',
+  '',
+  '## 2. Model → harness route',
+  '',
+  '| Model | Claude Code | opencode |',
+  '|---|---|---|',
+  '| Opus | `opus` | `oc/opus` |',
+  '| Sonnet | `sonnet` | `oc/sonnet` |',
+  '',
+].join('\n');
+
+const pinFile = (frontmatter) =>
+  `---\nname: routing-classifier\n${frontmatter}\n---\n\n# Routing Classifier\n`;
+
+test('classifier-pin-drift: a pin whose slug resolves into its declared class passes', () => {
+  const dir = fixture({
+    'docs/agent-routing-records.md': RECORDS_MAP,
+    '.claude/agents/routing-classifier.md': pinFile('# routing-class: frontier\nmodel: opus'),
+  });
+  const { code, out } = run('check-classifier-pin-drift.mjs', dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
+test('classifier-pin-drift: a drifted pin (slug resolves outside its class) fails', () => {
+  const dir = fixture({
+    'docs/agent-routing-records.md': RECORDS_MAP,
+    '.claude/agents/routing-classifier.md': pinFile('# routing-class: frontier\nmodel: sonnet'),
+  });
+  const { code, out } = run('check-classifier-pin-drift.mjs', dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /DRIFT/);
+});
+
+test('classifier-pin-drift: a pin with no class marker fails closed', () => {
+  const dir = fixture({
+    'docs/agent-routing-records.md': RECORDS_MAP,
+    '.claude/agents/routing-classifier.md': pinFile('model: opus'),
+  });
+  const { code, out } = run('check-classifier-pin-drift.mjs', dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /routing-class/);
+});
+
+test('classifier-pin-drift: a declared class absent from §1 fails', () => {
+  const dir = fixture({
+    'docs/agent-routing-records.md': RECORDS_MAP,
+    '.claude/agents/routing-classifier.md': pinFile('# routing-class: elite\nmodel: opus'),
+  });
+  const { code, out } = run('check-classifier-pin-drift.mjs', dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /elite/);
+});
+
+test('classifier-pin-drift: a slug absent from §2 fails', () => {
+  const dir = fixture({
+    'docs/agent-routing-records.md': RECORDS_MAP,
+    '.claude/agents/routing-classifier.md': pinFile('# routing-class: frontier\nmodel: gemini'),
+  });
+  const { code, out } = run('check-classifier-pin-drift.mjs', dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /gemini/);
+});
+
+test('classifier-pin-drift: no pin prints SKIPPED, never OK', () => {
+  const dir = fixture({});
+  const { code, out } = run('check-classifier-pin-drift.mjs', dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /SKIPPED/);
+  assert.doesNotMatch(out, /OK:/);
+});
+
+test('classifier-pin-drift: a missing records map is an error, not a pass', () => {
+  const dir = fixture({
+    '.claude/agents/routing-classifier.md': pinFile('# routing-class: frontier\nmodel: opus'),
+  });
+  const { code, out } = run('check-classifier-pin-drift.mjs', dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /not found|has not run/);
+});
+
+test('classifier-pin-drift: the self-installed copy and the template are byte-identical', () => {
+  const installed = readFileSync(resolve(REPO, 'scripts/check-classifier-pin-drift.mjs'), 'utf8');
+  const template = readFileSync(resolve(REPO, 'templates/scripts/check-classifier-pin-drift.mjs'), 'utf8');
+  assert.equal(installed, template, 'scripts/ and templates/scripts/ copies drifted — re-sync and re-stamp');
 });
 
 // ------------------------------------------------------------ template-versions
