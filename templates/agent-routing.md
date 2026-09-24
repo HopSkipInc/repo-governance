@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.15.0 · updated 2026-09-24 -->
+<!-- template: agent-routing.md v1.16.0 · updated 2026-09-24 -->
 # Agent Routing
 
-**Version:** 1.15.0 · **Last updated:** 2026-09-24
+**Version:** 1.16.0 · **Last updated:** 2026-09-24
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -32,6 +32,7 @@
 | 1.11.0 | 2026-08-05 | **Delegation is dispatch.** Layer 1's duties made second-person for the two dispatch shapes that already exist: an interactive driver spawning subagents (the driver is the dispatcher; the delegation prompt is the launch, and it carries the capability budget — tier, kind, reason, stop conditions, scope ceiling) and fleet dispatch (enumerated rows, claim-of-record on the issue, waves from the epic table, deploy gates as wave boundaries, `Not splittable:` as a parallelism constraint). The policy spoke about dispatchers in the third person while every task-tool harness was already dispatching |
 | 1.14.0 | 2026-08-17 | **The kind is a forecasting input.** Rationale subsection under the two load-bearing rules: estimation buckets key on the kind, `both` is the observed high-variance bucket, and an escalation closed without a kind is a permanently lost data point — the calibration protocol forbids post-hoc classification. No rule changes; no tier definitions move |
 | 1.15.0 | 2026-09-24 | **The classifier binds a class, not a model.** The pin declares its triage class (`# routing-class:`); the class→model binding is registry data, resolved by the gateway as the intended chokepoint — or by an install-time generated bridge until the gateway resolves classes. A concrete slug may appear in a repo only when the bridge produced it, and `check-classifier-pin-drift.mjs` gates pin-vs-map agreement, failing closed. 1.4.0's "one place a model name may be written" exception narrows from a name to a binding |
+| 1.16.0 | 2026-09-24 | **`impl:human` gates completion, not preparation.** The tier was read as a capability gate, so "if the tier exceeds your capability class, do not implement" stopped every agent at a human-tier issue and dropped its mechanical preparation into human hands. It is an ownership gate: any capability class may draft the change and hand it over (the `gate:human-approval` shape applied to the tier itself), a human owns the irreversible step and the merge, and the agent stops only where the work itself needs human hands — holding a credential, exercising an external authority. Owner decision, 2026-09-24; no tier definition, class table, or heuristics move |
 
 ## Purpose
 
@@ -260,10 +261,14 @@ An `impl:` label on every issue, declaring the **minimum** capability class requ
   several system invariants at once.
   *e.g. isolation enforcement, a new data-scoping rule, race and concurrency fixes.*
 
-- **`impl:human`** — needs a human regardless of model capability. Not "hard code" — work an
-  agent should not **unilaterally complete**: product and UX decisions, external coordination,
+- **`impl:human`** — needs a human regardless of model capability. Not "hard code" — work an agent
+  should not **unilaterally complete**: product and UX decisions, external coordination,
   credential handling, removal of a safety invariant.
   *e.g. removing a fail-open guard, confirming an external producer's contract.*
+  The gate is on **completion, not preparation**: an agent at any capability class may draft
+  the change and hand it to a human (the `gate:human-approval` pattern, applied to the tier
+  itself), and stops only where the work needs human hands — holding a credential, exercising
+  an external authority. A human owns the merge.
 
 ### The `gate:` family (optional — add when the repo needs it)
 
@@ -387,8 +392,10 @@ should be treated as weaker evidence than the heuristics table, not stronger.
 Add to agent instructions (CLAUDE.md / AGENTS.md — see the section template below):
 
 > Before implementing an issue, read its `impl:` tier and the Impl-tier line. If the tier
-> exceeds your capability class, do not attempt implementation. Comment on the issue with
-> what you would need, and stop.
+> exceeds your capability class (`standard` / `frontier`), do not attempt implementation.
+> Comment on the issue with what you would need, and stop. `impl:human` is not a capability
+> gate: any class may **prepare** the change, but a human owns the irreversible step and the
+> merge.
 
 Be honest about what this buys. **It is advisory and it always will be**, because the model
 that cannot do the work is the same model judging whether it can. The contract catches the
@@ -801,8 +808,10 @@ to choose drifts toward it.
 Before implementing an issue:
 
 1. Read the `impl:` label and the `## Impl tier` line.
-2. If the tier exceeds your capability class, do not implement. Comment with what you
-   would need, and stop.
+2. If the tier exceeds your capability class (`standard` / `frontier`), do not implement.
+   Comment with what you would need, and stop. `impl:human` is not a capability gate: any
+   class may prepare the change, but no agent completes it unilaterally — a human owns the
+   irreversible step and the merge.
 3. If the label or the kind is missing, do not implement. Comment and stop.
 4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
    same failing test; **coding around a blocker instead of removing it** — a fallback,
