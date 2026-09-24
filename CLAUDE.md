@@ -127,8 +127,10 @@ reason cites an untested surface, a coverage record is required too: `Coverage g
 Before implementing an issue:
 
 1. Read the `impl:` label and the `## Impl tier` line.
-2. If the tier exceeds your capability class, do not implement. Comment with what you
-   would need, and stop.
+2. If the tier exceeds your capability class (`standard` / `frontier`), do not implement.
+   Comment with what you would need, and stop. `impl:human` is not a capability gate: any
+   class may prepare the change, but no agent completes it unilaterally — a human owns the
+   irreversible step and the merge.
 3. If the label or the kind is missing, do not implement. Comment and stop.
 4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
    same failing test; **coding around a blocker instead of removing it** — a fallback,
