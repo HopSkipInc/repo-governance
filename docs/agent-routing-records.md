@@ -1,10 +1,14 @@
-<!-- template: agent-routing-records.md v1.0.0 · updated 2026-07-26 -->
+<!-- template: agent-routing-records.md v1.1.0 · updated 2026-09-24 -->
 # Agent Routing — Records for repo-governance
 
-**Policy version these records were written against:** 1.10.0
-**Last reviewed:** 2026-07-26 — full pin/class review against 1.9.0. The pointer above moved to
-1.10.0 on 2026-08-02 (re-sync, commit d897351) *without* a fresh pin/class review; the 1.10.0
-delta is the coverage rule, which touches neither. Next full review resets this line.
+**Policy version these records were written against:** 1.16.0
+**Last reviewed:** 2026-09-24 — pin/class review, then the DeepSeek V4.1 Flash frontier
+placement. The classifier binding moved from a pinned model name to a class binding gated by
+`check-classifier-pin-drift.mjs` (design: `docs/classifier-class-binding.md`, ai-fleet #3097).
+Later the same day, Greg placed DeepSeek V4.1 Flash on `frontier` for a bounded calibration
+run, and clarified that `impl:human` gates completion, not preparation (policy 1.16.0). The
+previous review was 2026-07-26 (against 1.9.0); the 1.10.0–1.15.0 deltas touched neither the
+class table nor the pins, so this line was not reset until now.
 **Policy:** [`docs/agent-routing.md`](agent-routing.md)
 
 > **This file never syncs.** It is the per-repo counterpart to the policy, which is
@@ -22,7 +26,7 @@ delta is the coverage rule, which touches neither. Next full review resets this 
 | Class | Models | As of |
 |---|---|---|
 | standard | GLM-5.2, Claude Sonnet 5, Claude Haiku 4.5 | 2026-07-26 |
-| frontier | Claude Opus 5 | 2026-07-26 |
+| frontier | Claude Opus 5, DeepSeek V4.1 Flash | 2026-09-24 |
 
 Notes on contested calls:
 
@@ -37,6 +41,15 @@ Notes on contested calls:
 - **`claude-opus-4-8` removed.** It was in the 2026-07-24 frontier row and had been superseded;
   neither live pin resolved to it. This is the "pin quietly names a retired model" case, caught
   by the 2026-07-26 re-sync — which is the review this table exists to receive.
+- **DeepSeek V4.1 Flash placed on `frontier`, 2026-09-24 — owner call, no outcome evidence.**
+  Greg's decision to run it against every tier for a bounded period ("see how we do"), on the
+  same unevidenced posture as the kimi-k3 and gpt-6-sol rows in sibling repos: placed beside
+  the models it sits next to on judgment, not on observed outcomes. It is the live
+  `general`/`engineering` class default in ai-fleet (registry `deepseek-v4-1-flash@deepseek`,
+  served on the wire as `deepseek-flash`), previously `standard`. **This is a calibration run,
+  not a reassessment:** the falsifier is a botched silent-boundary implementation, or any
+  outcome that contradicts the placement. Revisit at the next triage re-sync and do not let it
+  become the permanent default without evidence.
 
 ## 2. Model → harness route
 
@@ -48,18 +61,29 @@ Addresses, not capability claims. The same model reached two ways is the same cl
 | Claude Sonnet 5 | `sonnet` | `opencode/claude-sonnet-5` |
 | Claude Haiku 4.5 | `haiku` | — |
 | GLM-5.2 | — | `opencode/glm-5.2` |
+| DeepSeek V4.1 Flash | — | `deepseek/deepseek-flash` |
 
 Dashes are "not routed here today", not "unavailable" — fill a cell when a route is actually
 used, so an empty cell never reads as a capability judgement.
 
 ## 3. Classifier pins
 
-| Harness | Pin file | Resolves to (model) | Class | Reviewed |
+| Harness | Pin file | Class | Resolved via | Reviewed |
 |---|---|---|---|---|
-| Claude Code | `.claude/agents/routing-classifier.md` | Claude Opus 5 (`opus`) | frontier | 2026-07-26 |
-| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | Claude Opus 5 (`opencode/claude-opus-5`) | frontier | 2026-07-26 |
+| Claude Code | `.claude/agents/routing-classifier.md` | frontier | §1/§2 → Claude Opus 5 (`opus`) | 2026-09-24 |
+| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | frontier | §1/§2 → Claude Opus 5 (`opencode/claude-opus-5`) | 2026-09-24 |
 
-Both pins resolve to a model this file lists as `frontier`. ✅
+Both pins bind `frontier` and resolve to a model §1 lists there. The Claude Code pin is
+lint-gated here; the opencode pin is global (outside the repo) and is reviewed at re-sync, not
+by the lint.
+
+**2026-09-24 — the binding moved from a name to a class (ai-fleet #3097).** The pin declares
+`# routing-class: frontier`; the concrete `model:` slug is a *resolved binding*, not a
+capability claim, and `check-classifier-pin-drift.mjs` asserts it against §1/§2. The design —
+and the intended end state where the gateway resolves the class and no repo names a model — is
+in [`docs/classifier-class-binding.md`](classifier-class-binding.md). Until the gateway
+resolves classes, a repo whose harness can only read a concrete slug is served by an
+install-time generated bridge; this repo's install is by hand and gated by the lint.
 
 **Both pins are live in this environment.** The 2026-07-24 record named only the Claude Code
 path; the opencode global agent was installed the same day and went unrecorded until the
@@ -218,3 +242,4 @@ Too few escalations (5) to reach the three-per-pattern threshold. Nothing to pro
 |---|---|---|
 | 2026-07-24 | 1.0.0 → 1.6.0 | Initial records from the bootstrap run, inside `docs/agent-routing.md` |
 | 2026-07-26 | 1.9.0 | Split into this file. Mapping split into class←model + model→route; Sonnet 5 → standard; `claude-opus-4-8` retired; opencode pin recorded; all four calibration rows resolved against outcomes (`#2` corrected `spec` → `both`); ratio baseline and surfaces added |
+| 2026-09-24 | 1.16.0 | DeepSeek V4.1 Flash added to `frontier` (owner-directed calibration run, no outcome evidence) and its opencode route recorded; `impl:human` completion-gate clarification carried from policy 1.16.0 |

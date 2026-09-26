@@ -64,6 +64,12 @@ jobs:
         # by two different readers, from the same root cause.
         run: node scripts/check-blank-form-naming.mjs
 
+      - name: Check classifier pin drift
+        # The routing-classifier's model pin must agree with the class map. §3's
+        # "every pin resolves to a frontier model" was a human re-sync step; this
+        # mechanizes it and fails closed, so a drifted pin cannot read as green.
+        run: node scripts/check-classifier-pin-drift.mjs
+
       - name: Check /analyze-repo template coverage
         # Every template must be offered by the bootstrap command or excluded on
         # the record. A bootstrap that omits templates looks like one that worked.

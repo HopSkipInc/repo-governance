@@ -8,10 +8,13 @@ description: >
   a botched implementation would produce rather than on difficulty. Every escalation carries
   a split proposal or a non-splittability statement.
   Read-only: it proposes, it never labels. Invoked by the routing-triage skill.
+# routing-class: frontier — the pin's triage class. The `model:` slug is a resolved
+# binding; check-classifier-pin-drift.mjs resolves it through docs/agent-routing-records.md
+# §1/§2 and fails closed on drift. See docs/classifier-class-binding.md.
 model: opus
 tools: Read, Grep, Glob, Bash
-version: 1.2.0
-updated: 2026-07-27
+version: 1.3.0
+updated: 2026-09-24
 ---
 
 # Routing Classifier
@@ -33,15 +36,16 @@ thing it is meant to bind, and a model that wants to be helpful will find a read
 "frontier" that includes itself. Self-*identification* is not the hard part — the harness
 tells a model its own ID — **compliance** is.
 
-So the model is pinned in this file's frontmatter and resolved by the harness at spawn. The
+So the class is bound in this file's frontmatter and resolved by the harness at spawn — the
 classifier never gets a vote. This is the policy's own Layer 1 (the dispatcher is the fence)
 applied to the triage itself.
 
-> **`model:` here is the one place in this practice a model name may be written.** Everywhere
-> else the rule holds: labels name the work, never the vendor's lineup. This is the
-> enforcement point, so it has to name something concrete — which means it will go stale, and
-> it must be listed in the model→class mapping table in `docs/agent-routing-records.md` so that a
-> re-sync reviews it.
+> **The `model:` line here is a resolved binding, not a capability claim.** It is not "the one
+> place a model name may be written"; it is the one place a *resolver* writes one, produced from
+> the class declared on the `# routing-class:` line above and gated by
+> `scripts/check-classifier-pin-drift.mjs`. Everywhere else — labels, docs, records — the rule
+> holds: name the class, never the vendor's lineup. See `docs/agent-routing.md` §*One
+> exception*.
 
 ## Read-only by construction
 

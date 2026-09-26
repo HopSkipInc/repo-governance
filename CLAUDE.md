@@ -18,7 +18,7 @@ There is no `package.json` — deliberately, since this repo is not a publishabl
 Everything runs directly under Node.
 
 ```bash
-node --test test/*.test.mjs          # the test suite (261 cases)
+node --test test/*.test.mjs          # the test suite (308 cases)
 
 node scripts/check-template-versions.mjs --base <ref>   # stamps + bump-on-change
 node scripts/check-analyze-repo-coverage.mjs            # every template in the matrix
@@ -26,6 +26,7 @@ node scripts/check-blank-form-naming.mjs                # forms are _-prefixed
 node scripts/check-adr-readme-sync.mjs                  # records registered in their index
 node scripts/check-pdr-falsifiers.mjs                   # accepted PDRs carry a falsifier
 node scripts/check-mothership-drift.mjs                 # docs/ copies match templates/ (register-driven)
+node scripts/check-classifier-pin-drift.mjs             # classifier pin resolves to its declared class
 node scripts/check-issue-routing.mjs                    # backlog sweep; needs gh auth
 node scripts/check-downstream-drift.mjs                 # client version drift; run by hand
 node scripts/check-lens-promotion.mjs                   # cross-repo lens extensions; run by hand
@@ -126,8 +127,10 @@ reason cites an untested surface, a coverage record is required too: `Coverage g
 Before implementing an issue:
 
 1. Read the `impl:` label and the `## Impl tier` line.
-2. If the tier exceeds your capability class, do not implement. Comment with what you
-   would need, and stop.
+2. If the tier exceeds your capability class (`standard` / `frontier`), do not implement.
+   Comment with what you would need, and stop. `impl:human` is not a capability gate: any
+   class may prepare the change, but no agent completes it unilaterally — a human owns the
+   irreversible step and the merge.
 3. If the label or the kind is missing, do not implement. Comment and stop.
 4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
    same failing test; **coding around a blocker instead of removing it** — a fallback,

@@ -1,4 +1,4 @@
-<!-- template: agent-routing-records.md v1.0.0 · updated 2026-07-26 -->
+<!-- template: agent-routing-records.md v1.1.0 · updated 2026-09-24 -->
 # Agent Routing — Records for [repo]
 
 **Policy version these records were written against:** [X.Y.Z]
@@ -43,14 +43,15 @@ provider, or a model ships somewhere new. A row here is an address, never a capa
 
 ## 3. Classifier pins
 
-The `routing-classifier` agent pins its model in frontmatter; that pin is what makes triage
-un-self-certifiable. **Every pin must resolve to a model this file lists as `frontier`** — that
-is the check this table exists to make possible without reading a harness's model catalogue.
+The `routing-classifier` agent binds its triage class in frontmatter (`# routing-class:`); that
+binding is what makes triage un-self-certifiable. **Every pin must resolve to a model this file
+lists at the triage class** — through §1/§2 where there is no registry, the registry where there
+is one. `check-classifier-pin-drift.mjs` gates that agreement and fails closed.
 
-| Harness | Pin file | Resolves to (model) | Class | Reviewed |
+| Harness | Pin file | Class | Resolved via | Reviewed |
 |---|---|---|---|---|
-| Claude Code | `.claude/agents/routing-classifier.md` | [model name] | frontier | [YYYY-MM-DD] |
-| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | [model name] | frontier | [YYYY-MM-DD] |
+| Claude Code | `.claude/agents/routing-classifier.md` | [class] | §1/§2 or registry | [YYYY-MM-DD] |
+| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | [class] | §1/§2 or registry | [YYYY-MM-DD] |
 
 Local deviations from the agent template, if any, and why they were preserved:
 

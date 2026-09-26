@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.14.0 · updated 2026-08-17 -->
+<!-- template: agent-routing.md v1.16.0 · updated 2026-09-24 -->
 # Agent Routing
 
-**Version:** 1.14.0 · **Last updated:** 2026-08-17
+**Version:** 1.16.0 · **Last updated:** 2026-09-24
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -31,6 +31,8 @@
 | 1.13.0 | 2026-08-13 | **`gate:decision` gets its write path.** "Recorded as a PDR or ADR by a person" had drifted into "typed by a person" once the harness stanzas denied raw edits to records paths — an agent that could prepare the whole change could not publish the record of its decision. The label now says what was always meant: an agent drafts the record through the repo's mediated write path (`write-record.mjs`, issue #81); a person owns it at merge |
 | 1.11.0 | 2026-08-05 | **Delegation is dispatch.** Layer 1's duties made second-person for the two dispatch shapes that already exist: an interactive driver spawning subagents (the driver is the dispatcher; the delegation prompt is the launch, and it carries the capability budget — tier, kind, reason, stop conditions, scope ceiling) and fleet dispatch (enumerated rows, claim-of-record on the issue, waves from the epic table, deploy gates as wave boundaries, `Not splittable:` as a parallelism constraint). The policy spoke about dispatchers in the third person while every task-tool harness was already dispatching |
 | 1.14.0 | 2026-08-17 | **The kind is a forecasting input.** Rationale subsection under the two load-bearing rules: estimation buckets key on the kind, `both` is the observed high-variance bucket, and an escalation closed without a kind is a permanently lost data point — the calibration protocol forbids post-hoc classification. No rule changes; no tier definitions move |
+| 1.15.0 | 2026-09-24 | **The classifier binds a class, not a model.** The pin declares its triage class (`# routing-class:`); the class→model binding is registry data, resolved by the gateway as the intended chokepoint — or by an install-time generated bridge until the gateway resolves classes. A concrete slug may appear in a repo only when the bridge produced it, and `check-classifier-pin-drift.mjs` gates pin-vs-map agreement, failing closed. 1.4.0's "one place a model name may be written" exception narrows from a name to a binding |
+| 1.16.0 | 2026-09-24 | **`impl:human` gates completion, not preparation.** The tier was read as a capability gate, so "if the tier exceeds your capability class, do not implement" stopped every agent at a human-tier issue and dropped its mechanical preparation into human hands. It is an ownership gate: any capability class may draft the change and hand it over (the `gate:human-approval` shape applied to the tier itself), a human owns the irreversible step and the merge, and the agent stops only where the work itself needs human hands — holding a credential, exercising an external authority. Owner decision, 2026-09-24; no tier definition, class table, or heuristics move |
 
 ## Purpose
 
@@ -259,10 +261,14 @@ An `impl:` label on every issue, declaring the **minimum** capability class requ
   several system invariants at once.
   *e.g. isolation enforcement, a new data-scoping rule, race and concurrency fixes.*
 
-- **`impl:human`** — needs a human regardless of model capability. Not "hard code" — work an
-  agent should not **unilaterally complete**: product and UX decisions, external coordination,
+- **`impl:human`** — needs a human regardless of model capability. Not "hard code" — work an agent
+  should not **unilaterally complete**: product and UX decisions, external coordination,
   credential handling, removal of a safety invariant.
   *e.g. removing a fail-open guard, confirming an external producer's contract.*
+  The gate is on **completion, not preparation**: an agent at any capability class may draft
+  the change and hand it to a human (the `gate:human-approval` pattern, applied to the tier
+  itself), and stops only where the work needs human hands — holding a credential, exercising
+  an external authority. A human owns the merge.
 
 ### The `gate:` family (optional — add when the repo needs it)
 
@@ -386,8 +392,10 @@ should be treated as weaker evidence than the heuristics table, not stronger.
 Add to agent instructions (CLAUDE.md / AGENTS.md — see the section template below):
 
 > Before implementing an issue, read its `impl:` tier and the Impl-tier line. If the tier
-> exceeds your capability class, do not attempt implementation. Comment on the issue with
-> what you would need, and stop.
+> exceeds your capability class (`standard` / `frontier`), do not attempt implementation.
+> Comment on the issue with what you would need, and stop. `impl:human` is not a capability
+> gate: any class may **prepare** the change, but a human owns the irreversible step and the
+> merge.
 
 Be honest about what this buys. **It is advisory and it always will be**, because the model
 that cannot do the work is the same model judging whether it can. The contract catches the
@@ -449,8 +457,9 @@ The label vocabulary never changes. Both tables churn every few months, in exact
 Never write a model name — or a harness slug — into a label.
 
 **One exception, and it is the enforcement point.** The `routing-classifier` agent definition
-pins its model in frontmatter — that pin is what makes triage un-self-certifiable, so it has
-to name something concrete. The pin lives in a harness-specific location:
+binds a capability class in frontmatter — that binding is what makes triage un-self-certifiable,
+and the class is the repo's triage-grade one (`# routing-class: <class>` in the agent
+frontmatter). The pin lives in a harness-specific location:
 
 | Harness | Pin file | Scope | Invocation |
 |---|---|---|---|
@@ -459,26 +468,35 @@ to name something concrete. The pin lives in a harness-specific location:
 
 In opencode the classifier is global — one agent serves every repo, reading each repo's
 `docs/agent-routing.md` at invocation. The policy is per-repo; the classifier is shared. This
-is the cleaner shape: one pin to update when the model moves, not one per repo. The trade-off
-is that every repo's records file references the same global pin, so a re-sync reviews them
-in batch.
+is the cleaner shape: one binding to review when the class moves, not one per repo. The
+trade-off is that every repo's records file references the same global pin, so a re-sync
+reviews them in batch.
 
-**The pin carries a harness slug; the class table carries the model.** This is the one place
-the two tables meet, and it is why they are separate: a pin is an *address*, so it names
-whatever its harness understands. Record which model each pin resolves to, so a reviewer can
-check the pin against the class table without knowing every harness's naming scheme:
+**The binding is resolved outside the agent.** A capability class resolves to the current
+model; that mapping is registry data, not a name in a policy. The intended resolver is the
+inference gateway — it sits outside the agent, so class resolution there preserves
+un-self-certifiability for free, and it is the one chokepoint every caller (host, fleet
+workers, interactive harnesses) is moving toward. Until the gateway resolves classes, a
+harness that can only read a concrete `model:` slug is served by a **generated bridge**: the
+install/sync step resolves the class against this repo's class→model map and writes the
+concrete slug into the installed file. The rule is not "no model name" but "no *authored*
+model name" — a slug produced from the map is fine; a hand-typed one is the defect.
 
-| Harness | Pin file | Resolves to (model) | Class | Reviewed |
+**The class table carries the capability; the map carries the binding.** Record which class
+the pin binds, and resolve it through the repo's class→model map — `docs/agent-routing-records.md`
+§1/§2 where there is no registry, the registry where there is one:
+
+| Harness | Pin file | Class | Resolved via | Reviewed |
 |---|---|---|---|---|
-| Claude Code | `.claude/agents/routing-classifier.md` | [model name] | frontier | [YYYY-MM-DD] |
-| opencode | `~/.config/opencode/agents/routing-classifier.md` | [model name] | frontier | [YYYY-MM-DD] |
+| Claude Code | `.claude/agents/routing-classifier.md` | [class] | §1/§2 or registry | [YYYY-MM-DD] |
+| opencode | `~/.config/opencode/agents/routing-classifier.md` | [class] | §1/§2 or registry | [YYYY-MM-DD] |
 
-**Every pin must resolve to a model the class table lists as `frontier`.** That check is the
-whole point of writing the resolution down — without it, verifying a pin means reading a
-harness's model catalogue, which nobody does, and a pin drifts to a retired or downgraded
-model in silence.
-
-A pin nobody reviews is a pin that quietly names a retired model.
+**Every pin must resolve to a model the class table lists at the triage class, and the two must
+agree mechanically.** `check-classifier-pin-drift.mjs` resolves the pin slug through the route
+table and asserts the class table lists it under the declared class. It fails closed — a
+missing `# routing-class:` marker, a class absent from the table, and a slug that resolves
+outside it are all findings — because a check that cannot run reports failure, not a pass. A
+pin nobody gates is a pin that quietly names a retired or downgraded model.
 
 ## The layered enforcement model
 
@@ -790,8 +808,10 @@ to choose drifts toward it.
 Before implementing an issue:
 
 1. Read the `impl:` label and the `## Impl tier` line.
-2. If the tier exceeds your capability class, do not implement. Comment with what you
-   would need, and stop.
+2. If the tier exceeds your capability class (`standard` / `frontier`), do not implement.
+   Comment with what you would need, and stop. `impl:human` is not a capability gate: any
+   class may prepare the change, but no agent completes it unilaterally — a human owns the
+   irreversible step and the merge.
 3. If the label or the kind is missing, do not implement. Comment and stop.
 4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
    same failing test; **coding around a blocker instead of removing it** — a fallback,
