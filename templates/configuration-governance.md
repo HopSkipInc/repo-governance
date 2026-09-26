@@ -1,4 +1,4 @@
-<!-- template: configuration-governance.md v1.0.1 · updated 2026-09-26 -->
+<!-- template: configuration-governance.md v1.1.0 · updated 2026-09-26 -->
 # Configuration Governance
 
 **Status:** Policy — enforcement is a declared floor per repo, plus `check-config-coverage.mjs` and the ninth audit domain, **neither yet shipped** (see §11)
@@ -322,12 +322,20 @@ A fifth artifact means something has gone wrong.
 
 ---
 
-## 10. Provenance
+## 10. Provenance — engineering prior art
 
 These sources ground the reader. **None of them enforces anything here** — an external
 citation is neither instruction-backing nor gate-backing, and a policy that cites heavily
 while gating nothing is exactly the imitation surface `governance-health.md` names. Each
-entry says which of three things it does.
+entry says which of three things it does: **conforms**, **extends**, or **overrules**.
+
+**These are engineering sources — the practice that already solved these problems — not
+compliance frameworks.** This policy cites prior art because none of this is invented
+here, and it cites it in engineering terms on purpose: no control-framework mapping, no
+compliance-audience vocabulary (PDR-007; `gtm/positioning.md`). Credential handling is an
+engineering concern and stays firmly in scope; a security questionnaire is not the
+audience. Where a standards body appears below, it is cited for the engineering practice it
+documents, never as a control.
 
 | Source | Relation | Detail |
 |---|---|---|
@@ -335,14 +343,11 @@ entry says which of three things it does.
 | **Twelve-Factor App, Factor III** | **Extends** | Applying its own definition strictly: a value that must change *without* a deploy was never config by Factor III's standard, which is §4's third row |
 | **Twelve-Factor App, Factor III** | **Overrules** | Factor III directs credentials into environment variables. Written when the alternative was a config file in version control, it predates workload identity, OIDC federation, and managed secret stores, and has no answer to child-process inheritance, rotation, TTL, or audit. **Sound on non-secret config; superseded for secret values** (§5.1) |
 | **Twelve-Factor App, Factor III** | **Extends** | Its criticism of grouped named environments is the same pattern as §8's smell 4, on weaker grounds — it objects to unmanageability, this policy objects to blast radius |
-| **OWASP Secrets Management Cheat Sheet** | Conforms | Lifecycle, rotation, revocation, and the secret-zero / bootstrap problem by name |
-| **OWASP ASVS** | Conforms, and precedent | Its configuration and service-authentication requirements cover secrets outside source and config files. Structurally, its verification *levels* are the same mechanic as §6.2's declared floors |
-| **OWASP Top 10 — A05 Security Misconfiguration, A02 Cryptographic Failures** | Conforms | The vocabulary a security questionnaire already speaks |
-| **OWASP Top 10 for LLM Applications** | Conforms | Excessive Agency is §6.3's argument stated canonically; Prompt Injection is the delivery mechanism and Sensitive Information Disclosure the outcome |
-| **NIST SP 800-190** | Conforms | Secrets in container images and environments — backing for T4 being prohibited for containerized principals |
+| **OWASP Secrets Management Cheat Sheet** | Conforms | Lifecycle, rotation, revocation, and the secret-zero / bootstrap problem by name — practitioner guidance, not a control |
+| **OWASP Top 10 for LLM Applications** | Conforms | Excessive Agency is §6.3's argument; Prompt Injection is the delivery mechanism and Sensitive Information Disclosure the outcome. The attack classes an untrusted-executor threat model is built from |
 | **SPIFFE / SPIRE** | Conforms | Attestation-based identity for workloads too ephemeral to enroll — the mechanism §6.3 relies on |
 | **Kubernetes documentation** | Conforms | Secrets mounted as files update in place on rotation; secrets injected as environment variables require a restart. A rotation argument for §5.1 that depends on no threat model at all |
-| **PCI DSS v4.0 §8.6, SOC 2 CC6** | Conforms | Hardcoded credentials in scripts and config files; logical access control. Relevant where the policy must produce audit evidence rather than only reduce risk |
+| **NIST SP 800-190** | Conforms | Secrets in container images and environments — engineering guidance behind T4 being prohibited for containerized principals |
 
 ---
 
@@ -353,7 +358,7 @@ otherwise.** None of the four artifacts below exist yet. A policy that describes
 its own enforcement in the present tense before the enforcement lands is the imitation
 surface §10 warns about, so the state is stated per row.
 
-| Artifact | Role | State at v1.0.0 |
+| Artifact | Role | State at v1.1.0 |
 |---|---|---|
 | `configuration-governance-records.md` | The inventory, the declared floor per principal class, dated exceptions, and the deliberate non-classified list. Never syncs | **Not shipped** |
 | `skills/configuration-interview/` | Produces the records file. It exists because five local facts decide whether any of this is reachable: where configuration is declared, whether a broker exists, which identity primitives exist, which principal classes are present, and whether a runtime config store exists | **Not shipped** |
@@ -367,9 +372,95 @@ without the gate.
 
 ---
 
+## 12. Adoption — the transition from the current regime
+
+Every governed repo already handles configuration and secrets somehow, and nothing here
+says it was doing so wrongly. This section is the path from **what is practiced** to **what
+this policy records**, and it is phased on purpose, because three of the four artifacts in
+§11 do not exist yet.
+
+### 12.1 What can be adopted, and when
+
+| Phase | Artifacts on disk | Buys | Does not buy |
+|---|---|---|---|
+| Policy only *(available now)* | this document | a shared model and vocabulary | no records, no lint, no audit domain. A repo that adopts here **records that it took the instruction without the gate** (§11) |
+| Policy + records | `configuration-governance-records.md`, `skills/configuration-interview/` | the inventory and the declared floors per principal class | still no mechanical gate; §7's *Mechanical* rows stay human review |
+| Full adoption | + `scripts/check-config-coverage.mjs`, audit domain 9 | the per-PR coverage gate and the periodic floor/expiry sweep | — |
+
+**Do not install a partial set and report it as full.** The failure this table exists to
+prevent is a repo citing §7's mechanical rows as enforced while only the policy is on disk.
+
+### 12.2 Per-repo steps (full adoption)
+
+1. Copy this policy into the repo's docs directory, version stamp intact.
+2. Create `configuration-governance-records.md` from the records form, then run
+   `configuration-interview` — classify by **family**, declare the floor per principal
+   class present, and record the deliberate non-classified list. Budget the interview by
+   family, not per variable (§9).
+3. Install `scripts/check-config-coverage.mjs` and wire it into CI. It fails closed: a repo
+   whose configuration is declared in a cloud portal reports SKIPPED, and that SKIPPED must
+   stay visible, never be suppressed into a clean run.
+4. Add audit domain 9 to the repo's audit substrate, per `audit-domains.md`. Until the
+   records file exists it reports SKIPPED, which is the intended first-run state, not a
+   failure to fix by stubbing the records.
+5. Record the install in the repo's **Synced templates** table.
+
+### 12.3 Rollout sequencing
+
+Install into **one** repo first and let it run a review cycle before propagating. The two
+failure modes to watch are §9's **inventory theatre** (rows bulk-classified to clear the
+gate) and **tier inflation** (T2 recorded for a vault that holds a long-lived secret).
+Both are visible only once real variables have passed through, and both are cheap to fix in
+the template's required fields before the policy reaches the other repos. This is the same
+sequencing `design-lenses.md` §10.3 prescribes, for the same reason.
+
+### 12.4 Relationship to an existing `.env` split
+
+A repo or operator may already be mid-way through splitting a sprawling secrets file.
+**The split is an input to this policy, never an instance of it** (§9): it changes
+legibility, not tier, and every value sits at the same tier after the split as before. Do
+the split for the reasons it was planned — a shape defect, a shell `source` that dies
+half-way — and then run this policy against the result. A split is not adoption, and
+adoption does not require a split.
+
+### 12.5 Client prompt
+
+The downstream install prompt is written **when the records form and the interview ship**,
+not before. A prompt that names a records template the repo cannot fetch, or installs a
+lint that does not exist, is the "instruction names a target that isn't live" failure — and
+it verifies green. Until then there is deliberately **no `_client.md` row and no prompt**
+for this policy: §11 and this section are where the deferral is recorded, so it is not
+silent.
+
+### 12.6 Boundaries with adjacent policies
+
+Two existing policies sit close to this one. Neither conflicts with it; both are read
+together with it often enough that the boundary is stated.
+
+- **Secrets hygiene (`harness-enforcement.md`) is a different control at a different
+  layer.** That stanza denies the *agent* read/edit access to credential *paths*; this
+  policy governs a *runtime principal's* credential and its tier. The harness path register
+  is populated from the repo's CLAUDE.md records paragraph and enforces the deny; the §11
+  records inventory classifies variables and credential-bearing files and records tiers and
+  expiries. Where both name the same file they are two different statements about it — one
+  an access rule, one a classification — and neither should be regenerated from the other.
+  A repo installing both must not let them drift into two rival classifications of the same
+  secret: the records inventory is authoritative for *what a thing is*, the harness register
+  for *who may touch it*.
+- **`agent-routing.md` `gate:credentials` is a commit-time gate, not a runtime tier.** It
+  holds that a change handling credentials, or removing a safety invariant, is prepared for
+  a human, and that an agent "structurally cannot hold the keys" *within the routing work*.
+  This policy's non-human ladder contemplates an agent worker running under an attested
+  short-lived credential (T2/T3). They do not conflict — one decides who may author a
+  credential-touching change, the other what a running principal may hold — but they are
+  read together, so the boundary is stated here rather than rediscovered in review.
+
+---
+
 ## Changelog
 
 | Version | Date | Change |
 |---|---|---|
+| 1.1.0 | 2026-09-26 | §10 reframed to **engineering prior art**: the compliance-framework rows (OWASP ASVS, the OWASP Top 10 misconfiguration/crypto rows, PCI DSS/SOC 2) and their control/audit-evidence framing are removed, the lane is stated (PDR-007, `gtm/positioning.md`), and the engineering sources are kept. Adds §12 — the adoption path from the practiced regime to this one: phased installability, per-repo steps, rollout sequencing, the `.env`-split relationship, the deferred client prompt, and the boundaries with `harness-enforcement` and `agent-routing` |
 | 1.0.1 | 2026-09-26 | §11 said "three of the four artifacts below do not exist yet" while all four rows read *Not shipped*, and the Status line named the ninth audit domain as enforcement without marking it unshipped. Both now match the table |
 | 1.0.0 | 2026-09-16 | Initial. Two-axis model, placement table, composition matrix, the reference rule, the five-tier ladder with separate floors for human and non-human principals, coverage-not-correctness enforcement contract, ten smells split by claim strength, six failure modes, three-way provenance |
