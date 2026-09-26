@@ -1,4 +1,4 @@
-<!-- template: governance-sync-claude-section.md v1.3.1 · updated 2026-08-03 -->
+<!-- template: governance-sync-claude-section.md v1.4.0 · updated 2026-09-26 -->
 # Governance sync — CLAUDE.md section
 
 When a downstream repo's CLAUDE.md includes this section, the agent can reliably find
@@ -15,7 +15,7 @@ check verifies the section.
 ```markdown
 ## Governance
 
-<!-- template: governance-sync-claude-section.md v1.3.1 · updated 2026-08-03 -->
+<!-- template: governance-sync-claude-section.md v1.4.0 · updated 2026-09-26 -->
 
 This repo is governed by repo-governance at `~/repos/HopSkipInc/repo-governance`.
 The client identifier is `<CLIENT>` and the repo slug is `<REPO-SLUG>`.
@@ -38,16 +38,17 @@ To check for and apply pending governance updates:
 To check for stale governance layers (run during governance sync, skip if nothing is stale):
 
 1. Read the staleness triggers table in `docs/definition-of-done.md` → Governance layer refresh
-2. For each of the five layers, check whether its staleness trigger has fired:
+2. For each of the five layers — plus the configuration trigger below, which is *not* a layer — check whether its staleness trigger has fired:
    - **PDRs:** any `Last confirmed` > 90 days? any falsifier condition fired?
    - **ADRs:** lints in CI without corresponding ADRs? ADRs Proposed for 3+ audit cycles? module contradictions in last audit?
    - **Clean code:** lint/formatter config changed since last refresh? new modules violating conventions?
    - **Test coverage:** coverage dropped? new modules with no tests? false-green tests in last audit?
    - **Agent instructions:** do the commands in this CLAUDE.md actually work? do the referenced paths exist? did tooling change?
-3. For each stale layer, run the matching refresh skill from `~/repos/HopSkipInc/repo-governance/templates/skills/`:
-   - `pdr-interview refresh` / `adr-interview refresh` / `clean-code-interview refresh` / `test-coverage-interview refresh` / `agent-instructions-interview refresh`
-4. Skip layers that are not stale — refresh what's stale, not everything
-5. Update the `### Layer refresh log` table below with today's date for each refreshed layer
+   - **Configuration** *(a sixth trigger, not a sixth layer — it has its own records file and no layer corpus, so it never gets a `Layer refresh log` row):* did audit domain 9 raise a `CONFIG` or `SECRET` finding? has a declared floor's cap reason become false (the missing capability now exists)? are there variables in the declaration sites with no rows in the records file? did a new principal class appear (first agent worker, first CI-only credential)?
+3. For each stale layer or trigger, run the matching refresh skill from `~/repos/HopSkipInc/repo-governance/templates/skills/`:
+   - `pdr-interview refresh` / `adr-interview refresh` / `clean-code-interview refresh` / `test-coverage-interview refresh` / `agent-instructions-interview refresh` / `configuration-interview refresh`
+4. Skip what is not stale — refresh what's stale, not everything
+5. Update the `### Layer refresh log` table below with today's date for each refreshed layer. **Configuration has no row there** — it is not a layer; `configuration-interview` records its refresh in `configuration-governance-records.md`
 
 ### Applied governance updates
 
@@ -110,8 +111,10 @@ templates, and watch-list conventions. When in doubt, check the template first.
   it has applied. repo-governance reads this during `/review-sync` to reconcile `_client.md`.
   The downstream repo never writes to repo-governance — that's a trust boundary.
 - The `Layer refresh log` table tracks when each of the five governance layers was last
-  refreshed. The staleness check compares this against the triggers in the DoD. If nothing
-  is stale, the agent skips the refresh step entirely — no wasted effort.
+  refreshed. The staleness check compares this against the triggers in the DoD, which
+  carries a sixth row — configuration — that is a *trigger* and not a layer: it has its
+  own records file and no layer corpus, so it fires a refresh but has no row here. If
+  nothing is stale, the agent skips the refresh step entirely — no wasted effort.
 - The template path is included so the agent can self-serve on conventions without
   needing a prompt for every question.
 - **Canonical declaration dialect (2026-08-02): repo-relative installed paths.** Two
