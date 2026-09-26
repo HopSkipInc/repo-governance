@@ -1,7 +1,7 @@
-<!-- template: configuration-governance.md v1.1.0 · updated 2026-09-26 -->
+<!-- template: configuration-governance.md v1.1.1 · updated 2026-09-26 -->
 # Configuration Governance
 
-**Status:** Policy — enforcement is a declared floor per repo, plus `check-config-coverage.mjs` and the ninth audit domain, **neither yet shipped** (see §11)
+**Status:** Policy — enforcement is a declared floor per repo, plus `check-config-coverage.mjs` (not yet shipped) and the ninth audit domain (**shipped** — `audit-domains.md`) — see §11
 **Related:** [Definition of Done](definition-of-done.md), [Design Lenses](design-lenses.md), [DB Migration Governance](db-migration-governance.md), [Agent Routing](agent-routing.md)
 **Paired records file:** `configuration-governance-records.md` (per-repo; this policy is identical everywhere, the records are not)
 
@@ -353,17 +353,17 @@ documents, never as a control.
 
 ## 11. Where this binds
 
-**This policy shipped ahead of its companions, and says so rather than implying
-otherwise.** None of the four artifacts below exist yet. A policy that describes
+**This policy shipped ahead of most of its companions, and says so rather than implying
+otherwise.** Three of the four artifacts below do not exist yet. A policy that describes
 its own enforcement in the present tense before the enforcement lands is the imitation
 surface §10 warns about, so the state is stated per row.
 
-| Artifact | Role | State at v1.1.0 |
+| Artifact | Role | State at v1.1.1 |
 |---|---|---|
 | `configuration-governance-records.md` | The inventory, the declared floor per principal class, dated exceptions, and the deliberate non-classified list. Never syncs | **Not shipped** |
 | `skills/configuration-interview/` | Produces the records file. It exists because five local facts decide whether any of this is reachable: where configuration is declared, whether a broker exists, which identity primitives exist, which principal classes are present, and whether a runtime config store exists | **Not shipped** |
 | `scripts/check-config-coverage.mjs` | Gates coverage, per §7 | **Not shipped** |
-| Ninth audit domain | Reports floor breaches, expired exceptions, and the §8 heuristic smells | **Not shipped** |
+| Ninth audit domain | Reports floor breaches, expired exceptions, and the §8 heuristic smells | **Shipped** — `templates/audit-domains.md` v1.0.1, domain 9 |
 
 Until the lint lands, every row in §7's table marked *Mechanical* is **human review
 only**. Installing this policy alone buys a shared model and a vocabulary; it buys no
@@ -461,6 +461,7 @@ together with it often enough that the boundary is stated.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.1.1 | 2026-09-26 | §11's ninth-audit-domain row flips to **Shipped** — `audit-domains.md` v1.0.1 defines it — so the intro reads "three of the four" and the Status line separates the shipped domain from the unshipped lint. (Staged earlier as 1.0.2; it lands on top of 1.1.0.) |
 | 1.1.0 | 2026-09-26 | §10 reframed to **engineering prior art**: the compliance-framework rows (OWASP ASVS, the OWASP Top 10 misconfiguration/crypto rows, PCI DSS/SOC 2) and their control/audit-evidence framing are removed, the lane is stated (PDR-007, `gtm/positioning.md`), and the engineering sources are kept. Adds §12 — the adoption path from the practiced regime to this one: phased installability, per-repo steps, rollout sequencing, the `.env`-split relationship, the deferred client prompt, and the boundaries with `harness-enforcement` and `agent-routing` |
 | 1.0.1 | 2026-09-26 | §11 said "three of the four artifacts below do not exist yet" while all four rows read *Not shipped*, and the Status line named the ninth audit domain as enforcement without marking it unshipped. Both now match the table |
 | 1.0.0 | 2026-09-16 | Initial. Two-axis model, placement table, composition matrix, the reference rule, the five-tier ladder with separate floors for human and non-human principals, coverage-not-correctness enforcement contract, ten smells split by claim strength, six failure modes, three-way provenance |
