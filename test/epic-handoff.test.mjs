@@ -21,14 +21,17 @@ const SCRIPT = resolve(REPO, 'templates', 'scripts', 'check-epic-handoff.mjs');
 
 const STUB_SOURCE = `#!/usr/bin/env node
 // Data-driven gh stub. Spec (JSON at $GH_STUB):
-//   { "issues": [ ...open issues... ] }  |  { "fail": true } (gh unavailable)
+//   { "issues": [ ...open issues... ], "repoSlug": "owner/repo" }
+//   | { "fail": true } (gh unavailable — both repo view and issue list fail)
 const spec = JSON.parse(require('fs').readFileSync(process.env.GH_STUB, 'utf8'));
 const args = process.argv.slice(2);
 if (spec.fail) {
   process.stderr.write('gh: not authenticated. Run gh auth login.\\n');
   process.exit(1);
 }
-if (args[0] === 'issue' && args[1] === 'list') {
+if (args[0] === 'repo' && args[1] === 'view') {
+  process.stdout.write(JSON.stringify({ nameWithOwner: spec.repoSlug ?? 'fixture/repo' }));
+} else if (args[0] === 'issue' && args[1] === 'list') {
   process.stdout.write(JSON.stringify(spec.issues ?? []));
 } else {
   process.stderr.write('gh stub: unhandled ' + args.join(' ') + '\\n');
@@ -36,8 +39,12 @@ if (args[0] === 'issue' && args[1] === 'list') {
 }
 `;
 
-/** A fixture dir carrying the gh stub + spec. Returns env for run(). */
-function ghStub(spec) {
+/**
+ * A fixture dir carrying the gh stub + spec. Returns env for run().
+ * `withRepoEnv` (default true) sets EPIC_HANDOFF_REPO, which short-circuits
+ * `gh repo view`; set false to exercise the real slug-resolution path.
+ */
+function ghStub(spec, withRepoEnv = true) {
   const dir = mkdtempSync(join(tmpdir(), 'repo-gov-handoff-'));
   const bin = join(dir, 'bin');
   mkdirSync(bin, { recursive: true });
@@ -45,11 +52,9 @@ function ghStub(spec) {
   chmodSync(join(bin, 'gh'), 0o755);
   const specPath = join(dir, 'spec.json');
   writeFileSync(specPath, JSON.stringify(spec));
-  return {
-    PATH: `${bin}:${process.env.PATH}`,
-    GH_STUB: specPath,
-    EPIC_HANDOFF_REPO: 'fixture/repo',
-  };
+  const env = { PATH: `${bin}:${process.env.PATH}`, GH_STUB: specPath };
+  if (withRepoEnv) env.EPIC_HANDOFF_REPO = 'fixture/repo';
+  return env;
 }
 
 function run(env, args = []) {
@@ -223,6 +228,70 @@ test('epic-handoff: --gate with gh unavailable exits 2, not 0 and not 1', () => 
   const env = ghStub({ fail: true });
   const { code, out } = run(env, ['--gate']);
   assert.equal(code, 2, out);
+});
+
+// -------------------------------------------------- repo resolution + ceiling
+// Regressions from review 2026-09-26 (#115). Both were reachable but untested:
+// the SKIPPED fixtures always set the repo env, and no fixture exercised the
+// fetch ceiling.
+
+test('epic-handoff: gh repo view failure with no env override reaches SKIPPED, not a crash', () => {
+  const env = ghStub({ fail: true }, false); // no EPIC_HANDOFF_REPO -> gh repo view runs
+  const { code, out } = run(env);
+  assert.equal(code, 0, out);
+  assert.match(out, /SKIPPED/);
+  assert.doesNotMatch(out, /OK:/);
+  assert.doesNotMatch(out, /at .*\.mjs:\d+/); // a thrown stack trace, not a clean SKIP
+});
+
+test('epic-handoff: the slug resolves via gh repo view when no env override is set', () => {
+  const env = ghStub(
+    { issues: [epic(12, handoff(`**Handoff updated:** ${date(2)}`))], repoSlug: 'fixture/repo' },
+    false,
+  );
+  const { code, out } = run(env);
+  assert.equal(code, 0, out);
+  assert.match(out, /fixture\/repo/);
+  assert.match(out, /census: fresh 1/);
+});
+
+test('epic-handoff: a response filling the fetch ceiling is TRUNCATED, never OK', () => {
+  const env = ghStub({
+    issues: [
+      epic(1, handoff(`**Handoff updated:** ${date(2)}`)),
+      epic(2, handoff(`**Handoff updated:** ${date(2)}`)),
+    ],
+  });
+  const { code, out } = run(env, ['--limit', '2']);
+  assert.equal(code, 0, out); // probe still never blocks
+  assert.match(out, /TRUNCATED: the open-issue response filled the fetch ceiling/);
+  assert.doesNotMatch(out, /OK:/);
+});
+
+test('epic-handoff: --gate with a filled ceiling exits 2, distinct from findings (1)', () => {
+  const env = ghStub({
+    issues: [
+      epic(1, handoff(`**Handoff updated:** ${date(2)}`)),
+      epic(2, handoff(`**Handoff updated:** ${date(2)}`)),
+    ],
+  });
+  const { code, out } = run(env, ['--limit', '2', '--gate']);
+  assert.equal(code, 2, out); // degraded (truncated) beats the clean census
+});
+
+test('epic-handoff: a ceiling that is not filled is not truncation', () => {
+  const env = ghStub({ issues: [epic(1, handoff(`**Handoff updated:** ${date(2)}`))] });
+  const { code, out } = run(env, ['--limit', '50']);
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /TRUNCATED/);
+  assert.match(out, /OK:/);
+});
+
+test('epic-handoff: --limit rejects a non-integer loudly', () => {
+  const env = ghStub({ issues: [] });
+  const bad = run(env, ['--limit', 'lots']);
+  assert.equal(bad.code, 2, bad.out);
+  assert.match(bad.out, /--limit needs a positive integer/);
 });
 
 // ------------------------------------------------------------------ census all
