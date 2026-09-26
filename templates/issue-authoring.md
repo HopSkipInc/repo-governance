@@ -1,8 +1,8 @@
-<!-- template: issue-authoring.md v1.3.0 · updated 2026-08-18 -->
+<!-- template: issue-authoring.md v1.4.0 · updated 2026-09-26 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
-**Related:** [Definition of Done](definition-of-done.md) · [Agent Routing](agent-routing.md)
+**Related:** [Definition of Done](definition-of-done.md) · [Agent Routing](agent-routing.md) · [Epic Handoff](epic-handoff.md)
 
 ## Purpose
 
@@ -64,7 +64,7 @@ Rules:
   for months against a blocker that closed long ago; the probe's stale-status class reads
   this date. Re-asserting the status means re-dating it.
 
-For **epics**: "Verifiable outcomes" = "epic closes when all child issues close" **plus** 2–3 epic-level acceptance gates; list known child issue numbers under Dependencies.
+For **epics**: "Verifiable outcomes" = "epic closes when all child issues close" **plus** 2–3 epic-level acceptance gates; list known child issue numbers under Dependencies. An epic also carries a **`## ▶ Pick up here — rolling handoff`** section near the top — the dated continuation the next session reads first. It is not required at creation (an unstarted epic has nothing to hand off); it becomes required the first time a session works the epic, and it is refreshed at every session end and every child close, so a restart, a failed worker, or a night's sleep never costs the next session the epic's live state. See [Epic Handoff](epic-handoff.md); the freshness probe reads its `Handoff updated` date.
 
 <!-- Delete this rule if your repo has no docs/pdr/ -->
 For **features and epics** (only): a **Serves** line naming the product decision this work advances (`PDR-NNN`), or `none` with a one-line reason. Bugs and chores don't carry it — an escape hatch that costs less than a lie is what stops the field from becoming decoration. The audit reports the orphan rate, not a compliance score: a few `none`s are healthy, a majority means the PDR corpus has stopped describing what the team is building.

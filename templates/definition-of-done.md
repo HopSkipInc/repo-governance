@@ -1,4 +1,4 @@
-<!-- template: definition-of-done.md v1.5.0 · updated 2026-08-18 -->
+<!-- template: definition-of-done.md v1.6.0 · updated 2026-09-26 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit
@@ -163,6 +163,36 @@ Every piece of work has a type. A thing is done when the row for its type is ful
 - [ ] **Dependent sweep done** — searched for open issues whose `## Dependencies` names this issue in a `blocked-by` ref; for each dependent, cleared the reference, flipped `status:blocked` if this was its last blocker, and corrected body prose that still asserts the blocker. Sweep command and the record-it-in-the-closing-comment rule: *Stale issue sweep* below
 
 > **Why this rule exists:** [Fill in with your own incident. Example: "An issue was closed when the primary migration shipped, while IaC files, docs, and dependent issues still referenced the retired pattern — a P1 in the next audit. On creation: a backlog sweep of ~50 open issues found most lacked verifiable outcomes — they captured intent but gave no one a way to self-verify completion, so the whole backlog had to be re-authored by hand."]
+
+---
+
+### Epic handoff (rolling continuation)
+
+An epic is worked across sessions; the handoff is how its live state survives the
+boundary. It is **read at session start and written at every boundary that changes the
+epic's state** — not a one-time artifact. Format and rules: `epic-handoff.md`.
+
+- [ ] **At session start** — if this session works in an epic, read its
+  `## ▶ Pick up here — rolling handoff` first. If `Handoff updated` predates the newest
+  child close, or is older than the cadence, treat the do-next order as **unverified**:
+  re-read the children, the merged PRs, and the ledger before acting on it
+- [ ] **On any child close** — the parent epic's handoff is refreshed in the same
+  session: the shipped line names this issue and its PR, and `Handoff updated` is
+  re-dated
+- [ ] **At session end** — any epic the session touched carries a current, dated handoff
+- [ ] **When more than one session may write** — a single writer (the orchestrator) owns
+  the epic body; workers report through the ledger and their own issue/PR, never by
+  editing the epic concurrently
+- [ ] **At epic close** — the handoff is replaced with a final shipped summary or
+  removed; a rolling handoff is never left on a closed epic
+
+> **Why this rule exists:** [Fill in with your own incident. Example: "A gateway epic
+> spanning several sessions lost its live state at every boundary — what had just
+> shipped, the operational step that had to run first, which decision was already made.
+> The next session spent its first hour re-deriving all of it from ~40 child issues and
+> a dozen PRs, and occasionally re-litigated a decision the previous session had already
+> recorded. The epic body already held the children; a dated continuation section made it
+> hold the state too."]
 
 ---
 

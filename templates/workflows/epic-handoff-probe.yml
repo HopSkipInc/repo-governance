@@ -1,0 +1,87 @@
+# template: workflows/epic-handoff-probe.yml v1.0.0 · updated 2026-09-26
+name: Epic-handoff probe
+
+# Kind: PROBE — monitors the freshness of epic handoffs, never blocks merges or deploys.
+#
+# The failure this watches: a rolling epic handoff (templates/epic-handoff.md) stops
+# being refreshed and still reads as current. The next session trusts a do-next order
+# that a child close, a decision, or a merged PR invalidated weeks ago — the state did
+# not transfer and nothing said so. The primary control is the session/child-close
+# obligation in definition-of-done.md; this probe is the backstop for when it didn't
+# happen, and the reader of the mandatory `Handoff updated` marker.
+#
+# What it does, weekly:
+#   1. Runs scripts/check-epic-handoff.mjs in probe mode (always exit 0; the classes
+#      and the SKIPPED contract are in its header).
+#   2. Upserts ONE rolling issue (label: epic-handoff-probe) with the census +
+#      findings — not one issue per finding.
+#
+# It reads epic bodies only and needs no cross-repo token: the body-versus-graph axis
+# (a child closed but the epic body never moved) is owned by check-backlog-currency.mjs
+# where the grooming regime is installed. Keeping this probe single-axis is deliberate
+# (PDR-008's two-enumerators hazard). It uses the default GITHUB_TOKEN.
+#
+# No P1 escalation in v1. missing (an epic with no handoff at all) is report-only and
+# expected to be estate-wide on first adoption; stale/undated are gate-eligible but the
+# promotion to a gate — and any escalation — is earned after a false-positive review on
+# a live estate, per the house WARN→FAIL discipline. A wall on day one gets ignored.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Mondays 09:00 UTC — beside the stale-blocker probe, before weekly triage
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the probe (probe mode — never fails the job)
+        id: run
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          node scripts/check-epic-handoff.mjs | tee probe-output.txt
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Upsert the rolling issue
+        env:
+          RUN_DATE: ${{ steps.run.outputs.date }}
+        run: |
+          set -euo pipefail
+
+          gh label create epic-handoff-probe \
+            --repo "$GITHUB_REPOSITORY" \
+            --description "Rolling output of the weekly epic-handoff freshness probe" \
+            --color 5319E7 --force
+
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --label epic-handoff-probe --json number --jq '.[0].number // empty')
+
+          TITLE="epic-handoff probe — rolling findings (last run $RUN_DATE)"
+          {
+            echo "Weekly output of \`.github/workflows/epic-handoff-probe.yml\`. Rewritten each run —"
+            echo "do not edit by hand; re-date or refresh the handoff on the flagged epics and let the"
+            echo "next run clear them. A stale handoff is not wrong — it is unverified."
+            echo ""
+            echo '```'
+            cat probe-output.txt
+            echo '```'
+          } > rolling-body.md
+
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --body-file rolling-body.md
+            echo "Updated rolling issue #$EXISTING."
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --label epic-handoff-probe \
+              --body-file rolling-body.md
+          fi
