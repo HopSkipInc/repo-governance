@@ -43,7 +43,18 @@
  *   gh unavailable    prints SKIPPED and exits 0 in probe mode; with --gate exits 2 —
  *                     distinct from clean (0) and from findings (1), because a probe
  *                     that fails open reads as evidence (the R6 contract in
- *                     check-issue-routing.mjs).
+ *                     check-issue-routing.mjs). Repo resolution (`gh repo view`) is
+ *                     INSIDE the guarded block: a gh outage must reach SKIPPED, not
+ *                     crash the process (observed in review 2026-09-26 — the first
+ *                     version resolved the slug outside the guard, so the SKIPPED path
+ *                     was unreachable whenever EPIC_HANDOFF_REPO was unset).
+ *   fetch ceiling      the open-issue list is fetched with --limit (default 1000). If
+ *                     the response fills the ceiling, the sweep may be incomplete, so
+ *                     the run prints TRUNCATED, never OK, and exits 2 under --gate. The
+ *                     first version used a fixed 500 and a clean subset printed OK —
+ *                     ai-fleet's 614 open issues silently lost its 12 oldest epics
+ *                     (observed in review 2026-09-26). A ceiling is allowed; a silent
+ *                     ceiling is not.
  *
  * The section scan is a LINE SCAN. JavaScript has no \Z anchor — `(?=^##\s|\Z)`
  * silently degrades to "followed by a literal Z", and that bug already cost a live
@@ -51,7 +62,8 @@
  * regex.
  *
  * CONFIGURE BEFORE USE — REPO is auto-detected from git remote; override with
- * EPIC_HANDOFF_REPO when running outside a checkout. Epics are identified by the
+ * EPIC_HANDOFF_REPO when running outside a checkout. --limit overrides the fetch
+ * ceiling (default 1000) for a backlog that has outgrown it. Epics are identified by the
  * `epic` label, a `## Work type` → `epic` line, or a handoff section already present;
  * a repo that marks epics some other way gets no `missing` findings (an accepted
  * fail-open — `issue-authoring.md` already requires a type label or the Work-type
@@ -64,9 +76,6 @@
 import { execFileSync } from 'child_process';
 
 // ---------------------------------------------------------------- configure
-
-/** Max open issues fetched from the swept repo (epics are a subset). */
-const LIMIT = 500;
 
 /** The handoff heading. Glyph optional — `## Pick up here` parses too. */
 const HEADING = /^##[ \t]*(?:▶[ \t]*)?pick up here\b/i;
@@ -96,19 +105,14 @@ function intArg(flag, def) {
 
 const MAX_AGE = intArg('--max-age', 21);
 const ACTIVE_DAYS = intArg('--active-days', 30);
+/** Fetch ceiling for the open-issue list. Filling it is reported, never silent. */
+const LIMIT = intArg('--limit', 1000);
 
 // ------------------------------------------------------------------ helpers
 
 function gh(args) {
   return execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
-
-function repoSlug() {
-  if (process.env.EPIC_HANDOFF_REPO) return process.env.EPIC_HANDOFF_REPO;
-  return JSON.parse(gh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
-}
-
-const REPO = repoSlug();
 
 /**
  * The handoff section: `{ heading, block }` or null. Line-scanned — see the header.
@@ -149,17 +153,24 @@ function daysBetween(later, earlier) {
 // -------------------------------------------------------------------- sweep
 
 let issues;
+let truncated = false;
+let REPO = process.env.EPIC_HANDOFF_REPO || null;
 try {
+  // Repo resolution is INSIDE the guard: `gh repo view` can fail for the same
+  // reasons `gh issue list` can, and both must reach SKIPPED rather than crash.
+  if (!REPO) REPO = JSON.parse(gh(['repo', 'view', '--json', 'nameWithOwner'])).nameWithOwner;
   issues = JSON.parse(
     gh(['issue', 'list', '--repo', REPO, '--state', 'open', '--limit', String(LIMIT),
         '--json', 'number,title,body,labels,updatedAt'])
   );
 } catch (err) {
   const msg = `${err.stderr ?? ''}${err.message ?? ''}`.split('\n')[0] || 'unknown error';
-  console.log(`check-epic-handoff: ${REPO} — SKIPPED (${msg}).`);
+  console.log(`check-epic-handoff: ${REPO ?? '(repo unresolved)'} — SKIPPED (${msg}).`);
   console.log('Not counted as clean: the epic set was never read, so a stale handoff is invisible this run.');
   process.exit(GATE ? 2 : 0);
 }
+// A response that fills the ceiling may be missing the oldest issues. Never silent.
+truncated = issues.length >= LIMIT;
 
 const findings = [];
 function report(cls, number, message) {
@@ -220,7 +231,7 @@ for (const issue of issues) {
 
 console.log(
   `check-epic-handoff: ${REPO} — ${epicCount} open epic(s) of ${issues.length} open issues ` +
-  `(max age ${MAX_AGE}d, active window ${ACTIVE_DAYS}d).`
+  `(max age ${MAX_AGE}d, active window ${ACTIVE_DAYS}d, fetch limit ${LIMIT}).`
 );
 console.log(
   `census: fresh ${census.fresh} · stale ${census.stale} · undated ${census.undated} · ` +
@@ -240,8 +251,22 @@ if (findings.length) {
   }
 }
 
-if (!findings.length) {
+if (truncated) {
+  console.log(
+    `\nTRUNCATED: the open-issue response filled the fetch ceiling (--limit ${LIMIT}). ` +
+    'The sweep may be incomplete, and a clean-looking census is not trustworthy.'
+  );
+  console.log(
+    'Not counted as clean: epics beyond the ceiling were never swept. Raise --limit and re-run.'
+  );
+}
+
+if (!findings.length && !truncated) {
   console.log('OK: every open epic with a handoff carries a fresh, dated marker.');
 }
 
-process.exit(GATE && census.undated + census.stale > 0 ? 1 : 0);
+process.exit(
+  GATE && truncated ? 2
+    : GATE && census.undated + census.stale > 0 ? 1
+    : 0
+);
