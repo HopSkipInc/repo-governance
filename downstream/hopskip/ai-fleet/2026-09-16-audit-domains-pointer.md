@@ -1,7 +1,7 @@
 # Audit Domains — single definition, machine goals point at it — ai-fleet
 
 **Client:** Hopskip (internal)
-**Source:** greg/repo-governance session 2026-09-16 (PR #108 — `templates/audit-domains.md` v1.0.0)
+**Source:** HopSkipInc/repo-governance session 2026-09-16 (PR #108 — `templates/audit-domains.md` v1.0.1)
 **Scope:** Install `docs/audit-domains.md`; replace the inline domain block in each of the three audit machines' stored goals with a pointer to it.
 
 > **THIS STEP CARRIES MIGRATIONS.** Three of them, one per audit machine, against
@@ -37,7 +37,7 @@ domain list inside a database row is invisible to every check that reads files: 
 stamp, no drift check, no diff. The domain set a given audit ran cannot be recovered from
 the repository.
 
-Upstream now ships one definition — `templates/audit-domains.md` v1.0.0 — carrying domains
+Upstream now ships one definition — `templates/audit-domains.md` v1.0.1 — carrying domains
 1–8 verbatim from the workflow template plus a new domain 9 (configuration and secrets).
 This prompt installs it here and converts the machines to read it.
 

@@ -1,4 +1,4 @@
-<!-- template: audit-domains.md v1.0.0 · updated 2026-09-16 -->
+<!-- template: audit-domains.md v1.0.1 · updated 2026-09-26 -->
 # Audit Domains
 
 **Status:** Policy — the single definition of what a staleness audit checks
@@ -260,10 +260,12 @@ for you.
    placement, `SECRET` for ladder and tier findings.
 
    **This domain carries only what a per-PR gate structurally cannot see.**
-   `check-config-coverage.mjs` already gates undeclared variables, dead variables, and
-   secrets held as literals on every pull request. Repeating those here is noise. What is
-   left is everything that is triggered by the passage of time or by a change outside the
-   repository:
+   When `check-config-coverage.mjs` is wired it gates undeclared variables, dead
+   variables, and secrets held as literals on every pull request — those are not repeated
+   here. Until that lint ships, this domain is the *only* configuration check and the
+   records file is by definition likely stale; say so rather than reporting clean. What
+   this domain adds either way is everything triggered by the passage of time or by a
+   change outside the repository:
 
    - **Floor breach.** Any variable at a tier below the floor its principal class declares
      → **P1**. A non-human principal holding a T4 local long-lived secret → **P0**: that
@@ -360,4 +362,5 @@ whichever consumer is running the audit, because it differs by substrate:
 
 | Version | Date | Change |
 |---|---|---|
+| 1.0.1 | 2026-09-26 | Domain 9 said `check-config-coverage.mjs` "already gates" undeclared/dead variables and literal secrets on every PR — present tense for an unshipped lint, contradicting the domain's own later "if it is not wired in this repo" branch. Reworded to conditional; the lint is not shipped (`configuration-governance.md` §11). No domain content changed |
 | 1.0.0 | 2026-09-16 | First single definition. Domains 1–8 carried over verbatim from `workflows/scheduled-audit.yml` v1.1.0, which held them inline in its prompt; the cron state machines that actually run the audits in the reference estate hold their own inline copies in the fleet host database, and those copies have already diverged from each other. Adds domain 9 (configuration and secrets), the `LAYER` token for domain 7 (previously unregistered — the convention listed eight tokens covering seven domains), and the consumer contract, including the pointer-migration path for machine-driven audits |
