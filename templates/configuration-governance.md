@@ -1,7 +1,7 @@
-<!-- template: configuration-governance.md v1.0.0 · updated 2026-09-16 -->
+<!-- template: configuration-governance.md v1.0.1 · updated 2026-09-26 -->
 # Configuration Governance
 
-**Status:** Policy — enforced by `check-config-coverage.mjs` (not yet shipped — see §7), a declared floor per repo, and the ninth audit domain
+**Status:** Policy — enforcement is a declared floor per repo, plus `check-config-coverage.mjs` and the ninth audit domain, **neither yet shipped** (see §11)
 **Related:** [Definition of Done](definition-of-done.md), [Design Lenses](design-lenses.md), [DB Migration Governance](db-migration-governance.md), [Agent Routing](agent-routing.md)
 **Paired records file:** `configuration-governance-records.md` (per-repo; this policy is identical everywhere, the records are not)
 
@@ -349,7 +349,7 @@ entry says which of three things it does.
 ## 11. Where this binds
 
 **This policy shipped ahead of its companions, and says so rather than implying
-otherwise.** Three of the four artifacts below do not exist yet. A policy that describes
+otherwise.** None of the four artifacts below exist yet. A policy that describes
 its own enforcement in the present tense before the enforcement lands is the imitation
 surface §10 warns about, so the state is stated per row.
 
@@ -371,4 +371,5 @@ without the gate.
 
 | Version | Date | Change |
 |---|---|---|
+| 1.0.1 | 2026-09-26 | §11 said "three of the four artifacts below do not exist yet" while all four rows read *Not shipped*, and the Status line named the ninth audit domain as enforcement without marking it unshipped. Both now match the table |
 | 1.0.0 | 2026-09-16 | Initial. Two-axis model, placement table, composition matrix, the reference rule, the five-tier ladder with separate floors for human and non-human principals, coverage-not-correctness enforcement contract, ten smells split by claim strength, six failure modes, three-way provenance |

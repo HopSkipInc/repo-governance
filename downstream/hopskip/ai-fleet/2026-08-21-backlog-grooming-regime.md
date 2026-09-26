@@ -3,7 +3,9 @@
 **Applies to:** HopSkipInc/ai-fleet (pilot and reporting repo). Other `full`-class repos take
 the lint on a later sync; the remediation numbers and the self-test below are ai-fleet's.
 **Ships with:** nothing yet — this prompt requests the templates and carries the v1 design
-(§3 detection semantics, Layer 3 artifact schema, §8 extraction gate). Proposed shape:
+(§3 detection semantics, Layer 3 artifact schema, §8 extraction gate). **Layer 3 revised
+v1 → v2 2026-09-20 — see the banner at §3; the v1 text there was never built anywhere.**
+Proposed shape:
 `templates/scripts/check-backlog-currency.mjs` (new) and
 `templates/skills/backlog-groom/SKILL.md` (new). The `blocked-by` half is **not** rebuilt:
 `templates/scripts/check-stale-blockers.mjs` v1.0.0 shipped upstream 2026-08-18 and is
@@ -194,36 +196,136 @@ a priority computed from a stale body is the incident this prompt exists to reti
 
 ### Layer 3 — the roadmap is generated, not authored
 
-Five rules, each earned from a specific error in the incident:
+> **Revised v1 → v2, 2026-09-20.** Between 2026-08-20 and 2026-09-12 the ai-fleet roadmap
+> was produced **six times by hand**, published as Artifacts, never source-controlled — the
+> pilot this layer exists to retire ran long enough to test v1 against reality. v2 keeps the
+> five rules (one sharpened), the six-column contract (two columns sharpened), the trust
+> model, and the §4 estimation seam unchanged. It adds what six runs taught: the
+> data/narrative split, the trust header as a generated field, the versioning model, the
+> placement rule, and the schedule classification. Each addition names its evidence in line.
+> A same-day second pass (owner-directed, after a census showed **78% of ai-fleet's open
+> backlog living outside the epic graph**) added the **debt table and the debt sweep** —
+> the unparented bugs and one-offs that an epic-shaped artifact renders invisible.
+> Implementation lands in ai-fleet via `2026-09-20-roadmap-layer3-v2.md`; **no `templates/`
+> artifact ships from this revision** — PDR-010 Consequences 4 binds, and the template
+> extracts after one full ai-fleet cycle of v2, not before.
 
-- **Children win over bodies.** Every status assertion resolves from child state, ADR state, or
-  the tree. Bodies supply *intent* — the why, the sequencing rationale, the gate definitions —
-  and nothing else.
-- **Every claim carries provenance.** A row saying "blocked on X" names what was read. In the
-  pilot, one row rendered `stale label` instead of trusting `status:needs-decision`, and that
-  was the only reason the contradiction surfaced at all.
+**The split v1 never named.** v1's schema was *one row per work item, generated* — a table.
+Every roadmap actually produced carried sections a table cannot express: a **sequence**
+("start next, in this order", each row naming what gates it), a **dependency ordering**
+(four horizons), and **cross-cutting observations** ("four things to watch", each a named
+mechanism — e.g. *a guard that was green because it could not see the thing it guarded*).
+The table is the substrate; the narrative is the product. The owner's requirement —
+runnable on demand from any session, with a versioned set of output artifacts — is only
+satisfiable if the deterministic half is a file with a stable schema that any session can
+regenerate and diff, and the judgment half is a separate pass over it. v2 is therefore two
+artifacts and two passes:
+
+- **A data pass** — deterministic, `gh`-only, no model judgment. Emits a committed,
+  diffable data artifact. Everything in it is computable: epic enumeration, child counts
+  from the sub-issue graph, label reads, declared-blocker resolution against open/closed
+  state, PR state, `impl:` tier coverage — and the **unparented population as an
+  age-bucketed debt table**, because 412 of 525 open issues (2026-09-20) have no epic and
+  an epic-shaped artifact renders them invisible. It **shares its graph loader with the
+  Layer 1 currency lint** rather than growing another enumerator — PDR-008's
+  two-enumerators hazard is the reason this regime already splits C2 from
+  `check-stale-blockers.mjs`, and it applies here. (The stale-blockers copy is a
+  byte-identical synced template, so unifying *its* loader is an upstream template
+  revision owed at extraction time — a local refactor would drift it off v1.0.0 to save a
+  deduplication.)
+- **A narrative pass** — a skill, reading the data artifact, verifying load-bearing code
+  claims with named commands (the Layer 2 discipline), writing prose into marked sections
+  of a committed narrative document. Sequence, horizons, and cross-cutting observations
+  live here and nowhere else.
+
+Five rules, each earned from a specific error in the incident. Five held across six runs;
+one needed sharpening:
+
+- **Children win over bodies — and the rule governs status assertions.** Every status
+  assertion resolves from child state, ADR state, or the tree. Bodies supply *intent* — the
+  why, the sequencing rationale, the gate definitions — and nothing else. **Sharpened in
+  v2:** the runs found the inverse failure too. An epic body can be *right* about a
+  decision while the graph is silently wrong about the shape — #1886's tenancy blocker was
+  partly answered by two issues that shipped in a different epic, for a different purpose,
+  without referencing it; the graph showed nothing because no link was ever made. So the
+  rule scopes itself: it governs *status* claims, and a body's *intent* claims get Layer 2
+  verification against code, not against the graph.
+- **Every claim carries provenance — and provenance is `file:line@ref`.** v1 said "the
+  command, query, or source used". Across six runs the load-bearing provenance was almost
+  always a file and a line into code on a named ref — `registry-pricing-table.ts:193`
+  raising rather than falling back, `workspaces.ts:55` recording why auto-join was
+  rejected, `fleet-dispatch-shared.resolveModel` still applying a role heuristic. Those are
+  what turned an epic body's claim from plausible to settled. **The ref is required** — a
+  line number without a commit is unfalsifiable a week later. In the v1 pilot, one row
+  rendered `stale label` instead of trusting `status:needs-decision`, and that was the only
+  reason the contradiction surfaced at all.
 - **Point-in-time and forward only.** No session narrative, no "what we decided today", no
   changelog of the document's own revisions. The pilot accumulated all three and needed a
-  rewrite.
-- **Name what expires.** Distinguish "late if delayed" from "impossible if delayed". The pilot
-  found exactly one of the latter and had overstated its scope by half.
-- **Distinguish decision / credential / dependency / deliberate wait.** Four things that all
-  present as "blocked" and need entirely different actions. Collapsing them makes a credential
-  look like an open question.
+  rewrite. (Unchanged in v2.)
+- **Name what expires — and expect almost nothing to.** Distinguish "late if delayed" from
+  "impossible if delayed". The v1 pilot found exactly one of the latter and had overstated
+  its scope by half. Six runs across ~39 open epics found the same density: **exactly one**
+  genuinely perishable item — a pre-cutover baseline capture whose window closes when an
+  upstream repo revokes a grant on someone else's schedule. v2 states the expected density:
+  **near-zero**. A generated roadmap that marks many rows `expires` is miscalibrated, and
+  saying so here is cheaper than discovering it per-repo.
+- **Distinguish decision / credential / dependency / deliberate wait.** Four things that
+  all present as "blocked" and need entirely different actions. Collapsing them makes a
+  credential look like an open question. (Unchanged in v2.)
 
-#### The artifact schema — v1
+#### The artifact schema — v2
 
-One row per work item, generated. The column set is the contract; it exists from day one so
-estimation lands later as **data in an existing column**, never as a redesign:
+The v1 column set held; it is preserved, with `provenance` and `expires` sharpened as
+above. The column set exists from day one so estimation lands later as **data in an
+existing column**, never as a redesign:
 
 | Column | Rule |
 |---|---|
-| `status` | Derived — child graph, ADR header, or tree check. Never asserted from a body |
-| `provenance` | Which of the four produced it — child graph, ADR header, tree check, or a dated product-owner statement — with the command, query, or source used |
+| `status` | Derived — child graph, ADR header, or tree check. Never asserted from a body. Children-win governs this column; a body's *intent* claims route to Layer 2, not to the graph |
+| `provenance` | `file:line@ref` for code claims — the ref is mandatory. Graph-derived claims carry the command or query and its date. Owner statements carry a date and an attribution |
 | `block type` | `decision` / `credential` / `dependency` / `deliberate-wait` |
-| `expires` | What invalidates the row — a date or a named trigger |
+| `expires` | What invalidates the row — a date or a named trigger. Expected density near-zero (above); a roadmap with many `expires` rows is miscalibrated |
 | `intent` | The only body-sourced column: the why, the sequencing rationale, the gate definitions |
 | `estimate` | Renders `thin` until the bucket reaches minimum `n` — the PDR-010 seam, §4 |
+
+The schema deliberately does not carry sequence, horizons, or cross-cutting observations.
+Those are the narrative document's sections; a table cell that tries to hold them is how
+v1's row-per-item schema silently lost the product.
+
+**The debt table and the debt sweep — added 2026-09-20.** The six runs were epic-centric,
+and the first draft of this revision inherited the blindness. A census the same day found
+412 of 525 open issues (78%) unparented — one-off bugs and chores with no epic, no
+children, and no place in an epic-shaped artifact. The age profile is the tech-debt shape:
+229 issues in the 30–90d band, 63 older, only 25 carrying `status:deferred` — neither
+worked nor consciously deferred, just drifting. The data artifact therefore carries **two
+tables**: the roadmap table above, and a **debt table** — the unparented population,
+age-bucketed, with the bug/chore mix read from labels. `status:deferred` renders
+separately *with its date*: deferred-on-the-record is a decision, aging-by-neglect is
+drift, and the table exists to make the two distinguishable. The trust header carries the
+>90d count, so a growing debt mass shows up in the committed diff without any new
+mechanics.
+
+Detection is not the hard half — disposition is, and §8's measured state says that is
+already the binding constraint here. So the debt table has a mandated judgment pass, the
+**debt sweep**, with the Layer 2 discipline adapted to work that has no body of claims:
+
+- **Triage** — every item gets its `status:` label and `impl:` tier, or it is routed into
+  the routing layer. (17 open bugs carried no status label at all on 2026-09-20.)
+- **Reproduce-or-close for bugs** — a bug is verified to still reproduce, with the named
+  command or observation, or the sweep proposes closure with the evidence attached. A
+  one-off's claims live in its repro steps, not an epic body; that is what verifies.
+- **Parenting and re-parenting** — loose issues that an epic owns get a proposed link;
+  mis-parented ones get a proposed move. **Proposed, never applied**: a graph write is
+  invisible in a PR diff — precisely the unreviewable class — so a human clicks. This is
+  the remediation for the children-win inverse: the graph that was silently wrong because
+  no link was ever made (#1886) gets a mechanism that makes the missing link visible.
+- **A three-way disposition for aged items** — fix (scheduled), defer (with a date), or
+  close (with a reason). Batched — the N oldest escalation candidates per run — because
+  the cold-start mass (59 issues at 90–180d) cannot be dispositioned in one pass, and a
+  wall gets ignored.
+
+The trigger is the data artifact itself: the sweep runs against the freshly regenerated
+debt table, on the same weekly cadence and on demand.
 
 **The trust model, stated once.** The substrate is the **backlog**, not the roadmap — and it
 is trustworthy only conditionally: the checks pass, and grooming runs on a cadence the repo
@@ -231,21 +333,61 @@ owner sets. The roadmap is a **projection** of that substrate plus the product o
 future-facing statements. In the audiences this estate targets, product owner and repo owner
 are usually the same person, so the whole mechanism must stay a one-person job. PDR-010
 estimation then layers on the projection for capacity planning. What v1 keys now, so the
-layer needs no retrofit: `Issue: #N` join keys on every generated row, declared-at-dispatch
-attribution, bucket keys (tier, kind, files, existing test coverage, work type, model,
-harness identity), `thin` below minimum `n`, gross and billable as separate columns, and caps
-never derived by the estimation pass.
+layer needs no retrofit, is unchanged: `Issue: #N` join keys on every generated row,
+declared-at-dispatch attribution, bucket keys (tier, kind, files, existing test coverage,
+work type, model, harness identity), `thin` below minimum `n`, gross and billable as
+separate columns, and caps never derived by the estimation pass.
 
 Two consequences of getting the substrate right:
 
 - **Every projection carries the substrate's trust state in its header** — lint last green,
-  and last groom pass measured against the owner-configured cadence. A lapsed cadence makes
+  last groom pass measured against the owner-configured cadence, the census line, and the
+  >90d debt count. A lapsed cadence makes
   the projection untrusted by default and the header says so, because a stale roadmap that
-  looks fresh is the incident this prompt exists to retire.
+  looks fresh is the incident this prompt exists to retire. **v2 makes the header a
+  generated field of the data pass.** Not one of the six hand-built roadmaps carried it; a
+  header the narrative pass must remember to render is a header that gets forgotten, and
+  for "runnable from any session" it is the load-bearing feature — the next session has no
+  other way to know whether the substrate under the projection is current.
 - **Owner statements are a provenance class, not a free pass.** A future-facing statement
   enters the projection dated and attributed. It asserts intent about the future, so Layer 2
   claim-checking does not apply to it — but it expires like everything else, and if it names
-  work, C5's markers pressure it into the backlog.
+  work, C5's markers pressure it into the backlog. (Unchanged in v2.)
+
+**Versioning — what is versioned, where, and what a diff means.** v1 never asked; the owner
+requires a versioned set of output artifacts. The answer, from the runs:
+
+- The **data artifact** is committed, and its git diff is the real signal — it shows what
+  changed in the backlog between two dates, mechanically, with no prose in the way.
+- The **narrative document** is committed alongside it, and its diff is a human-readable
+  record of how the reading changed.
+- Anything published — an Artifact, a page — is a **render**, never the source of truth.
+
+A re-run over an unchanged substrate must produce a **byte-identical** data artifact, or
+every run is a spurious diff. That forbids wall-clock self-timestamps: the commit is the
+timestamp, and every header field is a substrate fact that changes only when the substrate
+changes. This is the determinism discipline `docs/system-map.md` imposes with
+`PYTHONHASHSEED=0`, for the same reason.
+
+**Placement — deliberately outside the records set.** The data artifact is rewritten
+wholesale on every run; the narrative's marked sections likewise. That is the opposite of a
+record. ai-fleet treats `docs/adr/`, `docs/pdr/`, `docs/code-conventions.md`,
+`docs/testing-strategy.md` and `docs/agent-routing-records.md` as records — harness-denied
+to raw edits, written only through `host/scripts/write-record.mjs`. The two artifacts land
+at **`docs/roadmap-data.md`** (generated, never hand-edited) and **`docs/roadmap.md`**
+(narrative, marked sections) — deliberately outside that set: no write-record involvement,
+and the records stanza must not guard these paths.
+
+**Schedule — a probe-class artifact, never a gate.** The owner asked for on-demand *and*
+scheduled. A generated roadmap is a projection of live backlog state, not a function of a
+diff — the 2026-08-18 erratum's rule applies verbatim: **diff-scoped gates gate;
+state-scoped checks probe** (ADR-026). Layer 3 runs on demand from any session and on a
+schedule that publishes the artifact; it never blocks a merge, and no downstream repo may
+wire it as one.
+
+**Extraction.** No `templates/` artifact for Layer 3 until one full ai-fleet cycle of v2
+has run (PDR-010 Consequences 4) — the same discipline §8 applies to Layers 1–2, whose
+gate is unaffected by this revision and is separately unmet (state recorded there).
 
 ## 4. The PDR-010 seam — keyed now, computed later
 
@@ -360,6 +502,21 @@ before extraction. The extraction gate — all four required:
 3. **False-positive review.** Any class that cried wolf gets its parse rule tightened in
    ai-fleet first — the template inherits the tuned rules, not the naive ones.
 4. `backlog-groom` has run on ≥3 epics with the proposed corrections merged by a human.
+
+**Gate state, measured 2026-09-20** — recorded here so the next reader does not re-derive
+it. Verified against ai-fleet's rolling issues #2352/#2351 and the public probe run
+history; groom-pass disposition is per ai-fleet's CLAUDE.md log and issue comments:
+
+| Condition | State |
+|---|---|
+| 1. §6 self-test passes | **Met** — 13 fixture tests wired into `run-tests.yml` |
+| 2. Two scheduled probe cycles, every finding dispositioned | **Not met.** Three cycles ran (Aug 31, Sep 7, Sep 14). Findings were not worked: the currency census moved from `C1=1 C2=24 C3=6 C4=46 C5=23 C6=4` over 436 open issues at install to `C1=1 C2=25 C3=1 C4=61 C5=38 C6=6` over 498 on Sep 14 — C4 and C5 grew |
+| 3. False-positive review | **Substantially done, not recorded** — ai-fleet PR #2558 fixed the C3 cross-repo false positives and the C4 zero-link case; C3 fell 6 → 1, which is the evidence it worked. No discrete review artifact exists |
+| 4. `backlog-groom` on ≥3 epics, corrections merged by a human | **Not met.** Passes exist on #1252, #1886, #1888; the proposed corrections were not applied — the skill proposes and does not edit, by design, and nobody closed the loop |
+
+**The binding constraint is disposition, not detection**, and it has been the binding
+constraint for three weeks. The Layer 3 v2 revision (§3, 2026-09-20) does not relax this
+gate and is not an argument for extracting Layers 1–2.
 
 The templates then ship contract-style, like everything else under `templates/`:
 `templates/scripts/check-backlog-currency.mjs` and `templates/skills/backlog-groom/`, each

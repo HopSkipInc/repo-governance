@@ -7,6 +7,8 @@ description: >
   a botched implementation would produce rather than on difficulty. Every escalation carries
   a split proposal or a non-splittability statement.
   Read-only: it proposes, it never labels. Invoked by the routing-triage skill.
+# routing-class: frontier — the pin's triage class. The `model:` slug is a resolved
+# binding; check-classifier-pin-drift.mjs resolves it and fails closed on drift.
 model: opencode/claude-opus-5
 mode: subagent
 permission:
@@ -23,11 +25,11 @@ permission:
     "*": deny
   task: deny
 hidden: true
-version: 1.2.0
-updated: 2026-07-27
+version: 1.3.0
+updated: 2026-09-24
 ---
 
-<!-- template: agents/routing-classifier.opencode.md v1.2.0 · updated 2026-07-27 -->
+<!-- template: agents/routing-classifier.opencode.md v1.3.0 · updated 2026-09-24 -->
 <!-- Install to: ~/.config/opencode/agents/routing-classifier.md (global, not per-repo) -->
 
 # Routing Classifier
@@ -220,8 +222,8 @@ delegate classification to it. The `mode: subagent` + `hidden: true` frontmatter
 never appears as a primary agent and cannot be the default — it is only ever spawned for
 triage.
 
-The `model:` pin (`opencode/claude-opus-5`) is the one thing that will go stale. When Opus
-moves to a new version, update this file and the model→class mapping table in every repo's
-`docs/agent-routing-records.md` that references it. The pin is global, so there is exactly one file
-to update — but every repo's mapping table references it, so a re-sync reviews them in
-batch.
+The `model:` line is a resolved binding produced from the `# routing-class:` line above; it
+goes stale when the class is rebound. Update it from the class map — never by hand — and review
+the mapping table in every repo's `docs/agent-routing-records.md` that references it. The pin
+is global, so there is exactly one file to update, but every repo's mapping table references
+it, so a re-sync reviews them in batch.
