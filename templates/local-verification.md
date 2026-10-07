@@ -79,9 +79,14 @@ with four in parallel).
 
 **D5. Selection never fails open.** When the changed set cannot be computed (a shallow
 clone, no remote, no merge-base), the push tier runs the unselected unit suite and says
-that it did. It does not report a clean selection of nothing. When changed files have
-no selectable tests (integration tests, SQL, configuration), the tier says so and names
-where they run.
+that it did. It does not report a clean selection of nothing. Three rules follow:
+
+- **A deleted file is a change to its area.** It breaks its importers, even though no
+  test can be pointed at a file that no longer exists.
+- **A change that alters how every test resolves selects the whole suite.** That covers
+  the manifest, the lockfile, the test-runner config and the compiler config.
+- **A changed file the tier cannot select tests for is named in the output.** That
+  covers scripts, SQL and integration tests, and the output says where they run.
 
 **D6. Agent instructions name tiers by their trigger, never "the full suite before
 every commit".** The per-commit cost for an agent is the commit tier and nothing else.
@@ -113,10 +118,18 @@ change materially.
    and every sentence in agent instructions (`CLAUDE.md`, `AGENTS.md`, worker doctrine)
    that tells a contributor to run a check, with its trigger. Time each command once on
    a contributor-class machine, not a CI runner.
-2. **Build the push tier.** Diff against the merge-base, typecheck, selected unit tests,
-   and every lint read from the full composite and run in parallel. Missing tools report
-   `SKIPPED`. Give its selection logic fixture tests: a tier that quietly checks less
-   than it claims is its likeliest failure.
+2. **Build the push tier.** Diff against the merge-base, typecheck, run the selected unit
+   tests, and run every lint, read from the full composite and run in parallel. Missing
+   tools report `SKIPPED`, and so does a step that would need the network or a database.
+   **Build first whatever the lints or tests read from a build**, as a barrier, never in
+   parallel with its readers: on a fresh clone, which is every agent run, the readers
+   otherwise fail for no reason or test stale output. Select through the module graph
+   the tests actually use: if consumers import a package's built output, map a changed
+   source file to its built twin too. Give the selection logic fixture tests, because a
+   tier that quietly checks less than it claims is its likeliest failure. The ai-fleet
+   review of the first version found three such gaps: a deletion-only diff reported
+   clean, a fresh clone raced its own build, and a package's sources selected none of
+   their consumers' tests.
 3. **Slim the hooks to the commit tier.** Move everything that is not offline,
    staged-only and seconds-long out of them. Keep the opportunistic forms (for example,
    "is this migration applied to the local database, if one is running") and make their

@@ -33,35 +33,67 @@ the root `package.json`. The root one mirrors the root `check`: the gateway-hard
 `check-lint-ci-coverage.mjs` treats every `check-*.mjs` in a lint home as a lint that must
 be wired into `run-tests.yml` and the composite.
 
-What it runs, and why each choice:
+What it runs, and why each choice. The first version had three of these wrong; the
+review that caught them is quoted at each one.
 
-- **Changed set:** `git diff --name-only --diff-filter=d <merge-base(HEAD, origin/master)>`
-  plus untracked files. If no merge-base resolves, it runs the **whole unit suite** and says
-  so (D5). A shallow worker clone lands here, and it must not be reported as a clean
-  selection of nothing.
-- **Typecheck:** host-tools first, then host, **in sequence**. host's `tsconfig` references
-  `../host-tools`, so host reads host-tools' *emitted* declarations. Running the two in
-  parallel races the emit, and on a fresh clone with no `host-tools/dist` it fails outright.
-  host's pass is `--incremental` with its buildinfo under `node_modules/.cache` (21s cold,
-  about 5s warm, about 10s after an edit, measured).
+- **Changed set:** `git diff --name-only --no-renames <merge-base(HEAD, origin/master)>`
+  plus untracked files, **with deletions kept** for deciding which areas are touched. Only
+  the files still on disk are handed to the test runner. *(The first version used
+  `--diff-filter=d`, so a diff that only deleted a module four files import reported
+  `0 changed`, skipped the typecheck, and said clean.)* If no merge-base resolves, every
+  area runs unselected and the output says so (D5). A shallow worker clone lands here, and
+  it must not be reported as a clean selection of nothing.
+- **Barrier: build host-tools before anything else starts.** Several things read
+  host-tools' emitted output:
+  - host's typecheck, through the project reference;
+  - host/src's imports, which go through `dist/` (`lint:host-tools-dist-imports`);
+  - `check-required-credentials.mjs`, which statically imports `host-tools/dist/index.js`.
+
+  *(The first version ordered only the two `tsc` passes. On a fresh clone (every fleet
+  worker) a docs-only diff then failed `lint:required-credentials` with
+  ERR_MODULE_NOT_FOUND, and a code diff failed its related tests the same way.)* The build
+  takes about 2s warm and 6s cold. Then, in parallel:
+- **Typecheck host:** `--incremental`, with its buildinfo under `node_modules/.cache`
+  (21s cold, about 5s warm, about 10s after an edit, measured).
 - **Unit tests:** `vitest related` over changed files under `host/src`, `host/setup` and
-  `host-tools` only. Every `related` call pays about 10s to walk the graph, even when it
-  selects nothing, so scripts and config files are not passed. Changed
-  `*.integration.test.ts` files are listed as SKIPPED, with where they run.
-- **Lints:** every `lint:*` named in the `check` composite, **read from the composite at run
-  time** (D4: one list, so a lint added to the composite is in the fast tier with no second
-  edit), run directly with `sh -c` and `node_modules/.bin` on PATH, in parallel. A lint
-  whose command invokes `az` is SKIPPED when `az` is absent. Match on the command, not the
-  name: `lint:az-tsv-crlf` must still run.
+  `host-tools`. **Pass each host-tools source together with its `dist/…js` twin.** host/src
+  consumers import the emitted file, so the source alone selects only host-tools' own
+  tests. *(Measured: `sql-pool.ts` alone selected 16 files; with its twin it selects
+  112.)* Three more routes:
+  - A changed `host/scripts` file selects the unit tests that name it (`git grep -F
+    <basename>`), because those tests spawn the script or import a computed path that
+    `related` cannot follow. A sibling `*.test.mjs` also runs under `node --test`.
+  - A change to `host/package.json`, the lockfile, `vitest.config.ts` or either
+    `tsconfig.json` runs the whole suite.
+  - Anything left that selects no test is **named**, as are changed integration tests.
+
+  Do not pass other scripts or config: every `related` call pays about 10s to walk the
+  graph, even when it selects nothing.
+- **Lints:** every `lint:*` the composite names with `run lint:X`, matching
+  `check-lint-ci-coverage.mjs`'s acceptance so the two cannot disagree. The list is
+  **read from the composite at run time** (D4). Run them directly with `sh -c` and
+  `node_modules/.bin` on PATH, in parallel, **with `DATABASE_URL` withheld**: the README
+  and the DoD fleet row both export it, and the DB-backed lints fail when dev-pg is down
+  (D3). The output names the DB-backed lints whose database half therefore did not run.
+  Three lints are SKIPPED, with a reason, when they cannot run:
+  - a lint whose command invokes `az`, when `az` is absent (match the command, not the
+    name, so `lint:az-tsv-crlf` still runs);
+  - `lint:worker-sdk-cli-pin-coupling`, when `runtime/worker/node_modules` is absent,
+    because it would otherwise fetch from the registry.
 - **Web:** `tsc --noEmit` plus `vitest related` in `web/` when `web/` or `web-external/`
-  changed, and SKIPPED if `web/node_modules` is absent.
+  changed, or the whole web suite when the run is unselected. SKIPPED if `web/node_modules`
+  is absent.
 
 Give its selection logic fixture tests (`host/scripts/fast-check.test.mjs`, run by
 `tests/test-fast-check.sh` with an `ADR-026: GATE` header, matrix suite `fast-check` in
 `run-tests.yml`). The failure a fast tier is prone to is quietly checking less than it
 claims, so test that: the real composite parses end to end, an undefined composite entry
-throws, `requiredTool` does not match `az-` in a lint name, and the path mapping covers
-every included tree and excludes the rest.
+throws, `requiredTool` does not match `az-` in a lint name, and the routing pairs each
+host-tools source with its `dist/` twin. In a scratch git repo, also test that a deletion
+counts as a change, that a deletion-only diff still touches its area, that an
+unresolvable base is `null` and not an empty list, and that a script selects the unit
+tests that name it but not its integration tests. Use an oracle for the composite parse
+that does not share the parser's regex.
 
 ## 3. The commit tier — `.githooks/pre-commit`
 
@@ -71,7 +103,9 @@ numbered migration is staged:
 
 1. `node host/scripts/check-adr008-migrations.mjs` and `check-migration-immutability.mjs`,
    with git's hook env stripped (`env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE -u
-   GIT_PREFIX`, the #2853/#2872 lesson). They are sub-second and offline.
+   GIT_PREFIX`, the #2853/#2872 lesson). They are sub-second and offline. A missing script
+   or a missing `node` prints a `SKIPPED` line, never a silent `continue`: a step that
+   never runs but reads like a gate is the #1627 failure.
 2. The existing "applied to dev-pg?" query against `schemaversions`, **only when dev-pg
    answers**. When it does not, print a `SKIPPED` line naming CI's harness as the gate,
    and exit 0.
@@ -85,8 +119,11 @@ Rewrite `host/src/githooks/githooks.test.ts` so it no longer depends on whether 
 running it has dev-pg up. Put a stub `psql` first on PATH: `exit 2` for "down", or `exit 0`
 with no journal row for "up and not applied". Cases: up-and-not-applied blocks and names
 the file; down reports SKIPPED and exits 0; non-migration and `TEMPLATE_*` changes do
-nothing; staging host/, host-tools/, web/ or web-external/ code runs no suite. **Prove the
-cases discriminate**: run them against the old hook, and they must fail.
+nothing; staging host/, host-tools/, web/ or web-external/ code runs no suite. Stub lints
+at `host/scripts/` cover three cases: a failing lint blocks before the dev-pg question;
+passing lints reach it; absent scripts print `SKIPPED`. **Prove the cases discriminate**:
+run them against the old hook, and against a hook whose lint loop never runs. Both must
+fail.
 
 ## 4. Rewrite the instructions (D6)
 
@@ -100,6 +137,8 @@ cases discriminate**: run them against the old hook, and they must fail.
 - `CLAUDE.md` §System map and `AGENTS.md`: "before committing any change that touches code
   files" becomes once per working session, before the PR. That is what
   `docs/system-map.md` v3's own *When* already says. The per-commit wording was this repo's.
+- `README.md` (`npm run check  # REQUIRED before every commit`, the exact sentence D6
+  removes) and `orchestrator/SPEC.md` ("required before every commit here").
 - `docs/local-dev.md` (the dev-pg URL bullet says the hook runs integration tests),
   `.claude/skills/fleet-dispatch/SKILL.md` (dispatch economics names in-container
   `npm run check`): match the new tiers.
@@ -124,6 +163,9 @@ guard verifies it.
 - **ADR-020**'s Decision tier table says tiers 1–2 run "`npm test` pre-commit". That
   sentence is guard-locked. Add a dated Consequences note saying the run moved to CI's
   `host-unit-test` shards plus `check:fast`, and that what each tool owes is unchanged.
+- **`docs/code-conventions.md` §1 row 8** lists "pre-commit verification" as part of a
+  gate. It is a records file (`ask`) with no mediated path at write-record 1.3.0, so the
+  edit is owed by hand.
 - **D7** wants the tier timings in `docs/testing-strategy.md` §4. That is a records file at
   `ask`, and write-record here is 1.3.0, without `append-row` (the 2026-09-15 prompt is
   still pending). Record it as owed, by hand at the PR checkpoint. Don't edit it through a
