@@ -229,6 +229,7 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | **`code-conventions.md`** | clean-code-interview is applied | P2 | The layer-3 records file — enforced / documented / **not codified**. Never syncs after install. Without it the interview's output disperses into ADRs and CLAUDE.md and no audit domain has anything to measure against, and the next refresh re-proposes every pattern the last one dropped | full |
 | **`skills/test-coverage-interview/`** | Always | P1 | Five-layer sweep — layer 4. Coverage is what keeps issues cheap to route | full |
 | **`testing-strategy.md`** | test-coverage-interview is applied | P1 | The layer-4 records file — coverage floor, coverage map, deliberate exemptions, false-green register, and §6 (properties nothing verifies). §6 is a routing input: `agent-routing.md`'s coverage rule reads it instead of guessing at the suite. Never syncs after install | full |
+| **`local-verification.md`** | Repo has a commit hook or a local check command that contributors or agents are told to run | P1 | Three local tiers with a trigger and a time budget each — commit (staged, offline, seconds), push (diff-selected, about a minute, read before a PR is marked ready), full (CI's reproduction, on demand) — and CI as the only gate. A hook that runs the whole suite per commit gets bypassed (`--no-verify`) and, for agents that push after every commit, multiplies the cost by commit count. The fast tier reads its lint list from the full composite (one list), and selection never fails open | full |
 | **`skills/agent-instructions-interview/`** | CLAUDE.md or AGENTS.md exists | P1 | Five-layer sweep — layer 5 | full |
 | `skills/competitive-analysis/` | Team values competitive intel | P2 | Self-discovering skill — adds capability | full |
 | `skills/pdr-interview/` | PDR corpus is being applied | P0 | How the PDR corpus actually gets written — the interview is the work, the record is the output | full |
@@ -288,6 +289,10 @@ The three **epic-handoff** rows were added 2026-09-26 with the rolling-handoff
 practice — the section template, its body-only freshness probe, and the weekly
 probe workflow, wired to the DoD's *Epic handoff* block and the epic rule in
 `issue-authoring.md`.
+The **`local-verification.md`** row was added 2026-10-07, after ai-fleet's commit hook
+grew to the full composite plus a sequential integration tier and was being walked
+around with `--no-verify`. It is policy only: the push-tier command is repo-specific
+(ai-fleet's is `host/scripts/fast-check.mjs`), so no script template ships with it yet.
 
 ### 2.3 Priority-ordered action plan
 

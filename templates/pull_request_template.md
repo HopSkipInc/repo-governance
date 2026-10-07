@@ -1,4 +1,4 @@
-<!-- template: pull_request_template.md v1.1.0 · updated 2026-08-12 -->
+<!-- template: pull_request_template.md v1.2.0 · updated 2026-10-07 -->
 ## What this PR does
 
 <!-- One sentence. -->
@@ -48,7 +48,7 @@
 **Read [`docs/definition-of-done.md`](../docs/definition-of-done.md) for the full rules. Check every box that applies to your type.**
 
 ### All PRs
-- [ ] CI passes locally
+- [ ] The repo's fast check passes locally (the push tier, `docs/local-verification.md`), and CI is green on the head — the full suite is CI's to run
 - [ ] The **Degradation** section above is filled in — every fallback names its trigger and its observer, or it reads `Degradation: none`
 - [ ] No verification was weakened to reach green — no assertion removed, matcher loosened, test skipped, or `.only` left behind. If verification did decrease legitimately: a `docs/testing-strategy.md` §6 row names the property that stopped being verified, or the diff carries a `VERIFICATION-DELTA: <reason>` line
 - [ ] `CLAUDE.md` updated if it describes something this PR changes
