@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.4.0 · updated 2026-08-17
+// template: scripts/check-issue-routing.mjs v1.5.0 · updated 2026-10-08
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -24,6 +24,8 @@
  *   R6 ungrounded-downgrade  impl: lowered with no body edit  (contradiction)
  *   R7 undecomposed          escalation hedges but never split (contradiction)
  *   R8 uncovered-no-record   escalation blames coverage, no record(contradiction)
+ *   R9 ready-with-questions  says ready, ## Open questions lists something
+ *                            (contradiction)
  *
  * R4: an issue that is frontier only because it is under-specified is ready to
  * be *rewritten*, not worked. R5: your own validator says the issue is
@@ -61,7 +63,24 @@
  * multiple issues above standard, and it is the highest-return item the coverage
  * layer will find.
  *
- * R4–R8 default to WARN. Promote them to ERROR (the WARN→FAIL convention) once
+ * R9 reads the done-condition of the "grilling" spec-interview pattern — every
+ * branch visited, nothing left silently assumed — as a schema rule. An issue
+ * that says it is ready while its `## Open questions` section still lists
+ * something is ready to be *decided*, not worked; without the rule the first
+ * party to find out is the agent that picked it up. It applies to every open
+ * issue, tiered or not: readiness is not a property of the tier.
+ *
+ * Three facts from the 2026-10-08 census of repo-governance's own 40 issues set
+ * its shape. Zero `- [x]` lines anywhere — nobody ticks boxes there, so an
+ * unchecked box means nothing, and every list item in the section counts as
+ * open (a ticked one is tolerated as resolved, for repos that do tick). The one
+ * real `## Open questions` section was a numbered list, so numbered items count
+ * too. And readiness was asserted by a `## Status` line beginning "ready" more
+ * often than by the `status:ready` label, so either one counts as the claim.
+ * The open-questions census prints whenever any issue carries the section, so a
+ * zero-finding run is distinguishable from a sweep that found nothing to read.
+ *
+ * R4–R9 default to WARN. Promote them to ERROR (the WARN→FAIL convention) once
  * your backlog is clean — a first run over an untriaged backlog will be noisy,
  * and a lint that cries wolf on day one gets disabled on day two.
  *
@@ -77,7 +96,7 @@
  * permanently lost data point — the calibration protocol forbids classifying
  * it after the fact ("a narrative, not an experiment"). So the closed pass
  * applies R1–R3 only to issues closed within the window (default 30 days)
- * and prints a kind-coverage census. R4–R8 are contradiction rules about work
+ * and prints a kind-coverage census. R4–R9 are contradiction rules about work
  * in flight and cannot fire honestly on finished work; R6 is excluded the
  * same way.
  *
@@ -113,6 +132,7 @@ const SEVERITY = {
   R6: 'warn',
   R7: 'warn',
   R8: 'warn',
+  R9: 'warn',
 };
 
 /** The label your issue-structure validator applies. */
@@ -127,7 +147,7 @@ const LIMIT = 500;
 /** Default recency window for the closed pass. */
 const DEFAULT_CLOSED_DAYS = 30;
 
-/** Rules that fire on closed issues. R4–R8 are contradiction rules about work
+/** Rules that fire on closed issues. R4–R9 are contradiction rules about work
  *  in flight; on finished work they cannot fire honestly. */
 const CLOSED_RULES = new Set(['R1', 'R2', 'R3']);
 
@@ -197,6 +217,26 @@ const COVERAGE_SIGNAL = [
  */
 const COVERAGE_GAP = /\bcoverage gap\b\s*[::-]\s*[^\n]*#\d+/i;
 const COVERAGE_NOT_TESTABLE = /\bcoverage\b\s*[::-]\s*not testable\b\s*[—–\-:]\s*\S+/i;
+
+/**
+ * R9: the section that holds undecided questions, the section that dates the
+ * status, and the label that asserts readiness. Headings match on the name,
+ * optionally followed by a parenthetical: the house writes
+ * `## Verifiable outcomes (binary, observable)` on a quarter of its issues, and
+ * an `## Open questions (2)` the rule could not see would be a silent pass.
+ */
+const OPEN_QUESTIONS_HEADING = /^##[ \t]*Open questions?(?:[ \t]*\([^)]*\))?[ \t]*$/i;
+const STATUS_HEADING = /^##[ \t]*Status(?:[ \t]*\([^)]*\))?[ \t]*$/i;
+const READY_LABEL = 'status:ready';
+
+/**
+ * R9: a top-level list item — bullet or numbered — is one question. Indented
+ * items are its sub-points (options, context), not more questions. A ticked
+ * box is resolved; an item reading just "none" is the explicit empty answer.
+ */
+const LIST_ITEM = /^ ?(?:[-*+]|\d+[.)])[ \t]+\S/;
+const TICKED_ITEM = /^ ?[-*+][ \t]+\[[xX]\]/;
+const NONE_ITEM = /^ ?(?:[-*+]|\d+[.)])[ \t]+none\b/i;
 
 /**
  * The epic shape (policy §Mechanism 3): an epic carries a tier table over its
@@ -273,6 +313,47 @@ function declaredKind(block) {
   return m ? m[1].toLowerCase() : null;
 }
 
+/**
+ * The lines of the first `## <heading>` section, or null when there is none.
+ * Line-scanned for the same reason as tierBlock, and fence-aware as well: an
+ * issue that quotes the schema in a code block carries a `## Open questions`
+ * line that is not a section, and a list inside a fence is not a question.
+ */
+function sectionLines(body, heading) {
+  if (!body) return null;
+  let fenced = false;
+  let lines = null;
+  for (const line of body.split(/\r?\n/)) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    if (/^##[ \t]/.test(line)) {
+      if (lines) break;
+      if (heading.test(line)) lines = [];
+      continue;
+    }
+    if (lines) lines.push(line);
+  }
+  return lines;
+}
+
+/** R9: the open items under `## Open questions`, or null when the section is absent. */
+function openQuestions(body) {
+  const lines = sectionLines(body, OPEN_QUESTIONS_HEADING);
+  if (!lines) return null;
+  return lines.filter((l) => LIST_ITEM.test(l) && !TICKED_ITEM.test(l) && !NONE_ITEM.test(l));
+}
+
+/** R9: what asserts this issue is ready — the label or the dated Status line — or null. */
+function readyAssertion(names, body) {
+  if (names.includes(READY_LABEL)) return READY_LABEL;
+  const first = (sectionLines(body, STATUS_HEADING) ?? []).find((l) => l.trim());
+  if (first && /^ready\b/i.test(first.trim().replace(/^[*_`]+/, ''))) return '## Status: ready';
+  return null;
+}
+
 function implLabels(labels) {
   return labels.map((l) => l.name).filter((n) => n.startsWith('impl:'));
 }
@@ -320,6 +401,9 @@ const tiered = [];
 /** Decomposition census — the mechanical half of the audit's signal 5. */
 const census = { escalations: 0, notSplittable: 0, split: 0, undeclared: 0 };
 
+/** Open-questions census (R9) — which issues hold undecided questions, and which of them say ready. */
+const questions = { sections: 0, open: [], ready: [] };
+
 /** Coverage census — the mechanical half of the audit's signal 6. */
 const coverage = { cited: 0, gap: 0, notTestable: 0, unrecorded: 0, issues: [] };
 
@@ -331,6 +415,24 @@ for (const issue of issues) {
   const impls = implLabels(issue.labels);
   const block = tierBlock(issue.body);
   const kind = declaredKind(block);
+
+  // R9 runs before the untiered skip: readiness is claimed by the status, not
+  // the tier, so an untriaged issue that says ready with questions still open
+  // is the same contradiction. Open-pass only, like R4–R8.
+  if (!CLOSED) {
+    const open = openQuestions(issue.body);
+    if (open) {
+      questions.sections += 1;
+      if (open.length) {
+        questions.open.push(issue.number);
+        const ready = readyAssertion(names, issue.body);
+        if (ready) {
+          questions.ready.push(issue.number);
+          report('R9', issue.number, `says ready (${ready}) with ${open.length} open item(s) under ## Open questions — ready to be decided, not worked. Answer them and move each answer into the body, or drop the ready status`);
+        }
+      }
+    }
+  }
 
   // Untiered issues are only checked by R1 if they carry a tier line, and by
   // nothing else — an untriaged backlog is not a violation, it is just untriaged.
@@ -494,6 +596,19 @@ if (coverage.cited) {
   console.log(
     'These are issues paying frontier rates for a test nobody wrote. Read the list for repeats: ' +
     'one surface named by several escalations is one test\'s worth of work holding all of them above standard.'
+  );
+}
+
+if (questions.sections) {
+  const list = (ns) => (ns.length ? ` (${[...ns].sort((a, b) => a - b).map((n) => `#${n}`).join(', ')})` : '');
+  console.log(
+    `\nOpen-questions census: ${questions.sections} issue(s) carry an ## Open questions section — ` +
+    `${questions.open.length} with open items${list(questions.open)}, ` +
+    `${questions.ready.length} of them saying ready${list(questions.ready)}.`
+  );
+  console.log(
+    'An issue with open items is waiting on a decision, whatever its tier. The ones saying ready are R9: ' +
+    'an agent that picks one up has to stop at its first unanswered question.'
   );
 }
 

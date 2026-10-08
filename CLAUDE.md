@@ -18,7 +18,7 @@ There is no `package.json` — deliberately, since this repo is not a publishabl
 Everything runs directly under Node.
 
 ```bash
-node --test test/*.test.mjs          # the test suite (335 cases)
+node --test test/*.test.mjs          # the test suite (344 cases)
 
 node scripts/check-template-versions.mjs --base <ref>   # stamps + bump-on-change
 node scripts/check-analyze-repo-coverage.mjs            # every template in the matrix
@@ -137,8 +137,9 @@ Before implementing an issue:
    default, retry, cast, or broad catch you would not have written had the call worked;
    **weakening a test, assertion, or matcher to reach green**; creating a file type with
    no precedent here; touching a migration that drops or renames; no existing test covers
-   the surface you are changing; the diff exceeds **10 files**; or you are about to
-   overwrite a records file listed above.
+   the surface you are changing; the diff exceeds **10 files**; the issue lists anything
+   open under `## Open questions` (undecided, whatever its status says); or you are about
+   to overwrite a records file listed above.
 
    **Stopping means the edit does not land and the turn ends.** A question you then answer
    yourself two paragraphs later is not a stop — it is the workaround applied to the stop
