@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.16.0 · updated 2026-09-24 -->
+<!-- template: agent-routing.md v1.17.0 · updated 2026-10-08 -->
 # Agent Routing
 
-**Version:** 1.16.0 · **Last updated:** 2026-09-24
+**Version:** 1.17.0 · **Last updated:** 2026-10-08
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -33,6 +33,7 @@
 | 1.14.0 | 2026-08-17 | **The kind is a forecasting input.** Rationale subsection under the two load-bearing rules: estimation buckets key on the kind, `both` is the observed high-variance bucket, and an escalation closed without a kind is a permanently lost data point — the calibration protocol forbids post-hoc classification. No rule changes; no tier definitions move |
 | 1.15.0 | 2026-09-24 | **The classifier binds a class, not a model.** The pin declares its triage class (`# routing-class:`); the class→model binding is registry data, resolved by the gateway as the intended chokepoint — or by an install-time generated bridge until the gateway resolves classes. A concrete slug may appear in a repo only when the bridge produced it, and `check-classifier-pin-drift.mjs` gates pin-vs-map agreement, failing closed. 1.4.0's "one place a model name may be written" exception narrows from a name to a binding |
 | 1.16.0 | 2026-09-24 | **`impl:human` gates completion, not preparation.** The tier was read as a capability gate, so "if the tier exceeds your capability class, do not implement" stopped every agent at a human-tier issue and dropped its mechanical preparation into human hands. It is an ownership gate: any capability class may draft the change and hand it over (the `gate:human-approval` shape applied to the tier itself), a human owns the irreversible step and the merge, and the agent stops only where the work itself needs human hands — holding a credential, exercising an external authority. Owner decision, 2026-09-24; no tier definition, class table, or heuristics move |
+| 1.17.0 | 2026-10-08 | **An open question is a stop condition.** An issue listing anything under `## Open questions` (issue-authoring 1.5.0) is undecided whatever its status says, so the agent stops at pickup instead of meeting the gap mid-implementation and answering its own question. Pairs with routing-lint R9, which catches the same contradiction in the weekly sweep; the pickup stop covers the days between an issue being marked ready and the next sweep. No tier definitions move |
 
 ## Purpose
 
@@ -415,6 +416,8 @@ observable:
 - No existing test covers the surface being modified.
 - The diff exceeds [N] files.
 - The issue's Impl-tier line is missing, or its kind is missing.
+- The issue lists anything open under `## Open questions` — it is undecided, whatever its
+  status says.
 
 Any of these fires → comment and stop, whatever the tier said.
 
@@ -818,7 +821,8 @@ Before implementing an issue:
    default, retry, cast, or broad catch you would not have written had the call worked;
    **weakening a test, assertion, or matcher to reach green**; creating a file type with
    no precedent here; touching a migration that drops or renames; no existing test covers
-   the surface you are changing; the diff exceeds [N] files.
+   the surface you are changing; the diff exceeds [N] files; the issue lists anything
+   open under `## Open questions` (undecided, whatever its status says).
 
    **Stopping means the edit does not land and the turn ends.** A question you then answer
    yourself two paragraphs later is not a stop — it is the workaround applied to the stop

@@ -1,4 +1,4 @@
-<!-- template: definition-of-done.md v1.7.0 · updated 2026-09-26 -->
+<!-- template: definition-of-done.md v1.8.0 · updated 2026-10-08 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit
@@ -154,6 +154,7 @@ Every piece of work has a type. A thing is done when the row for its type is ful
 - [ ] **Verifiable outcomes** — at least one binary, observable checkbox outcome (not an open question; "decide whether X or Y" is a needs-decision gate, not an outcome)
 - [ ] A **verification method** — the exact command, named test file, or query that proves each outcome
 - [ ] A **work type** and whatever labels your taxonomy requires (priority at minimum)
+- [ ] If it **says ready** (`status:ready`, or a `## Status` line beginning `ready`): nothing listed under `## Open questions` — an open question is a `status:needs-decision` gate; resolve it by moving the answer into the body
 
 **At closing:**
 

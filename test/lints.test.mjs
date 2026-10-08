@@ -619,6 +619,149 @@ test('issue-routing: the ai-fleet declaration dialects parse (U3 — live-corpus
   assert.doesNotMatch(out, /R3/);
 });
 
+// --------------------------- 2026-10-08: R9 ready-with-questions (v1.5.0) ----
+// The done-condition of a spec interview, as a schema rule: an issue that says
+// it is ready while `## Open questions` still lists something is ready to be
+// decided, not worked. Shapes come from the 2026-10-08 census of this repo's 40
+// issues: nobody ticks boxes (so every item is open unless ticked), the one real
+// section was a numbered list, and "ready" was said in `## Status` more often
+// than by label. Each fire case is pinned by deleting the R9 report; each clear
+// case by deleting the one guard it exists for.
+
+test('issue-routing R9: status:ready + an unchecked item fires, and only that section is counted', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 30,
+      title: 'x',
+      labels: [{ name: 'impl:standard' }, { name: 'status:ready' }],
+      body: `Context.\n\n## Open questions\n- [ ] Which state store?\n\n## Verifiable outcomes\n- [ ] a\n- [ ] b\n\n## Impl tier\nstandard — loud.\n`,
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out); // WARN, never a build failure
+  assert.match(out, /#30 \[R9\] says ready \(status:ready\) with 1 open item\(s\)/, out);
+});
+
+test('issue-routing R9: a ready ## Status line + a numbered list fires on an untiered issue (#51 shape)', () => {
+  // No impl: label and no tier block — the main loop skips such issues for
+  // R1–R8. R9 must run before that skip: readiness is claimed by the status.
+  // The indented sub-point is context for item 2, not a third question.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 31,
+      title: 'x',
+      labels: [],
+      body: `## Open questions\n\n1. Which state store?\n2. Which scope?\n   - hub-side only, or templates too\n\n## Status\nready — 2026-10-08.\n`,
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /#31 \[R9\] says ready \(## Status: ready\) with 2 open item\(s\)/, out);
+});
+
+test('issue-routing R9: the section is found when it is the last thing in the body', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 32,
+      title: 'x',
+      labels: [{ name: 'impl:standard' }, { name: 'status:ready' }],
+      body: `## Impl tier\nstandard — loud.\n\n## Open questions\n- Which state store?`,
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /#32 \[R9\]/, out);
+});
+
+test('issue-routing R9: a heading carrying the house parenthetical still counts', () => {
+  // 8 of 33 real issues write `## Verifiable outcomes (binary, observable)`; an
+  // `## Open Questions (2)` the rule could not see would be a silent pass.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 39,
+      title: 'x',
+      labels: [],
+      body: `## Open Questions (2)\n- Which state store?\n\n## Status (re-dated)\nready — 2026-10-08.\n`,
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /#39 \[R9\] says ready \(## Status: ready\)/, out);
+});
+
+test('issue-routing R9: ticked items are resolved — ready + only [x]/[X] clears', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 33,
+      title: 'x',
+      labels: [{ name: 'impl:standard' }, { name: 'status:ready' }],
+      body: `## Open questions\n- [x] Which state store? — Postgres.\n- [X] Which scope? — hub only.\n\n## Impl tier\nstandard — loud.\n`,
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.doesNotMatch(out, /\[R9\]/, out);
+  assert.match(out, /Open-questions census: 1 issue\(s\) carry an ## Open questions section — 0 with open items, 0 of them saying ready\./);
+});
+
+test('issue-routing R9: "none" is the explicit empty answer, bare or as a list item', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 34, title: 'x', labels: [{ name: 'status:ready' }], body: `## Open questions\nnone\n\n## Status\nready — 2026-10-08.\n` },
+    { number: 35, title: 'x', labels: [{ name: 'status:ready' }], body: `## Open questions\n- None.\n\n## Status\nready — 2026-10-08.\n` },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.doesNotMatch(out, /\[R9\]/, out);
+  assert.match(out, /2 issue\(s\) carry an ## Open questions section — 0 with open items/);
+});
+
+test('issue-routing R9: open items with no ready claim are census, not findings', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 36,
+      title: 'x',
+      labels: [{ name: 'impl:human' }],
+      body: `## Open questions\n1. Which state store?\n\n## Status\nneeds-decision — 2026-10-08.\n\n## Impl tier\nhuman (inherent) — a methodology decision.\nNot splittable: one decision.\n`,
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.doesNotMatch(out, /\[R9\]/, out);
+  assert.match(out, /Open-questions census: 1 issue\(s\) carry an ## Open questions section — 1 with open items \(#36\), 0 of them saying ready\./);
+});
+
+test('issue-routing R9: [ ] boxes under Verifiable outcomes and Definition of Done are not questions', () => {
+  // 28 real issues carry exactly this shape — the likeliest false positive.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 37,
+      title: 'x',
+      labels: [{ name: 'impl:standard' }, { name: 'status:ready' }],
+      body: `## Verifiable outcomes\n- [ ] a\n\n## Definition of Done\n- [ ] b\n\n## Impl tier\nstandard — loud.\n`,
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.doesNotMatch(out, /\[R9\]/, out);
+  assert.doesNotMatch(out, /Open-questions census/); // no section, nothing read
+});
+
+test('issue-routing R9: a schema quoted in a code fence is not a section', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 38,
+      title: 'x',
+      labels: [{ name: 'impl:standard' }, { name: 'status:ready' }],
+      body: "The schema gains:\n\n```\n## Open questions\n- <one per undecided question>\n```\n\n## Impl tier\nstandard — loud.\n",
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.doesNotMatch(out, /\[R9\]/, out);
+  assert.doesNotMatch(out, /Open-questions census/);
+});
+
 // --------------------------- 2026-08-17: closed pass (v1.4.0) ----------------
 // The closed pass answers "is this repo's history estimable?" — R1–R3 only over
 // recently closed issues, probe posture by default, kind-coverage census. The gh
@@ -663,27 +806,30 @@ test('issue-routing closed pass: a fully declared closed escalation is clean and
   assert.match(out, /0 spec, 1 inherent, 0 both, 0 undeclared \(100% declared\)/);
 });
 
-test('issue-routing closed pass: R4–R8 cannot fire on finished work', () => {
+test('issue-routing closed pass: R4–R9 cannot fire on finished work', () => {
   // The fixture is a walking contradiction — status:ready + spec kind (R4), a
   // hedge with no decomposition record (R7), a coverage signal with no record
-  // (R8). The open pass flags all three; the closed pass must stay silent on
-  // all of them and check declarations only.
+  // (R8), an open question under a ready label (R9). The open pass flags all
+  // four; the closed pass must stay silent on all of them and check
+  // declarations only.
   const issue = {
     number: 21,
     title: 'x',
     labels: [{ name: 'impl:frontier' }, { name: 'status:ready' }],
-    body: tierBody('frontier (both) — mostly mechanical, and no test coverage of the retry path.'),
+    body: `## Open questions\n- Which retry policy?\n\n` + tierBody('frontier (both) — mostly mechanical, and no test coverage of the retry path.'),
     closedAt: daysAgo(3),
   };
   const openRun = run('check-issue-routing.mjs', fixture({}), { env: ghStub(fixture({}), [issue]) });
   assert.match(openRun.out, /\[R4\]/);
   assert.match(openRun.out, /\[R7\]/);
   assert.match(openRun.out, /\[R8\]/);
+  assert.match(openRun.out, /\[R9\]/);
 
   const dir = fixture({});
   const { code, out } = run('check-issue-routing.mjs', dir, { env: ghStub(dir, [issue]), args: ['--closed'] });
   assert.equal(code, 0, out);
-  assert.doesNotMatch(out, /\[R[4-8]\]/);
+  assert.doesNotMatch(out, /\[R[4-9]\]/);
+  assert.doesNotMatch(out, /Open-questions census/);
   assert.match(out, /OK: every closed escalation/);
 });
 

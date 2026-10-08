@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.4.0 · updated 2026-09-26 -->
+<!-- template: issue-authoring.md v1.5.0 · updated 2026-10-08 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -29,6 +29,13 @@ Every issue body uses this structure:
 
 ## Verification (how the work is proven done)
 - <exact command / named test file / query>
+
+## Not in scope
+<optional — what this issue deliberately excludes, one line each with the reason>
+
+## Open questions
+<optional — one list item per undecided decision or unverified fact. Resolve one by
+ moving its answer into the body; an issue that says ready lists nothing here.>
 
 ## Definition of Done
 - [ ] <the DoD rows for this work type — copy the items that apply>
@@ -63,6 +70,19 @@ Rules:
   undated `blocked` or `needs-decision` can never age, which is exactly how a dependent sits
   for months against a blocker that closed long ago; the probe's stale-status class reads
   this date. Re-asserting the status means re-dating it.
+- **An issue that says it is ready lists nothing open under `## Open questions`.** "Says
+  ready" means the `status:ready` label or a `## Status` line beginning `ready`. Every
+  list item in the section is open — bullet or numbered — except a ticked `- [x]`;
+  resolve a question by moving its answer into the body, not by ticking it. The section
+  is also where an unverified fact goes: "I don't know — check the code" is a valid
+  authoring answer, and it lands here instead of becoming a guess. An issue with items
+  here is waiting on a decision, whatever its tier — `status:needs-decision`, unless
+  something else blocks it first. *(Observed 2026-10-08: across this
+  framework's own 40 issues nobody had ever ticked a box, so checkbox state carried no
+  information — the rule counts presence instead.)*
+- **`## Not in scope` names what the issue deliberately excludes**, one line each with
+  the reason. Optional and not linted: it is for the implementing agent, which otherwise
+  re-walks every branch the author already cut.
 
 For **epics**: "Verifiable outcomes" = "epic closes when all child issues close" **plus** 2–3 epic-level acceptance gates; list known child issue numbers under Dependencies. An epic also carries a **`## ▶ Pick up here — rolling handoff`** section near the top — the dated continuation the next session reads first. It is not required at creation (an unstarted epic has nothing to hand off); it becomes required the first time a session works the epic, and it is refreshed at every session end and every child close, so a restart, a failed worker, or a night's sleep never costs the next session the epic's live state. See [Epic Handoff](epic-handoff.md); the freshness probe reads its `Handoff updated` date.
 
@@ -140,6 +160,7 @@ GitHub cannot restrict who creates an issue through the UI or the API, so enforc
    | Body has an `## Impl tier` line | missing |
    | Tier above `standard` declares a kind (`spec`, `inherent`, `both`) | tier present, no kind |
    | `status:ready` + a `spec`-component kind | contradiction — ready to be *rewritten*, not worked |
+   | Says ready (`status:ready`, or `## Status` beginning `ready`) + an open item under `## Open questions` | contradiction — ready to be *decided*, not worked (R9) |
    | Carries `needs-structure` + tiered without a `spec` component | contradiction — validator says under-specified, triage says spec wouldn't help; the usual correct answer is `both` |
    | `impl:` label changed with no body edit in the same window | ungrounded downgrade — see Agent Routing → *Downgrades* |
 
@@ -159,7 +180,7 @@ Start with Layer 3 (it's free — add it to the audit prompt). Add Layers 1–2 
 
 Recurring failure modes from the source repo's backlog sweep — each one a reason a rule above exists:
 
-1. **Open questions masquerading as acceptance criteria.** "Decide whether to use X or Y" is a `status:needs-decision` gate, not a verifiable outcome. Outcomes must be binary and observable.
+1. **Open questions masquerading as acceptance criteria.** "Decide whether to use X or Y" is a `status:needs-decision` gate, not a verifiable outcome. Outcomes must be binary and observable. The question goes under `## Open questions`, where the routing sweep (R9) and the implementing agent both see it.
 2. **No verification method.** Outcomes with no command, test, or query that proves them — no one can self-verify, so the work never reaches "done."
 3. **Forward-references to documents that don't exist.** Citing an ADR (or spec) by a number that hasn't been allocated yet — numbers get taken by other work. Cite what exists; allocate, don't guess.
 4. **"Known Gap" without a tracking issue number.** A gap with no number is a gap that never gets fixed.
