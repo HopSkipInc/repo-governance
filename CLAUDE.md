@@ -111,7 +111,7 @@ The write path is the organizational activity ledger (fleet-host MCP), not files
 ## Agent routing
 
 Every issue carries an `impl:` label — `standard`, `frontier`, or `human` — declaring the
-minimum capability class required, and an `## Impl tier` line giving the kind and the reason.
+minimum tier required, and an `## Impl tier` line giving the kind and the reason.
 
 Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
 failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
@@ -127,7 +127,7 @@ reason cites an untested surface, a coverage record is required too: `Coverage g
 Before implementing an issue:
 
 1. Read the `impl:` label and the `## Impl tier` line.
-2. If the tier exceeds your capability class (`standard` / `frontier`), do not implement.
+2. If the tier exceeds your model capability (`standard` / `frontier`), do not implement.
    Comment with what you would need, and stop. `impl:human` is not a capability gate: any
    class may prepare the change, but no agent completes it unilaterally — a human owns the
    irreversible step and the merge.
@@ -149,7 +149,7 @@ Before implementing an issue:
 
 Delegating is dispatching. When you hand implementation work on a tiered issue to a
 subagent, you become the dispatcher for that unit of work: check the subagent's
-capability class against the tier (your own class does not transfer), and put the tier,
+model capability against the tier (your own capability does not transfer), and put the tier,
 kind, reason, stop conditions, and a scope ceiling in the delegation prompt — the
 subagent sees nothing of this conversation. Concurrent subagents need disjoint file
 surfaces or separate worktree lanes, exactly as concurrent sessions do. Subagents
