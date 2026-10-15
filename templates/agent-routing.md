@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.17.0 · updated 2026-10-08 -->
+<!-- template: agent-routing.md v1.18.0 · updated 2026-10-15 -->
 # Agent Routing
 
-**Version:** 1.17.0 · **Last updated:** 2026-10-08
+**Version:** 1.18.0 · **Last updated:** 2026-10-15
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -33,6 +33,7 @@
 | 1.14.0 | 2026-08-17 | **The kind is a forecasting input.** Rationale subsection under the two load-bearing rules: estimation buckets key on the kind, `both` is the observed high-variance bucket, and an escalation closed without a kind is a permanently lost data point — the calibration protocol forbids post-hoc classification. No rule changes; no tier definitions move |
 | 1.15.0 | 2026-09-24 | **The classifier binds a class, not a model.** The pin declares its triage class (`# routing-class:`); the class→model binding is registry data, resolved by the gateway as the intended chokepoint — or by an install-time generated bridge until the gateway resolves classes. A concrete slug may appear in a repo only when the bridge produced it, and `check-classifier-pin-drift.mjs` gates pin-vs-map agreement, failing closed. 1.4.0's "one place a model name may be written" exception narrows from a name to a binding |
 | 1.16.0 | 2026-09-24 | **`impl:human` gates completion, not preparation.** The tier was read as a capability gate, so "if the tier exceeds your capability class, do not implement" stopped every agent at a human-tier issue and dropped its mechanical preparation into human hands. It is an ownership gate: any capability class may draft the change and hand it over (the `gate:human-approval` shape applied to the tier itself), a human owns the irreversible step and the merge, and the agent stops only where the work itself needs human hands — holding a credential, exercising an external authority. Owner decision, 2026-09-24; no tier definition, class table, or heuristics move |
+| 1.18.0 | 2026-10-15 | **The `impl:` tier is a tier, not a "capability class."** The policy used "capability class" for three different things. It now says **tier** for the issue's requirement, **model capability** for the agent's own (`standard` / `frontier`), and keeps **capability class** only for the ADR-066 sense the classifier pin resolves to — the term ai-fleet's glossary reserves for it. Downstream of HopSkipInc/ai-fleet#2571 |
 | 1.17.0 | 2026-10-08 | **An open question is a stop condition.** An issue listing anything under `## Open questions` (issue-authoring 1.5.0) is undecided whatever its status says, so the agent stops at pickup instead of meeting the gap mid-implementation and answering its own question. Pairs with routing-lint R9, which catches the same contradiction in the weekly sweep; the pickup stop covers the days between an issue being marked ready and the next sweep. No tier definitions move |
 
 ## Purpose
@@ -44,7 +45,7 @@ the worst botches fail **silently** — a tenant-isolation change that looks gre
 data, a memory-scope change that quietly recalls nothing.
 
 This policy puts the bound on the issue instead of in the agent's head. Every issue
-declares the minimum capability class required to implement it, and *why*. A dispatcher
+declares the minimum tier required to implement it, and *why*. A dispatcher
 routes on the label; an agent reads the reason before it starts; the audit reports where
 the labels turned out to be wrong.
 
@@ -249,7 +250,7 @@ trigger to run `test-coverage-interview`.
 
 ## The tiers
 
-An `impl:` label on every issue, declaring the **minimum** capability class required. Exactly one.
+An `impl:` label on every issue, declaring the **minimum** tier required. Exactly one.
 
 - **`impl:standard`** — any capable coding model implements it directly from the issue as
   written. Well-anchored file and symbol references, binary acceptance criteria, contained
@@ -266,7 +267,7 @@ An `impl:` label on every issue, declaring the **minimum** capability class requ
   should not **unilaterally complete**: product and UX decisions, external coordination,
   credential handling, removal of a safety invariant.
   *e.g. removing a fail-open guard, confirming an external producer's contract.*
-  The gate is on **completion, not preparation**: an agent at any capability class may draft
+  The gate is on **completion, not preparation**: an agent of any model capability may draft
   the change and hand it to a human (the `gate:human-approval` pattern, applied to the tier
   itself), and stops only where the work needs human hands — holding a credential, exercising
   an external authority. A human owns the merge.
@@ -393,7 +394,7 @@ should be treated as weaker evidence than the heuristics table, not stronger.
 Add to agent instructions (CLAUDE.md / AGENTS.md — see the section template below):
 
 > Before implementing an issue, read its `impl:` tier and the Impl-tier line. If the tier
-> exceeds your capability class (`standard` / `frontier`), do not attempt implementation.
+> exceeds your model capability (`standard` / `frontier`), do not attempt implementation.
 > Comment on the issue with what you would need, and stop. `impl:human` is not a capability
 > gate: any class may **prepare** the change, but a human owns the irreversible step and the
 > merge.
@@ -423,7 +424,7 @@ Any of these fires → comment and stop, whatever the tier said.
 
 ### Self-identification
 
-An agent knowing its own capability class is the crux of the advisory layer — and mostly it
+An agent knowing its own model capability is the crux of the advisory layer — and mostly it
 should not have to. **The dispatcher knows what it launched**, so it passes the capability
 budget in at launch. Self-identification is the fallback for interactive sessions, where a
 human is present and already knows.
@@ -506,7 +507,7 @@ pin nobody gates is a pin that quietly names a retired or downgraded model.
 Same defence-in-depth posture as issue authoring — **label and comment, never auto-close**:
 
 1. **Layer 1 — dispatcher filter (the only real enforcement).** Whatever hands work to
-   agents selects issues carrying an `impl:` label at or below its capability class. This
+   agents selects issues carrying an `impl:` label at or below its model capability. This
    sits *outside* the agent, which is the entire reason it works.
    *Corollary:* an unlabeled issue is not a permissive default and not a blocking one — it
    is simply never selected by any automated dispatcher, while humans can still work it.
@@ -586,7 +587,7 @@ capability budget *Self-identification* promised — five fields:
 4. **Scope ceiling.** This issue, these files; anything adjacent is a comment, not a
    fix. A subagent's helpfulness has no tripwire otherwise, and scope creep by a helpful
    agent is the same failure shape whether it costs a turn or a fleet dollar.
-5. **The class check, run before spawning.** The subagent's capability class must meet
+5. **The capability check, run before spawning.** The subagent's model capability must meet
    the tier of the work it will hold — the issue's tier, when the whole issue is
    delegated; the subtask's own risk, when a piece of it is (see the next paragraph).
    The driver's class does not transfer. If the check fails, the driver does the work
@@ -800,7 +801,7 @@ them from, and the calibration set is the part with no upstream copy.
 ## Agent routing
 
 Every issue carries an `impl:` label — `standard`, `frontier`, or `human` — declaring the
-minimum capability class required, and an `## Impl tier` line giving the kind and the reason.
+minimum tier required, and an `## Impl tier` line giving the kind and the reason.
 
 Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
 failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
@@ -811,7 +812,7 @@ to choose drifts toward it.
 Before implementing an issue:
 
 1. Read the `impl:` label and the `## Impl tier` line.
-2. If the tier exceeds your capability class (`standard` / `frontier`), do not implement.
+2. If the tier exceeds your model capability (`standard` / `frontier`), do not implement.
    Comment with what you would need, and stop. `impl:human` is not a capability gate: any
    class may prepare the change, but no agent completes it unilaterally — a human owns the
    irreversible step and the merge.
@@ -832,7 +833,7 @@ Before implementing an issue:
 
 Delegating is dispatching. When you hand implementation work on a tiered issue to a
 subagent, you become the dispatcher for that unit of work: check the subagent's
-capability class against the tier (your own class does not transfer), and put the tier,
+model capability against the tier (your own capability does not transfer), and put the tier,
 kind, reason, stop conditions, and a scope ceiling in the delegation prompt — the
 subagent sees nothing of this conversation. Concurrent subagents need disjoint file
 surfaces or separate worktree lanes, exactly as concurrent sessions do. Subagents
