@@ -1,0 +1,162 @@
+[
+  {
+    "number": 1097,
+    "title": "Epic fully delivered, still open (C1) + TRIGGER",
+    "state": "open",
+    "updated_at": "2026-08-10T12:00:00Z",
+    "labels": [{ "name": "epic" }],
+    "body": "## Outcomes\n\n- [x] All three children shipped\n"
+  },
+  {
+    "number": 1112,
+    "title": "Epic whose children closed without delivery (C1 variant)",
+    "state": "open",
+    "updated_at": "2026-08-21T12:00:00Z",
+    "labels": [{ "name": "epic" }],
+    "body": "## Outcomes\n\n- [x] Work dispatched\n"
+  },
+  {
+    "number": 1252,
+    "title": "Body cites a closed blocker, no disclosure (C2)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [],
+    "body": "## Context\n\nBlocked on #1253 until it lands.\n"
+  },
+  {
+    "number": 1922,
+    "title": "Disclosed-stale blocker citation beside an asserting milestone row (C2)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [],
+    "body": "## Status\n\nBlocked on #1563, which has landed — this blocker is likely stale.\n\n| Milestone | State |\n| --- | --- |\n| #1569 | blocked |\n"
+  },
+  {
+    "number": 1533,
+    "title": "Body cites a closed blocker (C2)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [],
+    "body": "Blocked on #1535.\n"
+  },
+  {
+    "number": 1426,
+    "title": "needs-decision contradicted by a merged ADR (C3-ADR) + unfiled marker (C5); Dependencies grammar belongs to check-stale-blockers (no C2)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [{ "name": "status:needs-decision" }],
+    "body": "## Dependencies\n\n**blocked-by:** #1425\n\n## Notes\n\nThe two follow-ups are not yet filed as issues.\n"
+  },
+  {
+    "number": 989,
+    "title": "Declares a child the graph does not link (C4)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [{ "name": "epic" }],
+    "body": "children: #1001, #1002\n"
+  },
+  {
+    "number": 2001,
+    "title": "Declares a parent that does not list it (C4, child-side)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [],
+    "body": "Parent epic: #2002\n\nSome work.\n"
+  },
+  {
+    "number": 3001,
+    "title": "Declared child cleared by the closed-as-superseded convention (C4 silent)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [],
+    "body": "children: #3002\n\n**closed as superseded:** #3002\n"
+  },
+  {
+    "number": 5001,
+    "title": "status:blocked with all declared blockers closed (C3-label)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [{ "name": "status:blocked" }],
+    "body": "## Dependencies\n\n**blocked-by:** #5002\n"
+  },
+  {
+    "number": 6001,
+    "title": "Milestone row disagrees with child state (C6; the row is also an unlinked declaration, C4)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [],
+    "body": "| Phase | Issue | State |\n| --- | --- | --- |\n| M1 | #6002 | blocked |\n"
+  },
+  {
+    "number": 1454,
+    "title": "Names work with no issue filed (C5)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [],
+    "body": "## Outcomes\n\n- [ ] Write the ops runbook (unfiled)\n"
+  },
+  {
+    "number": 4000,
+    "title": "Known-good epic — partially delivered, honestly open (silent)",
+    "state": "open",
+    "updated_at": "2026-08-20T12:00:00Z",
+    "labels": [{ "name": "epic" }],
+    "body": "## Outcomes\n\n- [ ] Remaining work\n\n## Status\n\nIn flight — child #4001 still open.\n"
+  },
+  {
+    "number": 7001,
+    "title": "Blocked on an OPEN issue (C2 silent)",
+    "state": "open",
+    "updated_at": "2026-08-18T12:00:00Z",
+    "labels": [],
+    "body": "Blocked on #7002.\n"
+  },
+  {
+    "number": 8001,
+    "title": "Fully delivered epic with a Stays-open reason (C1 silent)",
+    "state": "open",
+    "updated_at": "2026-08-20T12:00:00Z",
+    "labels": [{ "name": "epic" }],
+    "body": "## Outcomes\n\n- [x] Delivered\n\nStays open: tracking the post-launch metrics window.\n"
+  },
+  {
+    "number": 2031,
+    "title": "Cross-repo blockers must not resolve locally (C3 false positive)",
+    "state": "open",
+    "updated_at": "2026-09-01T12:00:00Z",
+    "labels": [{ "name": "status:blocked" }],
+    "body": "## Dependencies\n\nblocked-by HopSkipInc/analytics-infrastructure#509 (the gateway surface) - blocked-by HopSkipInc/analytics-infrastructure#508 (grant metadata)\n"
+  },
+  {
+    "number": 262,
+    "title": "A coordination ref in Dependencies is not a blocker (C3 false positive)",
+    "state": "open",
+    "updated_at": "2026-09-01T12:00:00Z",
+    "labels": [{ "name": "status:blocked" }],
+    "body": "## Dependencies\n\n- #146 (MCP migration for existing Python agents) shares the McpClient implementation - coordinate to avoid two independent wiring efforts\n"
+  },
+  {
+    "number": 1927,
+    "title": "A real cleared blocker still fires C3",
+    "state": "open",
+    "updated_at": "2026-09-01T12:00:00Z",
+    "labels": [{ "name": "status:blocked" }],
+    "body": "## Dependencies\n\nblocked-by #1924 - this hoists the outcome catalog that issue creates.\n"
+  },
+  {
+    "number": 1793,
+    "title": "Epic declaring children with an entirely unused graph (C4 non-adoption)",
+    "state": "open",
+    "updated_at": "2026-09-01T12:00:00Z",
+    "labels": [{ "name": "epic" }],
+    "body": "## Dependencies\n\nchildren: #1796, #1797, #1798\n"
+  },
+  {
+    "number": 4031,
+    "title": "Blocker declared with the `Blocker:` / `waiting on` grammar (C3 true positive)",
+    "state": "open",
+    "updated_at": "2026-09-01T12:00:00Z",
+    "labels": [{ "name": "status:blocked" }],
+    "body": "## Dependencies\n\n**Blocker:** #1924 - and waiting on #1935 for the second half.\n"
+  }
+]

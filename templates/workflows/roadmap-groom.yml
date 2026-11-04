@@ -1,0 +1,184 @@
+# template: workflows/roadmap-groom.yml v1.0.0 · updated 2026-11-04
+name: Roadmap groom (weekly)
+
+# Kind: PROBE — a scheduled projection of backlog state; never blocks merges.
+#
+# The weekly run of the backlog-grooming regime, executing
+# docs/backlog-grooming.md §4 in its load-bearing order:
+#   1. groom pass     (agent)  — verifies TRIGGERed epics, posts the marker
+#   2. data pass      (script) — regenerates docs/roadmap-data.md
+#   3. narrative pass (agent)  — writes docs/roadmap.md's marked sections and
+#                                the PR body's commitment exercise
+#   4. one PR a human reviews, commits to, and merges
+# The groom pass runs FIRST because the trust header reads the newest groom
+# marker; generating before grooming writes an UNTRUSTED header. The data
+# pass is run by this workflow, not by the agent, so its SKIPPED/wrote verdict
+# is checked mechanically rather than reported.
+#
+# WEEKLY, NEVER DAILY. The source repo ran this daily for five weeks
+# (2026-09-30 → 2026-11-04). The only decision the roadmap feeds — the
+# commitment — is weekly, so six of every seven PRs carried no decision and
+# still needed a human to merge or close them. See §3 of the policy.
+#
+# SUBSTRATE. This is the GitHub Actions substrate. A repo that runs scheduled
+# agent work in-platform (ai-fleet's `roadmap-groom` cron state machine)
+# skips this workflow and runs §4 there instead. Either way, install
+# workflows/roadmap-deadman.yml — the watchdog no substrate provides itself.
+#
+# TOKEN. A PR opened with the default github.token triggers no workflow runs,
+# so it sits checkless against any branch protection that requires checks —
+# an unmergeable weekly wedge (ai-fleet's first attempt at this, 2026-09).
+# Set ROADMAP_PR_TOKEN to a GitHub App installation token or a fine-grained
+# PAT with contents, pull-requests and issues write. Without it the run still
+# works, and someone re-triggers the PR's checks by hand.
+#
+# Also requires ANTHROPIC_API_KEY (as workflows/scheduled-audit.yml does).
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Mondays 09:00 UTC — after backlog-currency-probe.yml (08:30)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write   # the groom pass posts its marker comment on each groomed epic
+  id-token: write # required by claude-code-action for OIDC auth
+
+concurrency:
+  group: roadmap-groom
+  cancel-in-progress: false
+
+jobs:
+  groom:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.ROADMAP_PR_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.ROADMAP_PR_TOKEN || github.token }}
+
+      # FAILS CLOSED, like scheduled-audit.yml's audit-domains guard: §4 of the
+      # policy is the run's only definition. An agent that improvises the order
+      # writes an UNTRUSTED header, or a narrative over stale data.
+      - name: Require the regime
+        run: |
+          set -euo pipefail
+          for f in docs/backlog-grooming.md docs/roadmap.md \
+                   scripts/lib/backlog-graph.mjs scripts/check-backlog-currency.mjs \
+                   scripts/generate-roadmap.mjs; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$f is missing — install the backlog-grooming regime (repo-governance templates/backlog-grooming.md §8)."
+              exit 1
+            fi
+          done
+          echo "policy: $(head -1 docs/backlog-grooming.md)"
+
+      # Step 0 of §4: one run per ISO week. A re-trigger is a no-op, not a
+      # second PR.
+      - name: Idempotency — one run per ISO week
+        id: week
+        run: |
+          set -euo pipefail
+          WEEK=$(date -u +%G-W%V)
+          BRANCH="roadmap/groom-${WEEK}"
+          echo "week=$WEEK" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "This week's run already exists on $BRANCH — re-trigger is a no-op."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 1. Groom pass (agent)
+        if: steps.week.outputs.skip == 'false'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.ROADMAP_PR_TOKEN || github.token }}
+          claude_args: '--allowedTools "Bash,Read,Glob,Grep"'
+          prompt: |
+            Run step 1 (GROOM PASS) of the weekly run in docs/backlog-grooming.md §4,
+            and nothing else. Read that section first; it is the only definition of
+            this pass. Use .claude/skills/backlog-groom/SKILL.md for each epic.
+
+            You post issue comments (the groom report ending in the
+            `backlog-groom: pass complete — …` marker line). You edit no file and no
+            issue body. Do not run the data pass or the narrative pass — later steps
+            of this workflow do that.
+
+      - name: 2. Data pass (deterministic)
+        if: steps.week.outputs.skip == 'false'
+        run: |
+          set -euo pipefail
+          node scripts/generate-roadmap.mjs | tee data-pass.txt
+          # Exit 0 is not proof: the generator prints SKIPPED and exits 0 WITHOUT
+          # writing when gh is unauthenticated or a substrate fetch fails.
+          if ! grep -q '^wrote docs/roadmap-data.md' data-pass.txt; then
+            echo "::error::The data pass did not write docs/roadmap-data.md — see the line above. Stopping before the narrative: a narrative over a stale artifact is the failure this regime exists to prevent."
+            exit 1
+          fi
+
+      - name: 3. Narrative pass + commitment exercise (agent)
+        if: steps.week.outputs.skip == 'false'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.ROADMAP_PR_TOKEN || github.token }}
+          claude_args: '--allowedTools "Bash,Read,Edit,Write,Glob,Grep"'
+          prompt: |
+            Run step 3 (NARRATIVE PASS) of the weekly run in docs/backlog-grooming.md §4,
+            then write the PR body that step 4 describes. Read that section first; it is
+            the only definition of this pass. docs/roadmap-data.md was regenerated a
+            moment ago by step 2 — do not regenerate it.
+
+            1. Follow .claude/skills/roadmap-narrative/SKILL.md: quote the data
+               artifact's trust header verbatim, verify every load-bearing claim with a
+               named command, and write ONLY the three roadmap-narrative marked sections
+               of docs/roadmap.md. Never write the roadmap-commit block.
+            2. Write the PR body to roadmap-pr-body.md at the repo root (it is not
+               committed), with exactly the parts §4 step 4 lists: the claim → verdict
+               table, the RECOMMENDED sequence (a recommendation, not a decision), the
+               committed-set diff against the current roadmap-commit block, and the
+               "Commitment required" block naming the two valid answers.
+
+            Do not commit, push, or open a PR — the next step does that. Touch no file
+            other than docs/roadmap.md and roadmap-pr-body.md.
+
+      - name: 4. Open the weekly PR
+        if: steps.week.outputs.skip == 'false'
+        env:
+          BRANCH: ${{ steps.week.outputs.branch }}
+          WEEK: ${{ steps.week.outputs.week }}
+        run: |
+          set -euo pipefail
+          # Exactly the two artifacts. Anything else in the tree is the agent
+          # stepping outside its write set — fail loudly rather than commit it.
+          STRAY=$(git status --porcelain | awk '{print $2}' \
+            | grep -v -x -e docs/roadmap-data.md -e docs/roadmap.md \
+                         -e roadmap-pr-body.md -e data-pass.txt || true)
+          if [ -n "$STRAY" ]; then
+            echo "::error::Files outside the weekly run's write set changed: $STRAY"
+            exit 1
+          fi
+          if [ ! -s roadmap-pr-body.md ]; then
+            echo "::error::roadmap-pr-body.md is missing or empty — the narrative pass did not write the commitment exercise."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add docs/roadmap-data.md docs/roadmap.md
+          git commit -m "chore(roadmap): roadmap-groom (data + narrative) ${WEEK}"
+          git push -u origin "$BRANCH"
+          # The title prefix is what workflows/roadmap-deadman.yml matches on
+          # (scripts/roadmap-deadman.mjs WEEKLY_PR_TITLE). Change both or neither.
+          gh pr create \
+            --title "chore(roadmap): roadmap-groom (data + narrative)" \
+            --body-file roadmap-pr-body.md
+          # Never enable auto-merge: the human fills the roadmap-commit block in
+          # review, and the merge is the commitment (§5).

@@ -244,6 +244,11 @@ beside the currency fixtures:
 
 ## Extraction gate (for the template, later)
 
+> **Overridden 2026-11-04 by owner direction.** `templates/scripts/generate-roadmap.mjs`
+> shipped with condition 5 (a human-merged debt-sweep batch) unmet and condition 2 met at
+> fixture level only — measured in
+> [`2026-11-04-backlog-grooming-template.md`](2026-11-04-backlog-grooming-template.md).
+
 All five before `templates/scripts/generate-roadmap.mjs` ships: (1) two scheduled
 cycles landed as merged PRs; (2) one byte-identical re-run observed in CI; (3) one
 narrative pass human-reviewed with corrections merged (or a recorded none-needed);

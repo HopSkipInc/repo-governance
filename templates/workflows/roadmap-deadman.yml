@@ -1,0 +1,143 @@
+# template: workflows/roadmap-deadman.yml v1.0.0 · updated 2026-11-04
+name: Roadmap dead-man probe
+
+# Kind: PROBE — monitors repo reality, never blocks merges or deploys.
+#
+# The watchdog of the backlog-grooming regime's weekly run
+# (docs/backlog-grooming.md §7). A dead scheduled run produces *nothing*, and
+# nothing turns red on its own. In the source repo (ai-fleet) the first
+# roadmap probe ran for a week without ever publishing, and its judgment
+# passes never ran at all — nobody noticed until a status review. This probe
+# is deliberately OUTSIDE the mechanism it watches, so it is required whatever
+# substrate runs the weekly pass: workflows/roadmap-groom.yml, or an
+# in-platform scheduler. It is the one piece no substrate provides for itself.
+#
+# What it does, daily:
+#   1. Finds the newest roadmap artifact — the newest commit touching
+#      docs/roadmap-data.md on the default branch OR the newest PR carrying
+#      the EXACT title prefix ("chore(roadmap): roadmap-groom") AND the
+#      generated file in its diff. A bare title match is not evidence: it also
+#      matches design and tracking PRs, and a draft opened before the run died
+#      carries no file. The selection lives in scripts/roadmap-deadman.mjs so
+#      it has hermetic tests.
+#   2. If the newest artifact is MAX_AGE_DAYS (8) old or older, it files an
+#      idempotent P1 issue (label: roadmap-deadman) and fails the job so the
+#      Actions surface goes red. Weekly cadence: Monday's artifact is 7 days
+#      old the next Monday, so a missed Monday run fires on Tuesday — one day
+#      of grace for a late or hand-rerun pass, never a second missed week.
+#
+# This workflow must never gain steps that depend on prod credentials or
+# upstream availability — it watches repo artifacts only, on the default
+# GITHUB_TOKEN.
+
+on:
+  schedule:
+    - cron: '0 15 * * *' # daily 15:00 UTC — well after the Monday 09:00 UTC weekly run
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  deadman:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MAX_AGE_DAYS: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the newest-commit date needs history for docs/roadmap-data.md
+
+      - name: Check roadmap freshness
+        id: freshness
+        run: |
+          set -euo pipefail
+          TODAY=$(date -u +%Y-%m-%d)
+
+          # Newest commit touching the data artifact on the default branch —
+          # covers a merged weekly PR and any on-demand regeneration.
+          DOC_DATE=$(git log -1 --format=%cs -- docs/roadmap-data.md 2>/dev/null || true)
+
+          # Newest qualifying PR — covers the week's run before a human merges it.
+          PR_JSON=$(gh pr list --repo "$GITHUB_REPOSITORY" --state all --limit 30 \
+            --search '"roadmap-groom" in:title' \
+            --json number,title,createdAt,files 2>/dev/null || echo '[]')
+          PR_DATE=$(PR_JSON="$PR_JSON" node -e '
+            import("./scripts/roadmap-deadman.mjs").then(({ newestArtifactPrDate }) =>
+              console.log(newestArtifactPrDate(JSON.parse(process.env.PR_JSON))));
+          ')
+
+          VERDICT=$(DOC_DATE="$DOC_DATE" PR_DATE="$PR_DATE" TODAY="$TODAY" MAX_AGE_DAYS="$MAX_AGE_DAYS" \
+            node -e '
+              import("./scripts/roadmap-deadman.mjs").then(({ classifyFreshness }) => {
+                console.log(JSON.stringify(classifyFreshness({
+                  commitDate: process.env.DOC_DATE, prDate: process.env.PR_DATE,
+                  today: process.env.TODAY, maxAgeDays: Number(process.env.MAX_AGE_DAYS),
+                })));
+              });
+            ')
+          NEWEST=$(node -p "JSON.parse(process.argv[1]).newest" "$VERDICT")
+          AGE_DAYS=$(node -p "JSON.parse(process.argv[1]).ageDays" "$VERDICT")
+          STALE=$(node -p "JSON.parse(process.argv[1]).stale" "$VERDICT")
+
+          echo "Newest roadmap artifact: $NEWEST (commit: ${DOC_DATE:-none}, pr: ${PR_DATE:-none}) — ${AGE_DAYS}d old (fires at ${MAX_AGE_DAYS}d)"
+          {
+            echo "newest=$NEWEST"
+            echo "age_days=$AGE_DAYS"
+            echo "stale=$STALE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: File dead-man issue (idempotent)
+        if: steps.freshness.outputs.stale == 'true'
+        run: |
+          set -euo pipefail
+          NEWEST='${{ steps.freshness.outputs.newest }}'
+          AGE='${{ steps.freshness.outputs.age_days }}'
+
+          gh label create roadmap-deadman \
+            --repo "$GITHUB_REPOSITORY" \
+            --description "Filed automatically by roadmap-deadman.yml" \
+            --color B60205 --force
+          # Taxonomy labels (docs/issue-authoring.md) — create only if missing,
+          # never overwrite existing colors/descriptions.
+          for L in bug P1; do
+            gh label create "$L" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+          done
+
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --label roadmap-deadman --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Open dead-man issue #$EXISTING already exists — not filing a duplicate."
+            exit 0
+          fi
+
+          BODY=$(cat <<EOF
+          ## Work type
+          bug
+
+          ## Verifiable outcomes (binary, observable)
+          - [ ] A \`docs/roadmap-data.md\` commit exists on the default branch dated within the last ${MAX_AGE_DAYS} days, or a \`chore(roadmap): roadmap-groom\` PR carrying it is open
+          - [ ] The cause of the missed run(s) is identified and recorded (comment here, or the next roadmap PR's body)
+
+          ## Verification (how to prove it)
+          - \`git log -1 --format=%cs -- docs/roadmap-data.md\` shows a date within ${MAX_AGE_DAYS} days
+          - Re-run \`roadmap-deadman.yml\`: the freshness step passes
+
+          ## Status
+          ready — filed automatically by \`.github/workflows/roadmap-deadman.yml\`. Newest roadmap artifact is dated ${NEWEST} (${AGE} days old). The weekly roadmap-groom run (docs/backlog-grooming.md §4) has produced nothing visible since then — check its workflow runs or scheduler logs for the failed or missing runs.
+          EOF
+          )
+
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "roadmap: no roadmap-groom artifact since $NEWEST (dead-man probe)" \
+            --label "roadmap-deadman,bug,P1" \
+            --body "$BODY"
+
+      - name: Fail when stale (red probe surface)
+        if: steps.freshness.outputs.stale == 'true'
+        run: |
+          echo "::error::No roadmap-groom artifact since ${{ steps.freshness.outputs.newest }} (${{ steps.freshness.outputs.age_days }} days). The weekly run is silently dead — see the roadmap-deadman issue."
+          exit 1

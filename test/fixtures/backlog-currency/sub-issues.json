@@ -1,0 +1,25 @@
+{
+  "1097": [
+    { "number": 1101, "state": "closed", "state_reason": "completed", "closed_at": "2026-08-14T12:00:00Z" },
+    { "number": 1102, "state": "closed", "state_reason": "completed", "closed_at": "2026-08-15T12:00:00Z" },
+    { "number": 1103, "state": "closed", "state_reason": "completed", "closed_at": "2026-08-15T18:00:00Z" }
+  ],
+  "1112": [
+    { "number": 1201, "state": "closed", "state_reason": "completed", "closed_at": "2026-08-12T12:00:00Z" },
+    { "number": 1202, "state": "closed", "state_reason": "not_planned", "closed_at": "2026-08-13T12:00:00Z" }
+  ],
+  "989": [
+    { "number": 1001, "state": "open", "state_reason": null, "closed_at": null }
+  ],
+  "2002": [
+    { "number": 2003, "state": "open", "state_reason": null, "closed_at": null }
+  ],
+  "3001": [],
+  "4000": [
+    { "number": 4001, "state": "open", "state_reason": null, "closed_at": null },
+    { "number": 4002, "state": "closed", "state_reason": "completed", "closed_at": "2026-08-01T12:00:00Z" }
+  ],
+  "8001": [
+    { "number": 8002, "state": "closed", "state_reason": "completed", "closed_at": "2026-08-11T12:00:00Z" }
+  ]
+}
