@@ -96,13 +96,13 @@ problem, and a weekly cadence makes it a once-a-week ask.
 |---|---|---|
 | `backlog-grooming.md` | new `docs/backlog-grooming.md` | new policy |
 | `scripts/lib/backlog-graph.mjs` | `scripts/lib/backlog-graph.mjs` | header and comments only |
-| `scripts/check-backlog-currency.mjs` | same path | header and comments only |
+| `scripts/check-backlog-currency.mjs` | same path | **never lints probe-output issues** (labels `backlog-currency-probe`, `stale-blocker-probe`, `epic-handoff-probe`, `merge-path-probe`). #2352 was firing C5 on its own header line every run, and on each echoed `(unfiled)` finding. Expect the C5 census to drop on the first run |
 | `scripts/generate-roadmap.mjs` | same path | the rolling issue is **found by its `backlog-currency-probe` label** in the loaded graph, not the hard-coded `#2352`; the unused `STALE_BLOCKER_ROLLING_ISSUE` is gone. Live output is unchanged while #2352 carries the label (verify) |
-| `scripts/check-roadmap-commit.mjs` | same path | a `--tz` flag (default **UTC**); `weekdayInEstate(iso, tz)`. **Wire `--tz America/New_York`** into `run-tests.yml` to keep today's semantics |
+| `scripts/check-roadmap-commit.mjs` | same path | a `--tz` flag (default **UTC**). **Wire `--tz America/New_York`** into `run-tests.yml` to keep today's semantics. The date is now read in the same zone as the weekday, which fixes a latent local bug: a Monday-evening ET PR carrying that Monday's block read as stale. An undeterminable diff now **exits 2** instead of evaluating the file. `host-test` already checks out with `fetch-depth: 0`, so confirm that and nothing changes |
 | `scripts/roadmap-deadman.mjs` | same path | comments: the weekly boundary |
-| `workflows/backlog-currency-probe.yml` | same path | comments; `actions/checkout@v4` (template convention) |
-| `workflows/roadmap-deadman.yml` | same path | `MAX_AGE_DAYS: 2 → 8`; generic issue body; labels `roadmap-deadman,bug,P1` (it no longer creates `area:ops`, `theme:governance`, `status:ready`) |
-| `skills/backlog-groom/` | `.claude/skills/backlog-groom/SKILL.md` | 1.1.0 → 1.2.0: the weekly trigger and the no-TRIGGER fallback; the local `groom-backlog` relationship is now generic |
+| `workflows/backlog-currency-probe.yml` | same path | `actions/checkout@v4` (template convention); a SKIPPED run now **fails the job** after upserting the rolling issue, so "lint last green" never counts a run that read nothing |
+| `workflows/roadmap-deadman.yml` | same path | `MAX_AGE_DAYS: 2 → 8`; the PR search comes from `weeklyPrSearch()`; generic issue body; labels `roadmap-deadman,bug,P1` (it no longer creates `area:ops`, `theme:governance`, `status:ready`) |
+| `skills/backlog-groom/` | `.claude/skills/backlog-groom/SKILL.md` | 1.1.0 → 1.2.0: the weekly trigger and the no-TRIGGER fallback; the local `groom-backlog` relationship is now generic. The marker example now writes a file: the old `--body "…\n\nbacklog-groom: …"` example left `\n` literal in bash, so the marker never started a line and the generator never saw the pass |
 | `skills/roadmap-narrative/` | `.claude/skills/roadmap-narrative/SKILL.md` | 1.0.0 → 1.1.0: the trigger is the weekly run, not "after the daily regeneration" |
 | `skills/debt-sweep/` | `.claude/skills/debt-sweep/SKILL.md` | 1.0.0 → 1.1.0: generic incident framing |
 

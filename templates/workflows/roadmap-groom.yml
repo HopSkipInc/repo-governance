@@ -25,12 +25,16 @@ name: Roadmap groom (weekly)
 # skips this workflow and runs §4 there instead. Either way, install
 # workflows/roadmap-deadman.yml — the watchdog no substrate provides itself.
 #
-# TOKEN. A PR opened with the default github.token triggers no workflow runs,
-# so it sits checkless against any branch protection that requires checks —
-# an unmergeable weekly wedge (ai-fleet's first attempt at this, 2026-09).
-# Set ROADMAP_PR_TOKEN to a GitHub App installation token or a fine-grained
-# PAT with contents, pull-requests and issues write. Without it the run still
-# works, and someone re-triggers the PR's checks by hand.
+# TOKEN — ROADMAP_PR_TOKEN is required in practice. The default github.token
+# fails twice over: GitHub's default setting refuses to let it open PRs at all
+# ("Allow GitHub Actions to create and approve pull requests" is off), and a PR
+# it does open triggers no workflow runs, so it sits checkless against any
+# required checks — an unmergeable weekly wedge (ai-fleet's first attempt at
+# this, 2026-09). Use a GitHub App installation token or a fine-grained PAT
+# with: Contents write, Pull requests write, Issues write (the groom marker
+# comments), and Actions READ — the data pass reads the currency probe's last
+# successful run for the trust header, and without Actions read it SKIPs and
+# this run stops at step 2.
 #
 # Also requires ANTHROPIC_API_KEY (as workflows/scheduled-audit.yml does).
 
@@ -43,6 +47,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write   # the groom pass posts its marker comment on each groomed epic
+  actions: read   # the data pass reads the currency probe's last successful run
   id-token: write # required by claude-code-action for OIDC auth
 
 concurrency:
@@ -76,9 +81,11 @@ jobs:
           done
           echo "policy: $(head -1 docs/backlog-grooming.md)"
 
-      # Step 0 of §4: one run per ISO week. A re-trigger is a no-op, not a
-      # second PR.
-      - name: Idempotency — one run per ISO week
+      # Step 0 of §4: one run per ISO week. The evidence of a run is its PR —
+      # open, merged or closed — never the branch: a branch survives a run that
+      # died before opening its PR (the re-trigger must retry), and a merged
+      # branch may be auto-deleted (the re-trigger must still no-op).
+      - name: Idempotency — one PR per ISO week
         id: week
         run: |
           set -euo pipefail
@@ -86,9 +93,11 @@ jobs:
           BRANCH="roadmap/groom-${WEEK}"
           echo "week=$WEEK" >> "$GITHUB_OUTPUT"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+          EXISTING=$(gh pr list --repo "$GITHUB_REPOSITORY" --state all --head "$BRANCH" \
+            --json url --jq '.[0].url // empty')
+          if [ -n "$EXISTING" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "This week's run already exists on $BRANCH — re-trigger is a no-op."
+            echo "This week's PR already exists ($EXISTING) — re-trigger is a no-op."
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
@@ -171,10 +180,16 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
+          git checkout -B "$BRANCH"
           git add docs/roadmap-data.md docs/roadmap.md
+          if git diff --cached --quiet; then
+            echo "::error::Neither artifact changed — the data and narrative passes produced nothing to review. A week with no diff is a dead run, not a quiet one: the substrate clock moves with any issue activity."
+            exit 1
+          fi
           git commit -m "chore(roadmap): roadmap-groom (data + narrative) ${WEEK}"
-          git push -u origin "$BRANCH"
+          # Force: step 0 found no PR for this branch, so anything on it is a
+          # previous run of this week that died before opening one.
+          git push --force -u origin "$BRANCH"
           # The title prefix is what workflows/roadmap-deadman.yml matches on
           # (scripts/roadmap-deadman.mjs WEEKLY_PR_TITLE). Change both or neither.
           gh pr create \

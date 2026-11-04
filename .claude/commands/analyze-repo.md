@@ -304,7 +304,7 @@ probe workflow, wired to the DoD's *Epic handoff* block and the epic rule in
 `issue-authoring.md`.
 The twelve **backlog-grooming** rows were added 2026-11-04, when the regime was
 extracted from ai-fleet by owner direction and moved from daily to weekly on the way
-(`downstream/hopskip/ai-fleet/2026-11-04-backlog-grooming-template.md`). The extraction
+(`downstream/hopskip/ai-fleet/2026-11-04-backlog-grooming-extraction.md`). The extraction
 gates recorded in the 2026-08-21 and 2026-09-20 prompts were overridden on the record.
 The **`local-verification.md`** row was added 2026-10-07, after ai-fleet's commit hook
 grew to the full composite plus a sequential integration tier and was being walked

@@ -495,7 +495,7 @@ false-positive review — does ride the audit ritual; that is human time already
 
 > **Overridden 2026-11-04 by owner direction.** The regime was extracted with this gate
 > open — conditions 2 and 4 unmet, measured in
-> [`2026-11-04-backlog-grooming-template.md`](2026-11-04-backlog-grooming-template.md).
+> [`2026-11-04-backlog-grooming-extraction.md`](2026-11-04-backlog-grooming-extraction.md).
 > The templates ship the tuned detectors; disposition remains the open problem. Kept below
 > as the record of what the gate asked for.
 

@@ -160,3 +160,25 @@ test('gh absent — SKIPPED, never a clean census; exit 0 in probe mode, 2 with 
   const gated = spawnSync(process.execPath, [SCRIPT, '--gate'], { encoding: 'utf8', env });
   assert.equal(gated.status, 2, 'a gated run that cannot read the backlog must not exit 0');
 });
+
+test('a probe\'s own rolling issue is never linted — the lint does not report its previous run', () => {
+  // Review finding (2026-11-04): the rolling issue's header line names "C5
+  // named-but-unfiled work" and its fenced output echoes every finding, so
+  // linting it added a C5 per run and re-fired each echoed (unfiled) finding.
+  const rolling = (number, label) => ({
+    number, title: 'probe — rolling findings', state: 'open',
+    created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-14T08:31:00Z',
+    labels: [{ name: label }],
+    body: 'Classes: C4 declared hierarchy unlinked · C5 named-but-unfiled work\n```\nprobe #9 C5 names work with no issue filed: "(unfiled) foo"\n```',
+  });
+  const withRolling = {
+    ...graph,
+    issues: [...graph.issues, rolling(9001, 'backlog-currency-probe'), rolling(9002, 'stale-blocker-probe')],
+  };
+  const out = analyze(withRolling);
+  assert.deepEqual(out.findings.filter((f) => f.issue === 9001 || f.issue === 9002), []);
+  assert.deepEqual(out.census, census, 'the census is unchanged by probe output');
+  // The same body on an ordinary issue still fires — the skip is the label, not the text.
+  const plain = analyze({ ...graph, issues: [...graph.issues, { ...rolling(9003, 'chore'), labels: [] }] });
+  assert.ok(plain.findings.some((f) => f.issue === 9003 && f.cls === 'C5'));
+});

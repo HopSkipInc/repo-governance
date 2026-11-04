@@ -38,6 +38,7 @@ const {
   SECTION_END,
   COMMITMENT_DOW,
   DEFAULT_TZ,
+  dateInEstate,
   findSections,
   evaluateCommitSection,
   weekdayInEstate,
@@ -184,4 +185,31 @@ test('11. CLI --tz — the flag reaches the weekday rule', () => {
   assert.equal(run(['--pr-created', '2026-10-13T02:00:00Z']), 0);
   assert.equal(run(['--pr-created', '2026-10-13T02:00:00Z', '--tz', 'America/New_York']), 1);
   assert.equal(run(['--pr-created', '2026-10-13T02:00:00Z', '--tz=America/New_York']), 1);
+});
+
+test('12. same clock for weekday and date — a Monday-evening PR carrying that Monday\'s block is ok', () => {
+  // Review finding (2026-11-04): the weekday was read in --tz while the date was
+  // compared in UTC, so a block dated Monday 2026-11-09 failed as stale on a PR
+  // opened Monday 21:00 ET (02:00 UTC Tuesday) — the exact case --tz exists for.
+  const ET = 'America/New_York';
+  const thisMonday = wrap('Committed 2026-11-09: #1');
+  assert.equal(evaluateCommitSection(thisMonday, { prCreated: '2026-11-10T02:00:00Z', tz: ET }).verdict, 'ok');
+  assert.equal(evaluateCommitSection(thisMonday, { prCreated: '2026-11-10T02:00:00Z', tz: 'America/Los_Angeles' }).verdict, 'ok');
+  // …while last Monday's block on that same PR is still the lapse.
+  assert.equal(evaluateCommitSection(wrap('Committed 2026-11-02: #1'), { prCreated: '2026-11-10T02:00:00Z', tz: ET }).verdict, 'stale');
+  assert.equal(dateInEstate('2026-11-10T02:00:00Z', ET), '2026-11-09');
+  assert.equal(dateInEstate('2026-11-10T02:00:00Z'), '2026-11-10'); // UTC default
+  assert.equal(dateInEstate('2026-11-10'), '2026-11-10'); // date-only: no shift
+});
+
+test('13. CLI --base that cannot be diffed — exit 2 with the fix named, never a guess', () => {
+  // Review finding (2026-11-04): an undeterminable diff fell through to
+  // evaluating the file, so a shallow checkout blocked unrelated PRs whenever
+  // the block was stale. It is a configuration error and says so.
+  const dir = mkdtempSync(join(tmpdir(), 'roadmap-commit-base-'));
+  const p = join(dir, 'r.md');
+  writeFileSync(p, wrap('Committed 2026-10-05: #3339'));
+  const r = spawnSync(process.execPath, [SCRIPT, '--file', p, '--base', '0000000000000000000000000000000000000000', '--pr-created', '2026-10-12'], { encoding: 'utf8', cwd: REPO });
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /fetch-depth: 0/);
 });

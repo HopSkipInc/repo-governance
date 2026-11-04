@@ -125,6 +125,17 @@ export { loadGraphFixtures } from './lib/backlog-graph.mjs';
  *  swallowed it would put the false positives back. */
 const BLOCKER_LINE = /\b(blocked[-\s]by|blocked on|blocking on|blocker|awaiting|waiting on|depends on|gated by)\b/i;
 
+/** Rolling-issue labels of the governance probes. Those issues are probe
+ *  OUTPUT — this lint's own included — and echo class names and findings
+ *  verbatim, so linting them makes every run report its previous run: the
+ *  probe's own header line ("C5 named-but-unfiled work") fired C5 once per run,
+ *  and each echoed `(unfiled)` finding fired again (review, 2026-11-04). They
+ *  stay in the census's open-issue count and in the roadmap's debt table — no
+ *  silent filter there — but they are never linted. */
+export const PROBE_OUTPUT_LABELS = [
+  'backlog-currency-probe', 'stale-blocker-probe', 'epic-handoff-probe', 'merge-path-probe',
+];
+
 // ------------------------------------------------------------------ analyze
 
 /**
@@ -141,6 +152,7 @@ export function analyze(graph) {
   const isClosed = (n) => refState(n) === 'closed';
 
   for (const issue of issues) {
+    if (PROBE_OUTPUT_LABELS.some((l) => hasLabel(issue, l))) continue;
     const body = issue.body ?? '';
     const lines = body.split(/\r?\n/);
     const kids = subIssues.get(issue.number) ?? [];

@@ -104,7 +104,15 @@ A completed pass posts a comment on the epic carrying the fixed marker line:
 backlog-groom: pass complete — verified <a>, stale <b>, unverifiable <c>
 ```
 
-`gh issue comment <epic> --body "...the report...\n\nbacklog-groom: pass complete — verified 4, stale 1, unverifiable 0"`
+The marker must start its own line, so write the comment to a file rather than
+passing `\n` inside a double-quoted `--body` (bash keeps it literal, the marker lands
+mid-line, and the generator never sees the pass):
+
+```bash
+{ cat groom-report.md; printf '\nbacklog-groom: pass complete — verified 4, stale 1, unverifiable 0\n'; } > groom-comment.md
+gh issue comment <epic> --body-file groom-comment.md
+```
+
 The roadmap generator (`scripts/generate-roadmap.mjs`) reads the newest marker
 across epics as the substrate's last-groom-pass and measures it against the
 cadence declared in `docs/definition-of-done.md` (`backlog grooming cadence:

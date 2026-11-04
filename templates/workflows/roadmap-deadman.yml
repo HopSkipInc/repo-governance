@@ -22,9 +22,14 @@ name: Roadmap dead-man probe
 #      it has hermetic tests.
 #   2. If the newest artifact is MAX_AGE_DAYS (8) old or older, it files an
 #      idempotent P1 issue (label: roadmap-deadman) and fails the job so the
-#      Actions surface goes red. Weekly cadence: Monday's artifact is 7 days
-#      old the next Monday, so a missed Monday run fires on Tuesday — one day
-#      of grace for a late or hand-rerun pass, never a second missed week.
+#      Actions surface goes red. The clock is the NEWER of the run's PR and
+#      the merge commit: when the weekly PR merges on Monday, a missed next
+#      Monday fires on Tuesday; a PR merged later in the week pushes the
+#      alarm out by the same number of days. Merge the weekly PR promptly and
+#      the alarm stays tight.
+#
+# Install it AFTER the first weekly PR exists: a cold start reads as the
+# epoch, and the first run would file a P1 on install day.
 #
 # This workflow must never gain steps that depend on prod credentials or
 # upstream availability — it watches repo artifacts only, on the default
@@ -62,8 +67,10 @@ jobs:
           DOC_DATE=$(git log -1 --format=%cs -- docs/roadmap-data.md 2>/dev/null || true)
 
           # Newest qualifying PR — covers the week's run before a human merges it.
+          # The search comes from the helper, so the tested string is the one used.
+          SEARCH=$(node -e 'import("./scripts/roadmap-deadman.mjs").then((m) => console.log(m.weeklyPrSearch()))')
           PR_JSON=$(gh pr list --repo "$GITHUB_REPOSITORY" --state all --limit 30 \
-            --search '"roadmap-groom" in:title' \
+            --search "$SEARCH" \
             --json number,title,createdAt,files 2>/dev/null || echo '[]')
           PR_DATE=$(PR_JSON="$PR_JSON" node -e '
             import("./scripts/roadmap-deadman.mjs").then(({ newestArtifactPrDate }) =>

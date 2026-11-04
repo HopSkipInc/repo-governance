@@ -48,6 +48,14 @@ test('parity — roadmap-groom.yml opens its PR under the title the deadman matc
   assert.ok(m[1].startsWith(WEEKLY_PR_TITLE), `"${m[1]}" must start with "${WEEKLY_PR_TITLE}"`);
 });
 
+test('parity — roadmap-deadman.yml takes its PR search from the helper, never a copy', () => {
+  // Review finding (2026-11-04): the workflow hard-coded its own search string,
+  // so the weeklyPrSearch() test below passed whatever the workflow searched.
+  const yml = readFileSync(DEADMAN_YML, 'utf8');
+  assert.match(yml, /weeklyPrSearch\(\)/);
+  assert.doesNotMatch(yml, /--search '"roadmap-groom" in:title'/);
+});
+
 // ── newestArtifact ───────────────────────────────────────────────────────────
 
 test('newestArtifact picks the later of the two sources', () => {

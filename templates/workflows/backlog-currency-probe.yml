@@ -21,6 +21,11 @@ name: Backlog-currency probe
 # before workflows/roadmap-groom.yml (09:00), so the weekly roadmap's header
 # reads this morning's census. Move all three together if you move one.
 #
+# A SKIPPED run (the lint could not read the backlog) still upserts the rolling
+# issue, then FAILS the job: the roadmap's trust header cites this workflow's
+# last *successful* run as "lint last green", and a run that read nothing is
+# not green.
+#
 # TOKEN: the default github.token reads this repo's issues. Set
 # STALE_BLOCKERS_TOKEN (the stale-blocker probe's estate-spanning token) only
 # if your estate already has it; this probe reads no other repo.
@@ -84,4 +89,11 @@ jobs:
             gh issue create --repo "$GITHUB_REPOSITORY" \
               --title "$TITLE" --label backlog-currency-probe \
               --body-file rolling-body.md
+          fi
+
+      - name: Fail on SKIPPED (a run that read nothing is not green)
+        run: |
+          if grep -q '^SKIPPED' probe-output.txt; then
+            echo "::error::$(grep -m1 '^SKIPPED' probe-output.txt)"
+            exit 1
           fi

@@ -50,7 +50,12 @@
  * (#3600). Grammar (absent/empty/malformed) is enforced every day regardless,
  * because the section must always be parseable.
  *
- * Exit: 0 = valid (or the file is untouched by this diff) · 1 = invalid.
+ * The diff needs the base commit in the checkout (`actions/checkout` with
+ * `fetch-depth: 0`). When git cannot compute it, the gate exits 2 and says so —
+ * it neither guesses that the file was touched nor that it was not.
+ *
+ * Exit: 0 = valid (or the file is untouched by this diff) · 1 = invalid ·
+ *       2 = the diff vs --base could not be computed.
  * Local use: `node scripts/check-roadmap-commit.mjs` validates the committed
  * section (no base, no fetch). `--file <path>` overrides the target.
  * CI: `node scripts/check-roadmap-commit.mjs --base <base-sha>
@@ -101,6 +106,33 @@ export function weekdayInEstate(iso, tz = DEFAULT_TZ) {
 }
 
 /**
+ * The calendar date (YYYY-MM-DD) of an ISO date or timestamp in `tz`. A
+ * date-only string is returned as-is. Both halves of the stale rule — the
+ * weekday AND the date the block is compared against — must read the same
+ * clock: comparing a New York weekday against a UTC date called a block dated
+ * Monday stale on a PR opened Monday 21:00 ET (02:00 UTC Tuesday). An unknown
+ * zone throws; the caller falls back to the UTC date.
+ */
+export function dateInEstate(iso, tz = DEFAULT_TZ) {
+  const s = String(iso);
+  if (!s.includes('T')) return s.slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date(s));
+  const get = (t) => parts.find((p) => p.type === t)?.value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+/** dateInEstate, falling back to the UTC date on an unknown zone or value. */
+function prDateIn(prCreated, tz) {
+  try {
+    return dateInEstate(prCreated, tz);
+  } catch {
+    return String(prCreated).slice(0, 10);
+  }
+}
+
+/**
  * Every `roadmap-commit` block body in the document, in order. A block is the
  * text strictly between one `start` marker and the next `end` marker.
  */
@@ -124,10 +156,10 @@ export function findSections(doc) {
  * on; `tz` is the clock its weekday is read in.
  */
 export function evaluateCommitSection(doc, { prCreated = null, tz = DEFAULT_TZ } = {}) {
-  // Normalise a full ISO timestamp to its date part: `date < prCreated` is a
-  // lexicographic compare, and '2026-10-10' < '2026-10-10T12:00:00Z' would
-  // wrongly read a same-day commitment as stale.
-  const pc = prCreated ? String(prCreated).slice(0, 10) : null;
+  // Normalise a full ISO timestamp to its date IN THE SAME CLOCK as the
+  // weekday rule: `date < pc` is a lexicographic compare, and a UTC date would
+  // move a late-evening PR to the next day.
+  const pc = prCreated ? prDateIn(prCreated, tz) : null;
   const starts = doc.split(SECTION_START).length - 1;
   const ends = doc.split(SECTION_END).length - 1;
   if (starts === 0 && ends === 0) return { verdict: 'absent', date: null, refs: [], atCapacity: false };
@@ -175,7 +207,7 @@ function isCommitmentDay(prCreated, tz) {
 }
 
 /** Human-readable one-line reason for a non-ok verdict. */
-export function reasonFor(result, { prCreated = null } = {}) {
+export function reasonFor(result, { prCreated = null, tz = DEFAULT_TZ } = {}) {
   switch (result.verdict) {
     case 'absent':
       return `the ${SECTION_START} … ${SECTION_END} section is absent from docs/roadmap.md`;
@@ -186,7 +218,7 @@ export function reasonFor(result, { prCreated = null } = {}) {
     case 'malformed':
       return 'the commit line is malformed — expected "Committed YYYY-MM-DD: #NNN, #NNN" or "Committed YYYY-MM-DD: none — at capacity"';
     case 'stale':
-      return `stale commitment — dated ${result.date}, before this weekly commitment PR was created (${prCreated ? String(prCreated).slice(0, 10) : 'unknown'}); the previous cycle's commitment was carried forward into the commitment run`;
+      return `stale commitment — dated ${result.date}, before this weekly commitment PR was created (${prCreated ? prDateIn(prCreated, tz) : 'unknown'}, ${tz}); the previous cycle's commitment was carried forward into the commitment run`;
     default:
       return 'valid';
   }
@@ -246,10 +278,15 @@ if (fileURLToPath(import.meta.url) === process.argv[1]) {
 
   if (args.base) {
     const changed = changedFiles(args.base);
-    // Fail-open on an undeterminable diff: an unrelated PR must never be blocked
-    // by a gate it cannot be the cause of. (The reverse — a roadmap PR whose diff
-    // git cannot compute — still evaluates the file below when the diff is known.)
-    if (changed && !changed.includes(rel)) {
+    // An undeterminable diff is a CONFIGURATION error, reported as one. Falling
+    // through to evaluate the file would block unrelated PRs whenever the block
+    // is stale (every Monday); passing would mean the gate never gates. Exit 2,
+    // named, so the first CI run says exactly what to fix.
+    if (changed === null) {
+      console.error(`ERROR — cannot compute the diff vs ${args.base}: the base commit is not in this checkout. Check out with fetch-depth: 0 (or fetch the base) so the gate can tell whether ${rel} was touched.`);
+      process.exit(2);
+    }
+    if (!changed.includes(rel)) {
       console.log(`SKIPPED — ${rel} is unchanged vs ${args.base}; no commitment to gate.`);
       process.exit(0);
     }
@@ -267,12 +304,12 @@ if (fileURLToPath(import.meta.url) === process.argv[1]) {
   if (result.verdict === 'ok') {
     const what = result.atCapacity ? 'none — at capacity' : result.refs.map((n) => `#${n}`).join(', ');
     const carried =
-      args.prCreated && result.date < String(args.prCreated).slice(0, 10)
+      args.prCreated && result.date < prDateIn(args.prCreated, args.tz)
         ? ' (carried forward — not the weekly commitment day)'
         : '';
     console.log(`OK — roadmap-commit ${result.date}: ${what}${carried}`);
     process.exit(0);
   }
-  console.error(`FAIL — ${reasonFor(result, { prCreated: args.prCreated })}.`);
+  console.error(`FAIL — ${reasonFor(result, { prCreated: args.prCreated, tz: args.tz })}.`);
   process.exit(1);
 }

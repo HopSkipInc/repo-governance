@@ -25,8 +25,9 @@ The regime has three layers. Each one does what the layer below cannot:
 | 2. Groom pass | Verifies one epic body's code claims with named commands and proposes corrections, and never edits the body. Ends with a dated marker comment | judgment (agent) | an issue comment |
 | 3. Roadmap | **Data pass:** a deterministic projection of the graph (trust header, epic table, debt table). **Narrative pass:** the sequence, dependency horizons and cross-cutting observations, verified the way Layer 2 verifies | mechanical + judgment | `docs/roadmap-data.md`, `docs/roadmap.md` |
 
-Read the roadmap's **trust header** before trusting the roadmap (§6). It is TRUSTED only
-while the lint has run and a groom pass has landed within the cadence.
+Read the roadmap's **trust header** before trusting the roadmap (§6). It reads TRUSTED only
+while a groom pass has landed within the cadence, and it shows the lint's last green run
+beside that verdict.
 
 ## 2. The files
 
@@ -57,7 +58,7 @@ it cannot read its input, and never reports a clean result it did not observe.
 | Mon 08:30 | `backlog-currency-probe.yml` | probe |
 | Mon 09:00 | **the weekly run** (§4): groom → data → narrative → one PR | scheduled agent work |
 | Mon, in review | **the commitment** (§5): a human fills `roadmap-commit` and merges | human |
-| daily 15:00 | `roadmap-deadman.yml`: fires when the newest artifact is 8+ days old | probe |
+| daily 15:00 | `roadmap-deadman.yml`: fires when the newest artifact is 8+ days old (§7) | probe |
 
 Declare the cadence in `docs/definition-of-done.md` with exactly this line. The generator
 reads it, and a missing line renders the header UNTRUSTED:
@@ -141,10 +142,13 @@ Monday.
 
 `scripts/check-roadmap-commit.mjs` enforces it. Wire it into an **always-on required** PR
 job, never a path-filtered one, with
-`--base <base sha> --pr-created <pull_request.created_at>`. Add `--tz <IANA zone>` if
-your weekly run lands near midnight UTC. A PR that leaves `docs/roadmap.md` untouched
-exits 0 immediately. A PR that touches it is held to the grammar every day. On Monday,
-the commitment day, the block's date must also be on or after the PR's creation date.
+`--base <base sha> --pr-created <pull_request.created_at>`. The job must check out with
+`fetch-depth: 0` so the base commit is present; when git cannot compute the diff, the gate
+exits 2 and names the fix rather than guessing. Add `--tz <IANA zone>` if your weekly run
+or your reviewers sit near midnight UTC; the gate then reads both the weekday and the date
+in that zone. A PR that leaves `docs/roadmap.md` untouched exits 0 immediately. A PR that
+touches it is held to the grammar every day. On Monday, the commitment day, the block's
+date must also be on or after the PR's creation date.
 
 ## 6. The trust header
 
@@ -154,8 +158,12 @@ newest activity anywhere in the graph, so a re-run over an unchanged backlog is
 byte-identical and the committed diff is the backlog delta. The header shows:
 
 - `trust:` **TRUSTED** when the newest groom marker falls within the declared cadence of
-  the substrate clock, and **UNTRUSTED** when it is older or there is none;
-- `lint last green:` the currency probe's newest successful run and its rolling issue;
+  the substrate clock, and **UNTRUSTED** when it is older or there is none. The verdict
+  reads the marker only;
+- `lint last green:` the currency probe's newest successful run and its rolling issue.
+  Read it beside the verdict: a header can say TRUSTED while the lint has been red for
+  weeks. A probe run that SKIPPED fails its job (§2's workflow), so it never counts as
+  green;
 - `last groom pass:` the newest marker, who posted it, and the cadence verdict;
 - the lint's census line, row counts, and the actionable debt older than 90 days.
 
@@ -166,10 +174,11 @@ it: a groom pass whose marker lands.
 
 Two substrates can run §4:
 
-- **GitHub Actions** — `workflows/roadmap-groom.yml`. It needs `ANTHROPIC_API_KEY`. Its
-  PR must be opened with a token that triggers workflows (`ROADMAP_PR_TOKEN`: a GitHub App
-  installation token or a fine-grained PAT). A PR opened with the default
-  `github.token` gets no checks, and under required checks it can never merge.
+- **GitHub Actions** — `workflows/roadmap-groom.yml`. It needs `ANTHROPIC_API_KEY` and
+  `ROADMAP_PR_TOKEN`: a GitHub App installation token or a fine-grained PAT with Contents,
+  Pull requests and Issues write, plus Actions read. The default `github.token` is not
+  enough. GitHub's default setting refuses to let it open PRs at all, a PR it does open
+  gets no checks, and under required checks that PR can never merge.
 - **In-platform** — a scheduler that dispatches an agent with §4 as its goal (ai-fleet's
   `roadmap-groom` cron state machine). Its PR identity is the platform's own app, and it
   skips `roadmap-groom.yml`.
@@ -180,6 +189,10 @@ published once, and its judgment passes never ran at all. The deadman sits outsi
 scheduler it watches. It looks only at repo artifacts: the newest commit to
 `docs/roadmap-data.md`, or the newest PR with the exact title and that file in its diff. It
 files one idempotent P1 issue and goes red when that artifact is 8 or more days old.
+
+Its clock is the newer of the run's PR and the merge commit. When the weekly PR merges on
+Monday, a missed next Monday fires on Tuesday. A PR merged later in the week pushes the
+alarm out by the same number of days, so merge the weekly PR promptly.
 
 ## 8. Install
 
@@ -199,7 +212,9 @@ The install order is fixed, because each layer reads the output of the one befor
    the skeleton below. Never re-copy it after that: from then on it carries your
    commitments. Then wire the commitment gate (§5).
 5. **The weekly run**: `workflows/roadmap-groom.yml`, or your in-platform equivalent.
-6. **The deadman**: `scripts/roadmap-deadman.mjs` and `workflows/roadmap-deadman.yml`.
+6. **The deadman**: `scripts/roadmap-deadman.mjs` and `workflows/roadmap-deadman.yml`,
+   **after** the first weekly PR exists. With no artifact yet, its clock reads as the
+   epoch, and it would file a P1 on install day.
 
 The `docs/roadmap.md` skeleton:
 
@@ -254,5 +269,5 @@ in-platform from 2026-09-24, and daily from 2026-09-30 to 2026-11-04. Extracted 
 2026-11-04 by owner direction, on the weekly cadence. Two extraction gates were still
 open when it was extracted: the 2026-08-21 grooming-regime prompt's §8 and the
 2026-09-20 Layer 3 prompt's five conditions. The extraction prompt
-`downstream/hopskip/ai-fleet/2026-11-04-backlog-grooming-template.md` records the gate
+`downstream/hopskip/ai-fleet/2026-11-04-backlog-grooming-extraction.md` records the gate
 state at extraction.
