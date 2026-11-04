@@ -493,6 +493,12 @@ false-positive review — does ride the audit ritual; that is human time already
 
 ## 8. When this becomes a template
 
+> **Overridden 2026-11-04 by owner direction.** The regime was extracted with this gate
+> open — conditions 2 and 4 unmet, measured in
+> [`2026-11-04-backlog-grooming-extraction.md`](2026-11-04-backlog-grooming-extraction.md).
+> The templates ship the tuned detectors; disposition remains the open problem. Kept below
+> as the record of what the gate asked for.
+
 Per PDR-010 Consequences 4 the lint and the skill are built in ai-fleet and run one full cycle
 before extraction. The extraction gate — all four required:
 

@@ -1,0 +1,14 @@
+{
+  "100": [
+    { "number": 101, "state": "closed", "state_reason": "completed", "closed_at": "2026-08-14T12:00:00Z" },
+    { "number": 102, "state": "closed", "state_reason": "completed", "closed_at": "2026-08-15T12:00:00Z" },
+    { "number": 103, "state": "closed", "state_reason": "completed", "closed_at": "2026-08-15T18:00:00Z" }
+  ],
+  "200": [
+    { "number": 201, "state": "closed", "state_reason": "completed", "closed_at": "2026-09-10T12:00:00Z" },
+    { "number": 202, "state": "open", "state_reason": null, "closed_at": null }
+  ],
+  "510": [
+    { "number": 511, "state": "open", "state_reason": null, "closed_at": null }
+  ]
+}

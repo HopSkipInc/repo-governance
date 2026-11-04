@@ -1,0 +1,128 @@
+[
+  {
+    "number": 100,
+    "title": "Delivered epic, still open",
+    "state": "open",
+    "created_at": "2026-07-15T12:00:00Z",
+    "updated_at": "2026-08-10T12:00:00Z",
+    "labels": [{ "name": "epic" }, { "name": "impl:standard" }],
+    "body": "# Context\n\nShip the gateway cutover safely.\n\n## Outcomes\n\n- [x] All three children shipped\n"
+  },
+  {
+    "number": 200,
+    "title": "In-flight epic",
+    "state": "open",
+    "created_at": "2026-08-01T12:00:00Z",
+    "updated_at": "2026-09-12T12:00:00Z",
+    "labels": [{ "name": "epic" }, { "name": "status:ready" }],
+    "body": "## Why\n\nRetire the mirror when usage hits zero.\n"
+  },
+  {
+    "number": 300,
+    "title": "Needs-decision epic resolved by an ADR",
+    "state": "open",
+    "created_at": "2026-08-20T12:00:00Z",
+    "updated_at": "2026-09-01T12:00:00Z",
+    "labels": [{ "name": "epic" }, { "name": "status:needs-decision" }],
+    "body": "## Question\n\nPick the tenancy model.\n"
+  },
+  {
+    "number": 501,
+    "title": "Fresh bug: a\\|b keeps its escapes",
+    "state": "open",
+    "created_at": "2026-09-10T12:00:00Z",
+    "updated_at": "2026-09-15T12:00:00Z",
+    "labels": [{ "name": "bug" }],
+    "body": "The probe flakes on Mondays.\n"
+  },
+  {
+    "number": 502,
+    "title": "Watch-band chore",
+    "state": "open",
+    "created_at": "2026-08-01T12:00:00Z",
+    "updated_at": "2026-09-01T12:00:00Z",
+    "labels": [{ "name": "chore" }],
+    "body": "Bump the stale dependencies.\n"
+  },
+  {
+    "number": 503,
+    "title": "Older watch-band bug",
+    "state": "open",
+    "created_at": "2026-07-01T12:00:00Z",
+    "updated_at": "2026-08-19T12:00:00Z",
+    "labels": [{ "name": "bug" }],
+    "body": "Pagination drops the last row.\n"
+  },
+  {
+    "number": 504,
+    "title": "Sweep-band bug (90-180d)",
+    "state": "open",
+    "created_at": "2026-05-01T12:00:00Z",
+    "updated_at": "2026-06-10T12:00:00Z",
+    "labels": [{ "name": "bug" }, { "name": "area:host" }],
+    "body": "The cache never invalidates under load.\n"
+  },
+  {
+    "number": 505,
+    "title": "Sweep-band chore (>180d)",
+    "state": "open",
+    "created_at": "2025-12-01T12:00:00Z",
+    "updated_at": "2026-01-15T12:00:00Z",
+    "labels": [{ "name": "chore" }],
+    "body": "Rename the legacy config keys.\n"
+  },
+  {
+    "number": 506,
+    "title": "Deferred bug with a date",
+    "state": "open",
+    "created_at": "2026-03-01T12:00:00Z",
+    "updated_at": "2026-08-15T12:00:00Z",
+    "labels": [{ "name": "bug" }, { "name": "status:deferred" }],
+    "body": "Deferred until the upstream API stabilizes.\n"
+  },
+  {
+    "number": 507,
+    "title": "Deferred chore",
+    "state": "open",
+    "created_at": "2025-10-01T12:00:00Z",
+    "updated_at": "2026-07-01T12:00:00Z",
+    "labels": [{ "name": "status:deferred" }, { "name": "chore" }],
+    "body": "Replatform the docs theme, later.\n"
+  },
+  {
+    "number": 508,
+    "title": "Untriaged question (substrate clock pin)",
+    "state": "open",
+    "created_at": "2026-09-01T12:00:00Z",
+    "updated_at": "2026-09-20T00:00:00Z",
+    "labels": [],
+    "body": "Is the retention job supposed to purge that table?\n"
+  },
+  {
+    "number": 509,
+    "title": "Fresh bug that merely mentions an epic",
+    "state": "open",
+    "created_at": "2026-09-05T12:00:00Z",
+    "updated_at": "2026-09-05T12:00:00Z",
+    "labels": [{ "name": "bug" }],
+    "body": "Possibly related to #100 — mention is not linkage, so this is debt until the sweep parents it.\n"
+  },
+  {
+    "number": 510,
+    "title": "Unlabeled parent (has children, no epic label)",
+    "state": "open",
+    "created_at": "2026-06-15T12:00:00Z",
+    "updated_at": "2026-09-10T12:00:00Z",
+    "labels": [],
+    "body": "A tracking issue that never got the epic label.\n"
+  },
+  {
+    "number": 511,
+    "title": "Open child of the unlabeled parent",
+    "state": "open",
+    "created_at": "2026-06-20T12:00:00Z",
+    "updated_at": "2026-09-11T12:00:00Z",
+    "labels": [{ "name": "chore" }],
+    "body": "Part of #510.\n"
+  }
+]

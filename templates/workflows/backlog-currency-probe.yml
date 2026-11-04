@@ -1,0 +1,99 @@
+# template: workflows/backlog-currency-probe.yml v1.0.0 · updated 2026-11-04
+name: Backlog-currency probe
+
+# Kind: PROBE — monitors the backlog's currency against its own sub-issue
+# graph, never blocks merges or deploys.
+#
+# Layer 1 of the backlog-grooming regime (docs/backlog-grooming.md). The
+# failure it watches: an epic body is authored once and read for months;
+# closing a child updates the child and nothing propagates upward — so bodies
+# go stale at the rate of their children's velocity. The lint
+# (scripts/check-backlog-currency.mjs) reads the GitHub issue graph only — no
+# host DB, no MCP — and its TRIGGER lines are the weekly groom pass's queue.
+#
+# Output goes to ONE rolling issue (label: backlog-currency-probe), rewritten
+# wholesale each run — not one issue per finding, which would be alarm spam.
+# scripts/generate-roadmap.mjs finds that issue by the same label and cites it
+# in the roadmap's trust header, beside this workflow's last green run.
+#
+# Runs Mondays 08:30 UTC: after workflows/stale-blocker-probe.yml (08:00) if
+# installed — the two share a backlog but never a citation grammar — and
+# before workflows/roadmap-groom.yml (09:00), so the weekly roadmap's header
+# reads this morning's census. Move all three together if you move one.
+#
+# A SKIPPED run (the lint could not read the backlog) still upserts the rolling
+# issue, then FAILS the job: the roadmap's trust header cites this workflow's
+# last *successful* run as "lint last green", and a run that read nothing is
+# not green.
+#
+# TOKEN: the default github.token reads this repo's issues. Set
+# STALE_BLOCKERS_TOKEN (the stale-blocker probe's estate-spanning token) only
+# if your estate already has it; this probe reads no other repo.
+
+on:
+  schedule:
+    - cron: '30 8 * * 1' # Mondays 08:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # upserts the rolling findings issue
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.STALE_BLOCKERS_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the probe (probe mode — never fails the job)
+        id: run
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d)
+          node scripts/check-backlog-currency.mjs | tee probe-output.txt
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Upsert the rolling issue
+        env:
+          RUN_DATE: ${{ steps.run.outputs.date }}
+        run: |
+          set -euo pipefail
+
+          gh label create backlog-currency-probe \
+            --repo "$GITHUB_REPOSITORY" \
+            --description "Rolling output of the weekly backlog-currency probe" \
+            --color 1D76DB --force
+
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --label backlog-currency-probe --json number --jq '.[0].number // empty')
+
+          TITLE="backlog-currency probe — rolling findings (last run $RUN_DATE)"
+          {
+            echo "Weekly output of \`.github/workflows/backlog-currency-probe.yml\`. Rewritten each run —"
+            echo "do not edit by hand; act on the findings in their own issues and let the next run clear them."
+            echo "Classes: C1 epic delivered still open · C2 body cites closed blocker · C3 label contradicts graph ·"
+            echo "C4 declared hierarchy unlinked · C5 named-but-unfiled work · C6 milestone row disagrees with children."
+            echo ""
+            echo '```'
+            cat probe-output.txt
+            echo '```'
+          } > rolling-body.md
+
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --body-file rolling-body.md
+            echo "Updated rolling issue #$EXISTING."
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" --label backlog-currency-probe \
+              --body-file rolling-body.md
+          fi
+
+      - name: Fail on SKIPPED (a run that read nothing is not green)
+        run: |
+          if grep -q '^SKIPPED' probe-output.txt; then
+            echo "::error::$(grep -m1 '^SKIPPED' probe-output.txt)"
+            exit 1
+          fi

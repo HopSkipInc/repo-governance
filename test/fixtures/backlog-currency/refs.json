@@ -1,0 +1,15 @@
+{
+  "1253": { "state": "closed", "state_reason": "completed", "closed_at": "2026-07-20T12:00:00Z", "title": "Second-tenant blocker, closed a month" },
+  "1563": { "state": "closed", "state_reason": "completed", "closed_at": "2026-08-10T12:00:00Z", "title": "Landed blocker" },
+  "1569": { "state": "open", "state_reason": null, "closed_at": null, "title": "Open milestone row subject" },
+  "1535": { "state": "closed", "state_reason": "completed", "closed_at": "2026-08-06T12:00:00Z", "title": "Badge vocabulary" },
+  "1425": { "state": "closed", "state_reason": "completed", "closed_at": "2026-08-18T12:00:00Z", "title": "Closed by ADR-068" },
+  "5002": { "state": "closed", "state_reason": "completed", "closed_at": "2026-08-15T12:00:00Z", "title": "Closed blocker" },
+  "6002": { "state": "closed", "state_reason": "completed", "closed_at": "2026-08-15T12:00:00Z", "title": "Closed milestone child" },
+  "7002": { "state": "open", "state_reason": null, "closed_at": null, "title": "A genuinely open blocker" },
+  "509": { "state": "open", "state_reason": null, "closed_at": null, "title": "Cross-repo blocker, open upstream (analytics-infrastructure)" },
+  "508": { "state": "open", "state_reason": null, "closed_at": null, "title": "Cross-repo blocker, open upstream (analytics-infrastructure)" },
+  "146": { "state": "closed", "state_reason": "completed", "closed_at": "2026-08-01T12:00:00Z", "title": "Coordination ref, not a blocker" },
+  "1924": { "state": "closed", "state_reason": "completed", "closed_at": "2026-08-20T12:00:00Z", "title": "Genuinely cleared blocker" },
+  "1935": { "state": "closed", "state_reason": "completed", "closed_at": "2026-08-22T12:00:00Z", "title": "Genuinely cleared blocker (second half)" }
+}
