@@ -35,7 +35,7 @@ import { dirname, join, relative, resolve as resolvePath } from 'path';
 /** The deepest import chain followed, counted from a top-level file. */
 export const MAX_IMPORT_DEPTH = 5;
 
-const FENCE = /^\s*(`{3,}|~{3,})/;
+const FENCE = /^\s*(`{3,}|~{3,})(.*)$/;
 const IMPORT = /^@(\S+)$/;
 
 /**
@@ -70,7 +70,10 @@ export function resolveInstructions(root) {
     for (const line of src.split(/\r?\n/)) {
       const f = line.match(FENCE);
       if (fence) {
-        if (f && f[1][0] === fence.char && f[1].length >= fence.len) fence = null;
+        // A closing fence has only whitespace after its run. `` ```not-a-close ``
+        // is content, not a close; treating it as one inverts the rest of the
+        // file and can hide a live import from the budget check.
+        if (f && f[1][0] === fence.char && f[1].length >= fence.len && f[2].trim() === '') fence = null;
         chunks.push(line);
         continue;
       }
