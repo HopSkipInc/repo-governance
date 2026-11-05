@@ -1,4 +1,4 @@
-// template: scripts/check-enforcement-stanzas.mjs v1.2.0 · updated 2026-08-13
+// template: scripts/check-enforcement-stanzas.mjs v1.3.0 · updated 2026-11-05
 /**
  * lint:enforcement-stanzas  [TEMPLATE — ships to governed repos]
  *
@@ -14,11 +14,15 @@
  * repo's records paths; a missing or malformed register fails closed.
  *
  * The register-completeness rule (issue #33's spec fix): every backticked path in
- * the repo's CLAUDE.md (or AGENTS.md) records-files paragraph — the section whose
- * `##` heading contains "records" — must appear in the register. A listed file
- * with no register entry is a blocking UNREGISTERED naming the file: an
- * unprotected records file is reported, never silently unasserted. If no records
- * paragraph is found, the rule reports SKIPPED — loudly, never a silent pass.
+ * the repo's records-files paragraph — the section whose `##` heading contains
+ * "records" — must appear in the register. The paragraph is found in the repo's
+ * RESOLVED instruction text (AGENTS.md plus CLAUDE.md, with `@path` imports
+ * followed; v1.3.0, issue #130), not in "the first of the two files that exists":
+ * a one-line `@AGENTS.md` CLAUDE.md exists and has no heading, so the old lookup
+ * found nothing and reported SKIPPED. A listed file with no register entry is a
+ * blocking UNREGISTERED naming the file: an unprotected records file is
+ * reported, never silently unasserted. If no records paragraph is found, the
+ * rule reports SKIPPED — loudly, never a silent pass.
  *
  * Paragraphs mention non-records too (this repo's own paragraph names the forms
  * directory as a contrast: "The blank forms live in `templates/`"). The optional
@@ -49,7 +53,10 @@
  *                  must be `deny` — there is no legitimate agent-reads-.env workflow
  *   NOT-BINDING    (opencode) a required rule is listed before the "*" catch-all —
  *                  last-match-wins means the catch-all silently overwrites it
- *   UNREGISTERED   a path in the CLAUDE.md records paragraph has no register entry
+ *   UNREGISTERED   a path in the resolved AGENTS.md/CLAUDE.md records paragraph has no register entry
+ *   UNRESOLVED-IMPORT  an `@path` import in the instruction file cannot be read —
+ *                  the completeness rule cannot run against an incomplete text,
+ *                  so this blocks rather than reporting SKIPPED (fail-open)
  *   MEDIATED-MISSING   a mediated-write row's script is not on disk
  *   MEDIATED-MISMATCH  the script's version stamp does not match the row's
  *
@@ -61,6 +68,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
+import { resolveInstructions } from './lib/instructions.mjs';
 import { execFileSync } from 'child_process';
 import { join } from 'path';
 
@@ -348,28 +356,40 @@ for (const row of mediatedPaths) {
 // ------------------------------------------- register completeness (UNREGISTERED)
 
 /** The records-files paragraph: the section whose `##` heading contains
- *  "records" in CLAUDE.md, falling back to AGENTS.md. Backticked tokens that look
- *  like paths (contain `/` or end in `.md`) are the authoritative list. */
+ *  "records" in the resolved instruction text (AGENTS.md + CLAUDE.md, imports
+ *  followed). Backticked tokens that look like paths (contain `/` or end in
+ *  `.md`) are the authoritative list. */
 function recordsParagraphPaths() {
-  const source = ['CLAUDE.md', 'AGENTS.md'].map((f) => join(ROOT, f)).find(existsSync);
-  if (!source) return null;
-  const lines = readFileSync(source, 'utf8').split('\n');
+  const { text, files, unresolved } = resolveInstructions(ROOT);
+  if (!files.length) return { paths: null, unresolved: [] };
+  const lines = text.split('\n');
   const start = lines.findIndex((l) => /^##\s/i.test(l) && /records/i.test(l));
-  if (start === -1) return null;
+  if (start === -1) return { paths: null, unresolved };
   const paths = [];
   for (let i = start + 1; i < lines.length && !lines[i].startsWith('## '); i++) {
     for (const m of lines[i].matchAll(/`([^`]+)`/g)) {
       if (m[1].includes('/') || m[1].endsWith('.md')) paths.push(m[1]);
     }
   }
-  return paths;
+  return { paths, unresolved };
 }
 
-const listed = recordsParagraphPaths();
+const { paths: listed, unresolved: unresolvedImports } = recordsParagraphPaths();
 const mediatedScripts = mediatedPaths.map((m) => m.script);
-if (listed === null) {
-  console.log('SKIPPED: no CLAUDE.md/AGENTS.md records-files paragraph found — the register-completeness rule did not run. This is a skip, not a pass.');
+let completeness;
+if (unresolvedImports.length) {
+  completeness = 'completeness BLOCKED — unresolved import(s)';
+  for (const u of unresolvedImports) {
+    findings.push({
+      sev: 'UNRESOLVED-IMPORT',
+      msg: `${u.target} cannot be read (imported from ${u.from ? u.from.replace(`${ROOT}/`, '') : 'a top-level instruction file'}) — the records paragraph cannot be checked against an incomplete instruction text. Fix the import; this is not a skip.`,
+    });
+  }
+} else if (listed === null) {
+  completeness = 'completeness SKIPPED';
+  console.log('SKIPPED: no AGENTS.md/CLAUDE.md records-files paragraph found — the register-completeness rule did not run. This is a skip, not a pass.');
 } else {
+  completeness = `${listed.length} paragraph path(s) checked`;
   for (const p of listed) {
     if (!recordsPaths.includes(p) && !paragraphExemptions.includes(p) && !mediatedScripts.includes(p)) {
       findings.push({
@@ -383,7 +403,7 @@ if (listed === null) {
 // ----------------------------------------------------------------- the report
 
 console.log(
-  `check-enforcement-stanzas: ${harnesses.length} harness(es) registered (${harnesses.join(', ')}), ${recordsPaths.length} records path(s), ${paragraphExemptions.length} paragraph exemption(s), ${mediatedPaths.length} mediated write path(s), ${listed === null ? 'completeness SKIPPED' : `${listed.length} paragraph path(s) checked`}.`,
+  `check-enforcement-stanzas: ${harnesses.length} harness(es) registered (${harnesses.join(', ')}), ${recordsPaths.length} records path(s), ${paragraphExemptions.length} paragraph exemption(s), ${mediatedPaths.length} mediated write path(s), ${completeness}.`,
 );
 
 if (!findings.length) {

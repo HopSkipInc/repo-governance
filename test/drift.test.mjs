@@ -159,7 +159,7 @@ test('drift: a section-installed template can only report NOSTAMP — a section 
   const { code, out } = run(dir);
   assert.equal(code, 1, out);
   assert.match(out, /NOSTAMP/);
-  assert.match(out, /installed as a CLAUDE\.md section/);
+  assert.match(out, /installed as an agent-instructions section/);
   assert.doesNotMatch(out, /^MISMATCH \(/m);
 });
 
@@ -187,7 +187,7 @@ test('drift: a section whose inline stamp disagrees with the declaration reports
   const { code, out } = run(dir);
   assert.equal(code, 1, out);
   assert.match(out, /MISMATCH/);
-  assert.match(out, /installed CLAUDE\.md section stamps v1\.0\.0/);
+  assert.match(out, /installed agent-instructions section stamps v1\.0\.0/);
 });
 
 test('drift: the closing-contract section verifies with its inline stamp', () => {
@@ -222,7 +222,61 @@ test('drift: a closing-contract section whose stamp disagrees with the declarati
   const { code, out } = run(dir);
   assert.equal(code, 1, out);
   assert.match(out, /MISMATCH/);
-  assert.match(out, /installed CLAUDE\.md section stamps v0\.9\.0/);
+  assert.match(out, /installed agent-instructions section stamps v0\.9\.0/);
+});
+
+// ---------------------------------------------- imports resolve (issue #130)
+//
+// A flipped repo is AGENTS.md (canonical) plus a one-line `@AGENTS.md`
+// CLAUDE.md. Reading CLAUDE.md alone reads the pointer, finds no section, and
+// reports OK — the fail-open shape the reader exists to remove.
+
+function flippedRepo(closingStamp = 'v1.0.0') {
+  const rows = [
+    ['governance-sync-claude-section.md', '2.0.0'],
+    ['closing-contract.md', '1.0.0'],
+  ];
+  const dir = fixture({
+    ...templateTree,
+    'clones/repo-a/AGENTS.md':
+      '# Client repo\n\n## Governance\n\n' +
+      '<!-- template: governance-sync-claude-section.md v2.0.0 · updated 2026-08-02 -->\n\n' +
+      claudeMd(rows) +
+      `\n## Closing contract\n\n<!-- template: closing-contract.md ${closingStamp} · updated 2026-08-09 -->\n\nEnd responses with the result.\n`,
+    'clones/repo-a/CLAUDE.md': '@AGENTS.md\n',
+  });
+  addLedger(dir, [['acme/repo-a', join(dir, 'clones/repo-a')]]);
+  return dir;
+}
+
+test('drift: a one-line @AGENTS.md CLAUDE.md finds both section stamps in AGENTS.md', () => {
+  const dir = flippedRepo();
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /2 section stamp\(s\) verified/);
+  assert.match(out, /OK:/);
+});
+
+test('drift: a section stamp in AGENTS.md is verified through the CLAUDE.md import', () => {
+  // Old reader: CLAUDE.md alone, no section, no findings, OK. New reader:
+  // resolves AGENTS.md and reports the stamp that disagrees with the declaration.
+  const dir = flippedRepo('v0.9.0');
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /MISMATCH/);
+  assert.match(out, /agent-instructions section stamps v0\.9\.0/);
+});
+
+test('drift: an unresolved instruction import is a blocking finding, never an OK verdict', () => {
+  const dir = repoFixture([['`docs/agent-routing.md`', 'v2.0.0']], {
+    'clones/repo-a/CLAUDE.md': '@missing.md\n' + claudeMd([['`docs/agent-routing.md`', 'v2.0.0']]),
+    'clones/repo-a/docs/agent-routing.md': mdStamp('agent-routing.md', '2.0.0'),
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /UNRESOLVED-IMPORT/);
+  assert.match(out, /missing\.md/);
+  assert.doesNotMatch(out, /^OK:/m);
 });
 
 test('drift: the canonical global declaration (~/.config/opencode/agents/...) resolves', () => {

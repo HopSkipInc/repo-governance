@@ -11,7 +11,9 @@
  * THE DERIVATION RULE
  *
  *   Sources (all three required, or SKIPPED):
- *     docs/definition-of-done.md, CLAUDE.md, docs/code-conventions.md (§1 + §2)
+ *     docs/definition-of-done.md, the resolved agent instructions (AGENTS.md
+ *     plus CLAUDE.md with `@path` imports followed, lib/instructions.mjs),
+ *     docs/code-conventions.md (§1 + §2)
  *   Claim:      a code-conventions.md §1 table row or §2 bullet, or — in the
  *               other two sources — a bullet/numbered item carrying a normative
  *               keyword (must / never / always / required / shall)
@@ -45,6 +47,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { join } from 'path';
+import { resolveInstructions } from './lib/instructions.mjs';
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const JSON_OUT = process.argv.includes('--json');
@@ -100,12 +103,25 @@ function fromProse(source, text) {
 
 const SOURCES = [
   { path: 'docs/definition-of-done.md', read: (t) => fromProse('docs/definition-of-done.md', t) },
-  { path: 'CLAUDE.md', read: (t) => fromProse('CLAUDE.md', t) },
+  { path: 'AGENTS.md/CLAUDE.md', readInstructions: true, read: (t) => fromProse('AGENTS.md/CLAUDE.md', t) },
   { path: 'docs/code-conventions.md', read: fromConventions },
 ];
 
 const claims = [];
-for (const { path, read } of SOURCES) {
+for (const { path, read, readInstructions } of SOURCES) {
+  if (readInstructions) {
+    const { text, files, unresolved } = resolveInstructions(ROOT);
+    if (!files.length) {
+      skip(path, 'source artifact absent');
+      continue;
+    }
+    if (unresolved.length) {
+      skip(path, `unresolved import: ${unresolved.map((u) => u.target).join(', ')}`);
+      continue;
+    }
+    claims.push(...read(text));
+    continue;
+  }
   const abs = join(ROOT, path);
   if (!existsSync(abs)) {
     skip(path, 'source artifact absent');
