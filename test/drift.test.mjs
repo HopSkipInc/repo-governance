@@ -372,12 +372,16 @@ test('drift: a header-only state-doc table falls back to the old in-section decl
     'clones/repo-a/CLAUDE.md': '@AGENTS.md\n',
     'clones/repo-a/docs/governance-sync-state.md':
       '# Governance sync state\n\n## Synced templates\n\n| Template | Installed version | Synced on |\n|---|---|---|\n',
-    'clones/repo-a/docs/agent-routing.md': mdStamp('agent-routing.md', '2.0.0'),
+    // The old declaration disagrees with the installed file, so the fallback is
+    // observable: an implementation that takes the header-only state-doc table
+    // reports no finding and exits 0.
+    'clones/repo-a/docs/agent-routing.md': mdStamp('agent-routing.md', '1.0.0'),
   });
   addLedger(dir, [['acme/repo-a', join(dir, 'clones/repo-a')]]);
   const { code, out } = run(dir);
-  assert.equal(code, 0, out);
-  assert.match(out, /OK:/);
+  assert.equal(code, 1, out);
+  assert.match(out, /MISMATCH/);
+  assert.match(out, /stamps v1\.0\.0/);
 });
 
 test('drift: a header-only state-doc table plus no old table is still UNDECLARED', () => {
