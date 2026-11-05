@@ -35,7 +35,7 @@ import { dirname, join, relative, resolve as resolvePath } from 'path';
 /** The deepest import chain followed, counted from a top-level file. */
 export const MAX_IMPORT_DEPTH = 5;
 
-const FENCE = /^\s*(```|~~~)/;
+const FENCE = /^\s*(`{3,}|~{3,})/;
 const IMPORT = /^@(\S+)$/;
 
 /**
@@ -62,14 +62,24 @@ export function resolveInstructions(root) {
     seen.add(abs);
     files.push({ path: abs, relative: relative(root, abs), bytes: Buffer.byteLength(src, 'utf8') });
 
-    let fenced = false;
+    // A fenced block closes only on the SAME character with at least the
+    // opening length. A shorter ``` inside a ```` fence is content, and toggling
+    // a bare boolean there would treat the rest of the file as code — the
+    // budget check would then silently miss a live `@path` import below it.
+    let fence = null; // { char, len }
     for (const line of src.split(/\r?\n/)) {
-      if (FENCE.test(line)) {
-        fenced = !fenced;
+      const f = line.match(FENCE);
+      if (fence) {
+        if (f && f[1][0] === fence.char && f[1].length >= fence.len) fence = null;
         chunks.push(line);
         continue;
       }
-      const m = fenced ? null : line.match(IMPORT);
+      if (f) {
+        fence = { char: f[1][0], len: f[1].length };
+        chunks.push(line);
+        continue;
+      }
+      const m = line.match(IMPORT);
       if (!m) {
         chunks.push(line);
         continue;

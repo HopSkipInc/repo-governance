@@ -13,6 +13,9 @@
  *
  * Four findings, and the middle two are the ones that motivated the design:
  *
+ *   UNRESOLVED-IMPORT  an `@path` import in a governed repo's instructions cannot
+ *               be read — the resolved text is incomplete, so a clean verdict
+ *               would be evidence it has not got
  *   BEHIND      declared version is older than the current template
  *   MISMATCH    the declaration does not match reality — nothing resolves under
  *               either declaration dialect, or the resolved file's stamp says
@@ -252,7 +255,14 @@ for (const { repo, path } of repos) {
   // The resolved instruction text: AGENTS.md plus CLAUDE.md, with `@path`
   // imports followed. Reading CLAUDE.md alone reads a one-line pointer in a
   // flipped repo and finds no section — the fail-open shape issue #130 fixes.
-  const md = resolveInstructions(path).text;
+  const { text: md, unresolved } = resolveInstructions(path);
+  for (const u of unresolved) {
+    findings.push({
+      sev: 'UNRESOLVED-IMPORT',
+      repo,
+      msg: `${u.target} cannot be read (imported from ${u.from ? u.from.replace(`${path}/`, '') : 'a top-level instruction file'}) — the instruction source is incomplete, so a clean declaration verdict would be evidence it has not got. Fix the import.`,
+    });
+  }
   const section = md.match(/###\s*Synced templates([\s\S]*?)(?=\n###\s|\n##\s|$)/i)?.[1] ?? null;
 
   if (!section) {
@@ -371,7 +381,7 @@ for (const { repo, path } of repos) {
   }
 }
 
-const order = { MISMATCH: 0, NOSTAMP: 1, UNDECLARED: 2, BEHIND: 3 };
+const order = { 'UNRESOLVED-IMPORT': 0, MISMATCH: 1, NOSTAMP: 2, UNDECLARED: 3, BEHIND: 4 };
 findings.sort((a, b) => order[a.sev] - order[b.sev] || a.repo.localeCompare(b.repo));
 
 console.log(`check-downstream-drift: ${repos.length} governed repo(s), ${current.size} templates, ${sectionsVerified} section stamp(s) verified.`);
@@ -381,14 +391,14 @@ if (!findings.length) {
   process.exit(0);
 }
 
-for (const sev of ['MISMATCH', 'NOSTAMP', 'UNDECLARED', 'BEHIND']) {
+for (const sev of ['UNRESOLVED-IMPORT', 'MISMATCH', 'NOSTAMP', 'UNDECLARED', 'BEHIND']) {
   const g = findings.filter((f) => f.sev === sev);
   if (!g.length) continue;
   console.log(`\n${sev} (${g.length}):`);
   for (const f of g) console.log(`  ${f.repo}: ${f.msg}`);
 }
 
-const blocking = findings.filter((f) => f.sev === 'MISMATCH' || f.sev === 'NOSTAMP' || STRICT);
+const blocking = findings.filter((f) => f.sev === 'UNRESOLVED-IMPORT' || f.sev === 'MISMATCH' || f.sev === 'NOSTAMP' || STRICT);
 if (blocking.length) {
   console.error(`\n${blocking.length} blocking finding(s).`);
   console.error('MISMATCH and NOSTAMP always block: a wrong or unverifiable declaration is worse than a stale one, because it reports health the repo has not got.');

@@ -267,6 +267,18 @@ test('drift: a section stamp in AGENTS.md is verified through the CLAUDE.md impo
   assert.match(out, /agent-instructions section stamps v0\.9\.0/);
 });
 
+test('drift: an unresolved instruction import is a blocking finding, never an OK verdict', () => {
+  const dir = repoFixture([['`docs/agent-routing.md`', 'v2.0.0']], {
+    'clones/repo-a/CLAUDE.md': '@missing.md\n' + claudeMd([['`docs/agent-routing.md`', 'v2.0.0']]),
+    'clones/repo-a/docs/agent-routing.md': mdStamp('agent-routing.md', '2.0.0'),
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /UNRESOLVED-IMPORT/);
+  assert.match(out, /missing\.md/);
+  assert.doesNotMatch(out, /^OK:/m);
+});
+
 test('drift: the canonical global declaration (~/.config/opencode/agents/...) resolves', () => {
   const dir = repoFixture([['`~/.config/opencode/agents/routing-classifier.md`', 'v2.0.0']]);
   const agentsDir = join(dir, 'opencode/agents');

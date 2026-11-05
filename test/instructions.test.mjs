@@ -17,6 +17,7 @@ const REPO = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: '
 
 function fixture(files) {
   const dir = mkdtempSync(join(tmpdir(), 'repo-gov-instructions-'));
+  execFileSync('git', ['init', '-q'], { cwd: dir });
   for (const [rel, content] of Object.entries(files)) {
     const p = join(dir, rel);
     mkdirSync(dirname(p), { recursive: true });
@@ -79,6 +80,19 @@ test('instructions: an import cycle terminates and reads each file once', () => 
   assert.equal(text.split('# C').length - 1, 1);
 });
 
+test('instructions: a shorter fence of the same character inside a longer fence is content, not a close', () => {
+  // The counterexample: with a boolean toggle, the ``` line closes the ````
+  // block, the rest is treated as code, and the live @import below it is silently
+  // dropped. That undercounts the budget and hides a missing target.
+  const dir = fixture({
+    'AGENTS.md': '# Repo\n\n````markdown\n```\nexample\n````\n\n@docs/large.md\n',
+    'docs/large.md': 'b'.repeat(33000),
+  });
+  const { text, unresolved } = resolveInstructions(dir);
+  assert.match(text, /b{100}/, 'the import after the fence must be followed');
+  assert.deepEqual(unresolved, []);
+});
+
 test('instructions: a chain deeper than five hops reports the target as unresolved', () => {
   const files = { 'AGENTS.md': '@l1.md\n', 'l1.md': '@l2.md\n', 'l2.md': '@l3.md\n', 'l3.md': '@l4.md\n', 'l4.md': '@l5.md\n', 'l5.md': '@l6.md\n' };
   const dir = fixture(files);
@@ -93,4 +107,38 @@ test('instructions: the installed copy and the template are byte-identical', () 
   const installed = readFileSync(resolve(REPO, 'scripts/lib/instructions.mjs'), 'utf8');
   const template = readFileSync(resolve(REPO, 'templates/scripts/lib/instructions.mjs'), 'utf8');
   assert.equal(installed, template, 'scripts/lib/ and templates/scripts/lib/ copies drifted — re-sync and re-stamp');
+});
+
+
+// ---------------------------------------- check-claim-coverage reads the resolved text
+//
+// The port moved this source onto the reader; a CLAUDE-only fixture would pass
+// even if the import were ignored, so this one puts the normative bullets in
+// AGENTS.md behind a one-line import.
+
+function runCoverage(cwd) {
+  try {
+    const out = execFileSync('node', [resolve(REPO, 'scripts/check-claim-coverage.mjs'), '--json'], {
+      cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { code: 0, out };
+  } catch (err) {
+    return { code: err.status ?? 1, out: `${err.stdout ?? ''}${err.stderr ?? ''}` };
+  }
+}
+
+test('claim-coverage: claims in AGENTS.md are read through the one-line CLAUDE.md import', () => {
+  const dir = fixture({
+    'AGENTS.md': '# Repo\n\n- Every change must bump the version stamp\n',
+    'CLAUDE.md': '@AGENTS.md\n',
+    'docs/definition-of-done.md': '# DoD\n\n- Every PR must update the changelog\n',
+    'docs/code-conventions.md':
+      '# Conventions\n\n## 1. Enforced conventions\n\n| # | Convention | ADR | Enforcement (rule or script) | Gate or report | Since |\n|---|---|---|---|---|---|\n| 1 | Never commit secrets | — | `scripts/check-secrets.mjs` | gate | 2026-01-01 |\n\n## 2. Documented conventions\n\n- Templates are always kebab-case\n',
+    'scripts/check-secrets.mjs': '// fixture gate\n',
+  });
+  const { code, out } = runCoverage(dir);
+  assert.equal(code, 0, out);
+  const inv = JSON.parse(out);
+  assert.equal(inv.artifacts.length, 3);
+  assert.ok(inv.claims >= 4, `expected the AGENTS.md claim in the count: ${out}`);
 });
