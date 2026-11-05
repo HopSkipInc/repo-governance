@@ -3,7 +3,7 @@
 **Client:** Hopskip (internal)
 **Source:** repo-governance — issue #130, templates `governance-sync-claude-section.md` **2.0.0** ·
 `closing-contract.md` **1.1.0** · `scripts/lib/instructions.mjs` **1.0.0** ·
-`scripts/check-enforcement-stanzas.mjs` **1.3.0** · `scripts/check-root-clutter.mjs` **1.0.1** ·
+`scripts/check-enforcement-stanzas.mjs` **1.3.0** ·
 `scripts/check-instructions-budget.mjs` **1.0.0**.
 **Scope:** make `AGENTS.md` the one instruction file and `CLAUDE.md` its one-line import; move the
 three governance-sync logs to `docs/governance-sync-state.md`; install the import-following reader
@@ -39,7 +39,8 @@ with the pointer and pays ~24k tokens if the model goes and reads the rest. A on
 2. **The install targets are live in this checkout** (verified 2026-11-05 against `origin/master`):
    - `AGENTS.md`, `CLAUDE.md` — exist.
    - `host/scripts/check-enforcement-stanzas.mjs` — exists, declared at v1.2.0 in the Synced table.
-   - `host/scripts/check-root-clutter.mjs` — exists, run by `run-tests.yml` (host-test, `working-directory: host`).
+   - `host/scripts/check-root-clutter.mjs` — exists and is a **local variant**, already configured
+     with this repo's root entries (including `AGENTS.md`). Do not replace it with the template.
    - `scripts/` and `host/scripts/` — both exist; root `scripts/` carries the governance lints that are not host-scoped (e.g. `check-issue-routing.mjs`).
    - `.github/workflows/run-tests.yml` — exists; the `host-test` job holds the governance lints (`working-directory: host`).
    - `.github/workflows/fleet-harness-probe.yml` — exists; the canary step is the one that appends to `CLAUDE.md` today.
@@ -81,7 +82,6 @@ In `AGENTS.md`'s `## Governance` section:
   becomes `AGENTS.md`; check it appears once, not twice (today it is in both files).
 - In the moved Synced-templates table, update these rows:
   - `host/scripts/check-enforcement-stanzas.mjs` → **1.3.0**
-  - `host/scripts/check-root-clutter.mjs` → **1.0.1** (add the row if it was absent)
   - `scripts/check-instructions-budget.mjs` → **1.0.0**
   - `host/scripts/lib/instructions.mjs` → **1.0.0**
   - `scripts/lib/instructions.mjs` → **1.0.0**
@@ -97,7 +97,6 @@ The reader goes **beside every consumer**. This repo has two consumers in two li
 | `scripts/lib/instructions.mjs` 1.0.0 | `host/scripts/lib/instructions.mjs` | imported by `host/scripts/check-enforcement-stanzas.mjs` |
 | `scripts/lib/instructions.mjs` 1.0.0 | `scripts/lib/instructions.mjs` | imported by `scripts/check-instructions-budget.mjs` |
 | `scripts/check-enforcement-stanzas.mjs` 1.3.0 | `host/scripts/check-enforcement-stanzas.mjs` | declared lint home, run by `run-tests.yml` |
-| `scripts/check-root-clutter.mjs` 1.0.1 | `host/scripts/check-root-clutter.mjs` | default allowlist gains `AGENTS.md` |
 | `scripts/check-instructions-budget.mjs` 1.0.0 | `scripts/check-instructions-budget.mjs` | root governance lint, per-PR gate |
 
 The two `instructions.mjs` copies are byte-identical, but each consumer imports `./lib/instructions.mjs`
@@ -107,10 +106,17 @@ Run the stanza lint now. It must report `completeness` with a path count, **not*
 `completeness SKIPPED`: the reader resolves the one-line `CLAUDE.md` to `AGENTS.md` and finds the
 records paragraph there. If it prints SKIPPED, stop — the install is the fail-open shape #130 removes.
 
-### 4. The root-clutter allowlist
+### 4. The root-clutter allowlist — leave the local variant alone
 
-`host/scripts/check-root-clutter.mjs` v1.0.1's default `ALLOWED` includes `AGENTS.md`, so the new
-root file clears. Do not add a second local allowlist entry for it.
+`host/scripts/check-root-clutter.mjs` is a **configured local variant**, not a copy of the
+template: its `ALLOWED` set carries this repo's root entries (`host`, `runtime`, `docs`,
+`scripts`, `opencode.json`, `.node-version`, …) and already includes `AGENTS.md`. Replacing it
+with the template's minimal default would break CI. Do not re-sync it and do not add a second
+entry. Verify the new root file clears with the local lint:
+
+```bash
+( cd host && node scripts/check-root-clutter.mjs )
+```
 
 ### 5. ai-fleet only: move the harness-probe canary to AGENTS.md
 
@@ -122,8 +128,13 @@ In `.github/workflows/fleet-harness-probe.yml`:
 - Change the commit subject to `probe: harness-canary skill + AGENTS.md canary …`.
 - Rename the check key `claude-md-ingestion` to `agents-md-ingestion` in the goal text (check 7),
   in the `for CHECK in …` list, and in the surrounding prose/comments. Check 7 must say the
-  canary is in `AGENTS.md` and must still require quoting it **from context, without opening the
-  file**.
+  canary is in `AGENTS.md` and must require quoting it **from context, without opening the file**.
+- **Remove the literal `${CLAUDE_CANARY}` from the goal text.** Today check 7 embeds the exact
+  string in the dispatched goal, so a worker can quote it without loading either instruction
+  file — the current probe cannot prove ingestion. The goal must say "the `AGENTS.md` on this
+  branch carries a canary line containing a PROBE ARTIFACT string; quote it from your own
+  context", with no value. The PR-body assertion loop still greps for `$CLAUDE_CANARY`, and the
+  only other place the value exists is the line appended to `AGENTS.md`.
 - Update the two remaining comments that name `CLAUDE.md` as the ingestion channel.
 
 ### 6. Bring the state doc current
@@ -160,7 +171,7 @@ grep -c '^## Synced templates' docs/governance-sync-state.md   # exactly 1
 
 # the reader resolves the import; the stanza lint does not skip
 node host/scripts/check-enforcement-stanzas.mjs   # "N paragraph path(s) checked", no completeness SKIPPED
-( cd host && node scripts/check-root-clutter.mjs ) # OK
+( cd host && node scripts/check-root-clutter.mjs ) # OK — local variant, still configured
 
 # the budget (only after the trim)
 node scripts/check-instructions-budget.mjs         # OK, total <= 32000
