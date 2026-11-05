@@ -257,6 +257,20 @@ test('enforcement: a one-line @AGENTS.md CLAUDE.md still reports an unregistered
   assert.match(out, /docs\/code-conventions\.md/);
 });
 
+test('enforcement: an unresolved import blocks instead of reporting a false completeness pass', () => {
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'AGENTS.md': `## Records files\n\n@missing-records.md\n`,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /UNRESOLVED-IMPORT/);
+  assert.match(out, /missing-records\.md/);
+  assert.doesNotMatch(out, /^OK:/m);
+});
+
 test('enforcement: a paragraph-mentioned non-records path clears when exempted with a reason', () => {
   // The house paragraph names the forms directory as a contrast ("The blank forms
   // live in `templates/`") — the completeness rule reads it, and the register
