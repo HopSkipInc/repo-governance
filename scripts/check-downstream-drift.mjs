@@ -42,9 +42,12 @@
  * ~/.config/opencode/agents/ — declared by that absolute path in the canonical
  * dialect, `~` expanded (OPENCODE_AGENTS_DIR overrides, used by the fixture
  * tests) — and `governance-sync-claude-section.md` installs as a section of the
- * repo's CLAUDE.md. A section carrying the inline stamp line (added in template
- * v1.2.0) is verified like a file; without it, the declaration can only report
- * NOSTAMP.
+ * repo's agent instructions (AGENTS.md, or CLAUDE.md when it is the canonical
+ * file). A section carrying the inline stamp line (added in template v1.2.0) is
+ * verified like a file; without it, the declaration can only report NOSTAMP.
+ * Sections are read from the RESOLVED instruction text (lib/instructions.mjs,
+ * issue #130), so a one-line `@AGENTS.md` CLAUDE.md still resolves to the file
+ * that carries them.
  *
  * The harness-enforcement stanzas install as a merge into the harness config
  * (`.claude/settings.json` / `opencode.json`), not as a file (issue #67: the
@@ -80,6 +83,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { join, relative } from 'path';
 import { homedir } from 'os';
+import { resolveInstructions } from './lib/instructions.mjs';
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const TEMPLATES = join(ROOT, 'templates');
@@ -172,9 +176,10 @@ function expandDeclared(d) {
 }
 
 /**
- * Templates whose installed artifact is a section of the repo's CLAUDE.md, not a
- * file: `present` detects the section, `stamp` reads the inline stamp the section
- * carries (precedent: governance-sync-claude-section.md v1.2.0).
+ * Templates whose installed artifact is a section of the repo's agent
+ * instructions (AGENTS.md or CLAUDE.md), not a file: `present` detects the
+ * section, `stamp` reads the inline stamp the section carries (precedent:
+ * governance-sync-claude-section.md v1.2.0).
  */
 const SECTION_INSTALLED = new Map([
   ['governance-sync-claude-section.md', {
@@ -227,6 +232,7 @@ function installCandidates(declared, key) {
 }
 
 const findings = [];
+let sectionsVerified = 0;
 const repos = governedRepos();
 
 const reachable = repos.filter((r) => existsSync(r.path));
@@ -243,8 +249,10 @@ for (const { repo, path } of repos) {
     findings.push({ sev: 'MISMATCH', repo, msg: `ledger points at ${path}, which does not exist` });
     continue;
   }
-  const claudeMd = join(path, 'CLAUDE.md');
-  const md = existsSync(claudeMd) ? readFileSync(claudeMd, 'utf8') : '';
+  // The resolved instruction text: AGENTS.md plus CLAUDE.md, with `@path`
+  // imports followed. Reading CLAUDE.md alone reads a one-line pointer in a
+  // flipped repo and finds no section — the fail-open shape issue #130 fixes.
+  const md = resolveInstructions(path).text;
   const section = md.match(/###\s*Synced templates([\s\S]*?)(?=\n###\s|\n##\s|$)/i)?.[1] ?? null;
 
   if (!section) {
@@ -280,7 +288,7 @@ for (const { repo, path } of repos) {
         findings.push({
           sev: 'MISMATCH',
           repo,
-          msg: `declares ${declaredPath} v${declaredVer} but the ${key} section is absent from CLAUDE.md — a clean bill of health it has not got`,
+          msg: `declares ${declaredPath} v${declaredVer} but the ${key} section is absent from the repo's agent instructions — a clean bill of health it has not got`,
         });
         continue;
       }
@@ -289,14 +297,15 @@ for (const { repo, path } of repos) {
         findings.push({
           sev: 'NOSTAMP',
           repo,
-          msg: `declares ${declaredPath} v${declaredVer} — installed as a CLAUDE.md section, which carries no version stamp; the declaration cannot be verified`,
+          msg: `declares ${declaredPath} v${declaredVer} — installed as an agent-instructions section, which carries no version stamp; the declaration cannot be verified`,
         });
         continue;
       }
       if (stamped !== declaredVer) {
-        findings.push({ sev: 'MISMATCH', repo, msg: `declares ${declaredPath} v${declaredVer} but the installed CLAUDE.md section stamps v${stamped}` });
+        findings.push({ sev: 'MISMATCH', repo, msg: `declares ${declaredPath} v${declaredVer} but the installed agent-instructions section stamps v${stamped}` });
         continue;
       }
+      sectionsVerified++;
       const latest = current.get(key);
       if (latest && latest !== declaredVer) {
         findings.push({ sev: 'BEHIND', repo, msg: `${declaredPath} at v${declaredVer}, template is v${latest}` });
@@ -365,7 +374,7 @@ for (const { repo, path } of repos) {
 const order = { MISMATCH: 0, NOSTAMP: 1, UNDECLARED: 2, BEHIND: 3 };
 findings.sort((a, b) => order[a.sev] - order[b.sev] || a.repo.localeCompare(b.repo));
 
-console.log(`check-downstream-drift: ${repos.length} governed repo(s), ${current.size} templates.`);
+console.log(`check-downstream-drift: ${repos.length} governed repo(s), ${current.size} templates, ${sectionsVerified} section stamp(s) verified.`);
 
 if (!findings.length) {
   console.log('OK: every governed repo declares what it installed, and the declarations are true and current.');

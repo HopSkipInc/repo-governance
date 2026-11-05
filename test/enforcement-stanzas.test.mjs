@@ -226,6 +226,37 @@ test('enforcement: a CLAUDE.md-listed records file absent from the register is a
   assert.match(out, /never silently unasserted/);
 });
 
+test('enforcement: a one-line @AGENTS.md CLAUDE.md resolves the records paragraph from AGENTS.md', () => {
+  // The flip's fail-open shape (issue #130): the old lookup took the first of
+  // CLAUDE.md/AGENTS.md that EXISTS, found the one-line import, found no records
+  // heading, and printed SKIPPED while the lint exited 0.
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, PATHS),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': '@AGENTS.md\n',
+    'AGENTS.md': CLAUDE_MD,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /2 paragraph path\(s\) checked/);
+  assert.doesNotMatch(out, /SKIPPED/);
+});
+
+test('enforcement: a one-line @AGENTS.md CLAUDE.md still reports an unregistered AGENTS.md records path', () => {
+  const dir = fixture({
+    'docs/enforcement-stanzas-register.md': register(BOTH, ['docs/pdr/']),
+    '.claude/settings.json': CLAUDE_CFG,
+    'opencode.json': OPENCODE_CFG,
+    'CLAUDE.md': '@AGENTS.md\n',
+    'AGENTS.md': CLAUDE_MD,
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /UNREGISTERED/);
+  assert.match(out, /docs\/code-conventions\.md/);
+});
+
 test('enforcement: a paragraph-mentioned non-records path clears when exempted with a reason', () => {
   // The house paragraph names the forms directory as a contrast ("The blank forms
   // live in `templates/`") — the completeness rule reads it, and the register
@@ -329,7 +360,7 @@ test('enforcement: no records paragraph is a loud SKIPPED, never a silent pass',
   });
   const { code, out } = run(dir);
   assert.equal(code, 0, out);
-  assert.match(out, /SKIPPED: no CLAUDE.md\/AGENTS.md records-files paragraph/);
+  assert.match(out, /SKIPPED: no AGENTS.md\/CLAUDE.md records-files paragraph/);
   assert.match(out, /completeness SKIPPED/);
 });
 
