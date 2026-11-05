@@ -54,6 +54,9 @@
  *   NOT-BINDING    (opencode) a required rule is listed before the "*" catch-all —
  *                  last-match-wins means the catch-all silently overwrites it
  *   UNREGISTERED   a path in the resolved AGENTS.md/CLAUDE.md records paragraph has no register entry
+ *   UNRESOLVED-IMPORT  an `@path` import in the instruction file cannot be read —
+ *                  the completeness rule cannot run against an incomplete text,
+ *                  so this blocks rather than reporting SKIPPED (fail-open)
  *   MEDIATED-MISSING   a mediated-write row's script is not on disk
  *   MEDIATED-MISMATCH  the script's version stamp does not match the row's
  *
@@ -357,25 +360,36 @@ for (const row of mediatedPaths) {
  *  followed). Backticked tokens that look like paths (contain `/` or end in
  *  `.md`) are the authoritative list. */
 function recordsParagraphPaths() {
-  const { text, files } = resolveInstructions(ROOT);
-  if (!files.length) return null;
+  const { text, files, unresolved } = resolveInstructions(ROOT);
+  if (!files.length) return { paths: null, unresolved: [] };
   const lines = text.split('\n');
   const start = lines.findIndex((l) => /^##\s/i.test(l) && /records/i.test(l));
-  if (start === -1) return null;
+  if (start === -1) return { paths: null, unresolved };
   const paths = [];
   for (let i = start + 1; i < lines.length && !lines[i].startsWith('## '); i++) {
     for (const m of lines[i].matchAll(/`([^`]+)`/g)) {
       if (m[1].includes('/') || m[1].endsWith('.md')) paths.push(m[1]);
     }
   }
-  return paths;
+  return { paths, unresolved };
 }
 
-const listed = recordsParagraphPaths();
+const { paths: listed, unresolved: unresolvedImports } = recordsParagraphPaths();
 const mediatedScripts = mediatedPaths.map((m) => m.script);
-if (listed === null) {
+let completeness;
+if (unresolvedImports.length) {
+  completeness = 'completeness BLOCKED — unresolved import(s)';
+  for (const u of unresolvedImports) {
+    findings.push({
+      sev: 'UNRESOLVED-IMPORT',
+      msg: `${u.target} cannot be read (imported from ${u.from ? u.from.replace(`${ROOT}/`, '') : 'a top-level instruction file'}) — the records paragraph cannot be checked against an incomplete instruction text. Fix the import; this is not a skip.`,
+    });
+  }
+} else if (listed === null) {
+  completeness = 'completeness SKIPPED';
   console.log('SKIPPED: no AGENTS.md/CLAUDE.md records-files paragraph found — the register-completeness rule did not run. This is a skip, not a pass.');
 } else {
+  completeness = `${listed.length} paragraph path(s) checked`;
   for (const p of listed) {
     if (!recordsPaths.includes(p) && !paragraphExemptions.includes(p) && !mediatedScripts.includes(p)) {
       findings.push({
@@ -389,7 +403,7 @@ if (listed === null) {
 // ----------------------------------------------------------------- the report
 
 console.log(
-  `check-enforcement-stanzas: ${harnesses.length} harness(es) registered (${harnesses.join(', ')}), ${recordsPaths.length} records path(s), ${paragraphExemptions.length} paragraph exemption(s), ${mediatedPaths.length} mediated write path(s), ${listed === null ? 'completeness SKIPPED' : `${listed.length} paragraph path(s) checked`}.`,
+  `check-enforcement-stanzas: ${harnesses.length} harness(es) registered (${harnesses.join(', ')}), ${recordsPaths.length} records path(s), ${paragraphExemptions.length} paragraph exemption(s), ${mediatedPaths.length} mediated write path(s), ${completeness}.`,
 );
 
 if (!findings.length) {

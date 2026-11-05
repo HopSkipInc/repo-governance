@@ -269,6 +269,18 @@ test('drift: a section stamp in AGENTS.md is verified through the CLAUDE.md impo
   assert.match(out, /agent-instructions section stamps v0\.9\.0/);
 });
 
+test('drift: an unresolved instruction import is a blocking finding, never an OK verdict', () => {
+  const dir = repoFixture([['`docs/agent-routing.md`', 'v2.0.0']], {
+    'clones/repo-a/CLAUDE.md': '@missing.md\n' + claudeMd([['`docs/agent-routing.md`', 'v2.0.0']]),
+    'clones/repo-a/docs/agent-routing.md': mdStamp('agent-routing.md', '2.0.0'),
+  });
+  const { code, out } = run(dir);
+  assert.equal(code, 1, out);
+  assert.match(out, /UNRESOLVED-IMPORT/);
+  assert.match(out, /missing\.md/);
+  assert.doesNotMatch(out, /^OK:/m);
+});
+
 test('drift: the canonical global declaration (~/.config/opencode/agents/...) resolves', () => {
   const dir = repoFixture([['`~/.config/opencode/agents/routing-classifier.md`', 'v2.0.0']]);
   const agentsDir = join(dir, 'opencode/agents');
@@ -345,6 +357,35 @@ test('drift: no declarations in either location is a finding', () => {
     // A state doc exists but carries no Synced-templates table: the fallback
     // must still find nothing, not treat the file's presence as a declaration.
     'clones/repo-a/docs/governance-sync-state.md': '# Governance sync state\n\n## Applied governance updates\n',
+    'clones/repo-a/docs/agent-routing.md': mdStamp('agent-routing.md', '2.0.0'),
+  });
+  addLedger(dir, [['acme/repo-a', join(dir, 'clones/repo-a')]]);
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /UNDECLARED/);
+});
+
+test('drift: a header-only state-doc table falls back to the old in-section declarations', () => {
+  const dir = fixture({
+    ...templateTree,
+    'clones/repo-a/AGENTS.md': claudeMd([['`docs/agent-routing.md`', 'v2.0.0']]),
+    'clones/repo-a/CLAUDE.md': '@AGENTS.md\n',
+    'clones/repo-a/docs/governance-sync-state.md':
+      '# Governance sync state\n\n## Synced templates\n\n| Template | Installed version | Synced on |\n|---|---|---|\n',
+    'clones/repo-a/docs/agent-routing.md': mdStamp('agent-routing.md', '2.0.0'),
+  });
+  addLedger(dir, [['acme/repo-a', join(dir, 'clones/repo-a')]]);
+  const { code, out } = run(dir);
+  assert.equal(code, 0, out);
+  assert.match(out, /OK:/);
+});
+
+test('drift: a header-only state-doc table plus no old table is still UNDECLARED', () => {
+  const dir = fixture({
+    ...templateTree,
+    'clones/repo-a/AGENTS.md': '# Client repo\n\nNo declaration table anywhere.\n',
+    'clones/repo-a/docs/governance-sync-state.md':
+      '# Governance sync state\n\n## Synced templates\n\n| Template | Installed version | Synced on |\n|---|---|---|\n',
     'clones/repo-a/docs/agent-routing.md': mdStamp('agent-routing.md', '2.0.0'),
   });
   addLedger(dir, [['acme/repo-a', join(dir, 'clones/repo-a')]]);
