@@ -93,6 +93,18 @@ test('instructions: a shorter fence of the same character inside a longer fence 
   assert.deepEqual(unresolved, []);
 });
 
+test('instructions: a fence line with trailing text does not close the block', () => {
+  // ```not-a-close is content; if it closes, the real closing fence opens a new
+  // block and the live @import below is silently dropped.
+  const dir = fixture({
+    'AGENTS.md': '# Repo\n\n```markdown\n```not-a-close\nexample\n```\n\n@docs/large.md\n',
+    'docs/large.md': 'b'.repeat(33000),
+  });
+  const { text, unresolved } = resolveInstructions(dir);
+  assert.match(text, /b{100}/, 'the import after the fence must be followed');
+  assert.deepEqual(unresolved, []);
+});
+
 test('instructions: a chain deeper than five hops reports the target as unresolved', () => {
   const files = { 'AGENTS.md': '@l1.md\n', 'l1.md': '@l2.md\n', 'l2.md': '@l3.md\n', 'l3.md': '@l4.md\n', 'l4.md': '@l5.md\n', 'l5.md': '@l6.md\n' };
   const dir = fixture(files);
