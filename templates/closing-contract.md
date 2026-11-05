@@ -1,5 +1,5 @@
-<!-- template: closing-contract.md v1.0.0 · updated 2026-08-09 -->
-# Closing contract — CLAUDE.md section
+<!-- template: closing-contract.md v1.1.0 · updated 2026-11-05 -->
+# Closing contract — AGENTS.md section
 
 RLHF-trained assistants end responses with a formulaic caveat paragraph — "one last
 thing", "worth flagging", "here's what I left broken" — because alignment training
@@ -16,14 +16,15 @@ not appended. Same information, no suspense.
 
 ## Template
 
-Add this section to the repo's `CLAUDE.md` (and to `AGENTS.md` as well if the repo's
-harnesses read it). Keep the stamp comment inside the section when you install — it is
-how the drift check verifies the section.
+Add this section to the repo's `AGENTS.md`, once. `CLAUDE.md`, where present, is a
+one-line `@AGENTS.md` import, so installing the section there too would duplicate it.
+Keep the stamp comment inside the section when you install — it is how the drift check
+verifies the section.
 
 ```markdown
 ## Closing contract
 
-<!-- template: closing-contract.md v1.0.0 · updated 2026-08-09 -->
+<!-- template: closing-contract.md v1.1.0 · updated 2026-11-05 -->
 
 End responses with the result, not a caveat ledger. Loose ends, risks, and follow-ups
 are recorded the moment they arise — `record_activity` for work state when the
@@ -55,9 +56,9 @@ eyes", "heads up". If everything is done, say so plainly and stop.
   stamp inline (precedent: `governance-sync-claude-section.md` v1.2.0), and
   `check-downstream-drift.mjs` re-verifies presence and version on every sync — the
   install-time grep is never the only thing that checks. The consumer is the harness
-  itself: both Claude Code and opencode read the repo's `CLAUDE.md` (opencode
-  additionally reads `AGENTS.md`), so a section in those files is in the read path by
-  construction — no separate liveness proof applies to a prose norm, and the template
-  does not pretend one exists.
+  itself: OpenCode loads `AGENTS.md`, and Claude Code resolves the one-line
+  `@AGENTS.md` import, so a section in the resolved instruction text is in the read
+  path by construction, and the template does not pretend a separate proof exists.
 - **Declared by template name** in the Synced templates table, like the sync section —
-  its location is `CLAUDE.md` by definition.
+  its location is `AGENTS.md` by definition (v1.1.0, issue #130: the install target is
+  `AGENTS.md`, not `CLAUDE.md`).

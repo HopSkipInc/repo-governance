@@ -214,8 +214,8 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | `workflows/db-migration-harness-sqlserver.yml` | DB migration governance applied **and** SQL Server | P2 | CI gate for the migration policy | full |
 | `watch-items.md` | Always (informational) | P2 | Watch-list format — low urgency, high compound value | full |
 | `governance-health.md` | After 3+ audit cycles | P2 (deferred) | Metrics need data to be meaningful | full |
-| `governance-sync-claude-section.md` | CLAUDE.md or AGENTS.md exists | P0 | Tells downstream agents about repo-governance; carries the Synced-templates table drift detection reads | core |
-| `closing-contract.md` | CLAUDE.md or AGENTS.md exists | P2 | Ends the closing-caveat tic: responses end with the result; loose ends ride the ledger, blocking ones lead | core |
+| `governance-sync-claude-section.md` | AGENTS.md exists (CLAUDE.md may be the one-line `@AGENTS.md` import) | P0 | Tells downstream agents about repo-governance; installs into `AGENTS.md`, and the Synced-templates table it points to lives in `docs/governance-sync-state.md` — the always-loaded file carries no logs | core |
+| `closing-contract.md` | AGENTS.md exists | P2 | Ends the closing-caveat tic: responses end with the result; loose ends ride the ledger, blocking ones lead. Installs into `AGENTS.md` once; `CLAUDE.md` is the one-line import | core |
 | `adr/README.md` + `adr/_template.md` | ADR corpus is being applied | P0 | The index and the blank form — an ADR directory without both drifts immediately | core |
 | `scripts/check-adr-readme-sync.mjs` | ADR directory **or** PDR directory exists | P1 | Prevents index drift in both corpora — one script covers both | core |
 | **`agent-routing.md`** | Backlog is worked by coding agents | P1 | `impl:` tiers keep work a weak model would botch away from it. Skip only if all implementation is human | full |
@@ -231,10 +231,10 @@ remaining applicable rows and editing one line: the class is a depth, not an ide
 | **`skills/test-coverage-interview/`** | Always | P1 | Five-layer sweep — layer 4. Coverage is what keeps issues cheap to route | full |
 | **`testing-strategy.md`** | test-coverage-interview is applied | P1 | The layer-4 records file — coverage floor, coverage map, deliberate exemptions, false-green register, and §6 (properties nothing verifies). §6 is a routing input: `agent-routing.md`'s coverage rule reads it instead of guessing at the suite. Never syncs after install | full |
 | **`local-verification.md`** | Repo has a commit hook or a local check command that contributors or agents are told to run | P1 | Three local tiers with a trigger and a time budget each — commit (staged, offline, seconds), push (diff-selected, about a minute, read before a PR is marked ready), full (CI's reproduction, on demand) — and CI as the only gate. A hook that runs the whole suite per commit gets bypassed (`--no-verify`) and, for agents that push after every commit, multiplies the cost by commit count. The fast tier reads its lint list from the full composite (one list), and selection never fails open | full |
-| **`skills/agent-instructions-interview/`** | CLAUDE.md or AGENTS.md exists | P1 | Five-layer sweep — layer 5 | full |
+| **`skills/agent-instructions-interview/`** | AGENTS.md or CLAUDE.md exists | P1 | Five-layer sweep — layer 5. Target shape is one canonical `AGENTS.md` plus a one-line `@AGENTS.md` `CLAUDE.md`, never two full copies | full |
 | `skills/competitive-analysis/` | Team values competitive intel | P2 | Self-discovering skill — adds capability | full |
 | `skills/pdr-interview/` | PDR corpus is being applied | P0 | How the PDR corpus actually gets written — the interview is the work, the record is the output | full |
-| **`scripts/check-root-clutter.mjs`** | Always | P2 | Directory listing, zero language dependency; converged independently in three repos before being templated | full |
+| **`scripts/check-root-clutter.mjs`** | Always | P2 | Directory listing, zero language dependency; converged independently in three repos before being templated. Default allowlist includes both `AGENTS.md` and `CLAUDE.md` | full |
 | **`scripts/check-breaking-migrations.mjs`** | DB migration governance applied | P1 | A migration dropping/renaming a column must have zero remaining code references. Driven by a real outage | full |
 | **`scripts/check-schema-promises.mjs`** | DB migration governance applied | P1 | Sibling of the above — enforcement-bearing schema must have a consumer or a dormant register entry | full |
 | **`scripts/lint-stub-tests.mjs`** | npm `test`/`test:*` scripts exist | P2 | Catches false-green CI. Ships in report mode; promote to gate once clean | full |
@@ -436,7 +436,7 @@ We're adopting the governance framework from `~/repos/HopSkipInc/repo-governance
 - Verify each DoD row has a gating CI step, not just a manual checkbox — enforcement ships with the promise
 - Run the first audit: `gh workflow run scheduled-audit.yml` (or wait for the next scheduled run)
 - Treat the first audit as inventory, not a grade — work P0s this week, P1s next sprint, track P2s
-- Add the governance sync section to CLAUDE.md by applying `templates/governance-sync-claude-section.md`
+- Add the governance sync section to `AGENTS.md` by applying `templates/governance-sync-claude-section.md`, and create `docs/governance-sync-state.md` from the skeleton it carries
 
 **Reference files (in `~/repos/HopSkipInc/repo-governance`):**
 - `GETTING_STARTED.md` — full step-by-step guide with context

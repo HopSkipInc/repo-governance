@@ -7,8 +7,8 @@ description: >
   gotchas — and reconciles what's documented against what's actually true. Interviews the
   team to surface tribal knowledge that isn't written anywhere. Produces a verified,
   complete agent instruction file, plus a PR.
-version: 1.0.0
-updated: 2026-07-24
+version: 1.1.0
+updated: 2026-11-05
 triggers:
   - /agent-instructions-interview
   - agent instructions interview
@@ -55,8 +55,8 @@ This skill verifies all three.
 Do all of these in parallel:
 
 1. **Read existing agent instruction files.** Check ALL of:
-   - `CLAUDE.md` (Claude Code, opencode)
-   - `AGENTS.md` (generic agent instruction convention)
+   - `AGENTS.md` (canonical: OpenCode v2 loads it directly)
+   - `CLAUDE.md` (Claude Code; should be a one-line `@AGENTS.md` import)
    - `.cursorrules` (Cursor)
    - `COPILOT_INSTRUCTIONS.md` (GitHub Copilot)
    - `.claude/` directory (Claude Code skills, commands, settings)
@@ -223,8 +223,10 @@ Read `/tmp/agent-instructions-evidence.md`.
 
 ### Agent instruction file
 
-Write or update `CLAUDE.md` (or `AGENTS.md` if that's the repo's convention). The file
-should have these sections:
+The target shape is **one canonical `AGENTS.md` plus a one-line `@AGENTS.md` `CLAUDE.md`**.
+Write the instructions into `AGENTS.md`. If `CLAUDE.md` is absent, create it containing
+exactly `@AGENTS.md`; if it exists, reduce it to that line plus anything only Claude Code
+needs. Do not keep two full copies. The file should have these sections:
 
 ```markdown
 # <Repo Name>
@@ -307,9 +309,11 @@ accurate — a wrong command is worse than a missing one.
 ### Consolidation (if multiple instruction files exist)
 
 If the repo has multiple agent instruction files (CLAUDE.md + AGENTS.md + .cursorrules),
-consolidate into one primary file and either:
+consolidate into one canonical `AGENTS.md` and either:
 - Delete the others (if they're stale duplicates)
-- Replace them with a pointer to the primary (if the tool requires the file to exist)
+- Make `CLAUDE.md` the one-line `@AGENTS.md` import (Claude Code resolves it; OpenCode v2
+  loads `AGENTS.md` directly) rather than a second full copy
+- Replace tool-specific files with a pointer to the primary
 - Note the consolidation in the PR body
 
 ---
@@ -325,7 +329,8 @@ BASE=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's|.*/||')
 git worktree add ../agent-instructions-${DATE} -b "${BRANCH}" "origin/${BASE}"
 
 cd ../agent-instructions-${DATE}
-cp <written CLAUDE.md or AGENTS.md> <location>
+cp <written AGENTS.md> AGENTS.md
+printf '@AGENTS.md\n' > CLAUDE.md   # the import line Claude Code resolves
 
 # If consolidating, remove stale instruction files
 git add CLAUDE.md AGENTS.md .cursorrules .github/copilot-instructions.md
@@ -369,6 +374,6 @@ PR body must include:
 - **The gotchas section is the highest-value output.** Build commands can be discovered by reading package.json. Gotchas can't — they exist only in the heads of people who learned them the hard way. Spend the most interview time here.
 - **Point, don't duplicate.** If `docs/conventions.md` exists, the agent instructions should say "see docs/conventions.md" — not re-list the conventions. Duplicated information drifts; pointed information stays current.
 - **The 30-second architecture overview is the right length.** Agents don't need a novel — they need enough context to know where things are and how they relate, with pointers to detailed docs. If the architecture section is longer than the build commands section, it's too long.
-- **Multiple instruction files are a problem.** CLAUDE.md + AGENTS.md + .cursorrules with overlapping but slightly different content is a drift factory. Consolidate to one primary and point the others at it.
-- **Refresh when tooling changes.** The most common cause of stale agent instructions is a tooling migration (jest → vitest, eslint → biome, npm → pnpm) that didn't update CLAUDE.md. Run this skill after any tooling migration.
-- **The enforcement is accuracy.** There's no lint for "CLAUDE.md is correct." The check is running every command and verifying every path. If you skip the verification step, you're shipping unverified instructions, and an agent will follow them into a wall.
+- **Multiple instruction files are a problem.** CLAUDE.md + AGENTS.md + .cursorrules with overlapping but slightly different content is a drift factory. Consolidate to one canonical `AGENTS.md`; `CLAUDE.md` is the one-line `@AGENTS.md` import, never a second full copy.
+- **Refresh when tooling changes.** The most common cause of stale agent instructions is a tooling migration (jest → vitest, eslint → biome, npm → pnpm) that didn't update AGENTS.md. Run this skill after any tooling migration.
+- **The enforcement is accuracy.** There's no lint for "AGENTS.md is correct." The check is running every command and verifying every path. If you skip the verification step, you're shipping unverified instructions, and an agent will follow them into a wall.
