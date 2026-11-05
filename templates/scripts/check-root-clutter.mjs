@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-root-clutter.mjs v1.0.0 · updated 2026-07-24
+// template: scripts/check-root-clutter.mjs v1.0.1 · updated 2026-11-05
 /**
  * lint:root-clutter  [governance template — copy to <project>/scripts/]
  *
@@ -49,7 +49,7 @@ const ALLOWED = new Set([
   // tooling / VCS / editor
   '.git', '.github', '.gitignore', '.dockerignore', '.claude', '.vscode', '.editorconfig',
   // top-level docs + build
-  'README.md', 'LICENSE', 'CLAUDE.md', 'Dockerfile', 'docker-compose.yml',
+  'README.md', 'LICENSE', 'AGENTS.md', 'CLAUDE.md', 'Dockerfile', 'docker-compose.yml',
   // add your repo's source directories, e.g.:
   // 'src', 'docs', 'scripts', 'tests',
 ]);

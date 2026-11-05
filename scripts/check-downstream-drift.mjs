@@ -52,6 +52,12 @@
  * issue #130), so a one-line `@AGENTS.md` CLAUDE.md still resolves to the file
  * that carries them.
  *
+ * Declarations have moved too (issue #130): the Synced-templates table now
+ * lives in docs/governance-sync-state.md, outside the always-loaded instruction
+ * file. This reads the state doc first and falls back to the old in-section
+ * location, reporting a finding only when NEITHER has the table — the
+ * declaration-dialect transition of 2026-08-02, repeated.
+ *
  * The harness-enforcement stanzas install as a merge into the harness config
  * (`.claude/settings.json` / `opencode.json`), not as a file (issue #67: the
  * drift check resolved neither and reported MISMATCH on a correct install).
@@ -186,7 +192,7 @@ function expandDeclared(d) {
  */
 const SECTION_INSTALLED = new Map([
   ['governance-sync-claude-section.md', {
-    present: /###\s*Synced templates/i,
+    present: /##\s*Governance\b/i,
     stamp: /template:\s*governance-sync-claude-section\.md\s+v(\d+\.\d+\.\d+)/,
   }],
   ['closing-contract.md', {
@@ -234,6 +240,25 @@ function installCandidates(declared, key) {
   return [...new Set(out)];
 }
 
+/** The Synced-templates table body from a markdown text, or null when absent.
+ *  Both the state doc (`## Synced templates`) and the old in-section location
+ *  (`### Synced templates`) are accepted. */
+function syncedSection(text) {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^#{2,3}\s*Synced templates\s*$/i.test(l));
+  if (start === -1) return null;
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((l) => /^#{1,3}\s+\S/.test(l));
+  const body = (end === -1 ? rest : rest.slice(0, end)).join('\n');
+  // A header-only table is not a declaration. Returning it would let an empty
+  // state doc win over a populated old location and suppress the UNDECLARED
+  // finding, so fall back when no data row exists.
+  const hasDeclaration = body.split('\n').some(
+    (l) => /^\s*\|/.test(l) && !/^\s*\|[\s:|-]+\|?\s*$/.test(l) && !/^\s*\|\s*Template\s*\|/i.test(l)
+  );
+  return hasDeclaration ? body : null;
+}
+
 const findings = [];
 let sectionsVerified = 0;
 const repos = governedRepos();
@@ -263,7 +288,11 @@ for (const { repo, path } of repos) {
       msg: `${u.target} cannot be read (imported from ${u.from ? u.from.replace(`${path}/`, '') : 'a top-level instruction file'}) — the instruction source is incomplete, so a clean declaration verdict would be evidence it has not got. Fix the import.`,
     });
   }
-  const section = md.match(/###\s*Synced templates([\s\S]*?)(?=\n###\s|\n##\s|$)/i)?.[1] ?? null;
+  // Declarations live in the state doc after #130; read the old in-section
+  // location as the transition fallback. Neither -> the UNDECLARED path below.
+  const stateDoc = join(path, 'docs/governance-sync-state.md');
+  const stateMd = existsSync(stateDoc) ? readFileSync(stateDoc, 'utf8') : '';
+  const section = syncedSection(stateMd) ?? syncedSection(md);
 
   if (!section) {
     // Is anything governance-shaped installed despite no declaration?
@@ -273,7 +302,7 @@ for (const { repo, path } of repos) {
       findings.push({
         sev: 'UNDECLARED',
         repo,
-        msg: `${installed.length} governance artifact(s) installed with no "### Synced templates" table — nothing to compare (${installed.join(', ')})`,
+        msg: `${installed.length} governance artifact(s) installed with no Synced-templates table in docs/governance-sync-state.md or the agent instructions — nothing to compare (${installed.join(', ')})`,
       });
     }
     continue;

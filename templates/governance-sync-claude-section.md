@@ -1,13 +1,24 @@
-<!-- template: governance-sync-claude-section.md v1.4.0 · updated 2026-09-26 -->
-# Governance sync — CLAUDE.md section
+<!-- template: governance-sync-claude-section.md v2.0.0 · updated 2026-11-05 -->
+# Governance sync — AGENTS.md section
 
-When a downstream repo's CLAUDE.md includes this section, the agent can reliably find
+When a downstream repo's `AGENTS.md` includes this section, the agent can reliably find
 and apply governance updates from repo-governance. Without it, the agent has no way to
 discover the repo-governance path, the client name, or the prompt convention.
 
+`AGENTS.md` is the canonical instruction file: OpenCode v2 loads it directly, and Claude
+Code loads the same text through a one-line `@AGENTS.md` `CLAUDE.md`. The section is
+installed **once**, into `AGENTS.md` — never duplicated into both files.
+
+The three governance-sync logs (applied updates, layer refresh, synced templates) live in
+`docs/governance-sync-state.md`, not in the always-loaded instruction file. They are
+append-only machine bookkeeping, not instructions: every session carries the instruction
+file, and a 2026-08-17 application note is not a briefing. The state doc is a plain doc —
+not a records file, so it gets no harness-stanza deny, no `write-record.mjs` verb, and no
+enforcement-stanza register entry.
+
 ## Template
 
-Add this section to the repo's CLAUDE.md. Replace `<CLIENT>`, `<REPO-SLUG>`, and
+Add this section to the repo's `AGENTS.md`. Replace `<CLIENT>`, `<REPO-SLUG>`, and
 `<CLASS>` with the actual values (e.g., `hopskip`, `enrichment-pipeline`, `full`).
 Keep the stamp comment under `## Governance` when you install — it is how the drift
 check verifies the section.
@@ -15,7 +26,7 @@ check verifies the section.
 ```markdown
 ## Governance
 
-<!-- template: governance-sync-claude-section.md v1.4.0 · updated 2026-09-26 -->
+<!-- template: governance-sync-claude-section.md v2.0.0 · updated 2026-11-05 -->
 
 This repo is governed by repo-governance at `~/repos/HopSkipInc/repo-governance`.
 The client identifier is `<CLIENT>` and the repo slug is `<REPO-SLUG>`.
@@ -29,7 +40,8 @@ To check for and apply pending governance updates:
 2. Find rows for `<REPO-SLUG>` with status `pending`
 3. Read each pending prompt at the linked file path
 4. Apply the changes described in the prompt
-5. Record the application in this repo by appending to the `## Applied governance updates` list at the bottom of THIS section. Format:
+5. Record the application in `docs/governance-sync-state.md` by appending to its
+   `## Applied governance updates` list. Format:
    ```
    - [prompt-filename] — applied [YYYY-MM-DD]
    ```
@@ -43,18 +55,31 @@ To check for stale governance layers (run during governance sync, skip if nothin
    - **ADRs:** lints in CI without corresponding ADRs? ADRs Proposed for 3+ audit cycles? module contradictions in last audit?
    - **Clean code:** lint/formatter config changed since last refresh? new modules violating conventions?
    - **Test coverage:** coverage dropped? new modules with no tests? false-green tests in last audit?
-   - **Agent instructions:** do the commands in this CLAUDE.md actually work? do the referenced paths exist? did tooling change?
+   - **Agent instructions:** do the commands in `AGENTS.md` actually work? do the referenced paths exist? did tooling change?
    - **Configuration** *(a sixth trigger, not a sixth layer — it has its own records file and no layer corpus, so it never gets a `Layer refresh log` row):* did audit domain 9 raise a `CONFIG` or `SECRET` finding? has a declared floor's cap reason become false (the missing capability now exists)? are there variables in the declaration sites with no rows in the records file? did a new principal class appear (first agent worker, first CI-only credential)?
 3. For each stale layer or trigger, run the matching refresh skill from `~/repos/HopSkipInc/repo-governance/templates/skills/`:
    - `pdr-interview refresh` / `adr-interview refresh` / `clean-code-interview refresh` / `test-coverage-interview refresh` / `agent-instructions-interview refresh` / `configuration-interview refresh`
 4. Skip what is not stale — refresh what's stale, not everything
-5. Update the `### Layer refresh log` table below with today's date for each refreshed layer. **Configuration has no row there** — it is not a layer; `configuration-interview` records its refresh in `configuration-governance-records.md`
+5. Update the `## Layer refresh log` table in `docs/governance-sync-state.md` with today's date for each refreshed layer. **Configuration has no row there** — it is not a layer; `configuration-interview` records its refresh in `configuration-governance-records.md`
+```
 
-### Applied governance updates
+## State doc
+
+Create `docs/governance-sync-state.md` if it does not exist. It is a plain doc, not a
+records file: append-only machine bookkeeping, no harness deny, no `write-record.mjs`
+verb, no enforcement-stanza register entry. The skeleton:
+
+```markdown
+# Governance sync state
+
+<!-- Plain doc, not a records file. Append-only machine bookkeeping for the
+governance-sync section in AGENTS.md. -->
+
+## Applied governance updates
 
 <!-- append new entries below when you apply a downstream prompt -->
 
-### Layer refresh log
+## Layer refresh log
 
 | Layer | Last refreshed | Trigger |
 |-------|---------------|---------|
@@ -64,7 +89,7 @@ To check for stale governance layers (run during governance sync, skip if nothin
 | Test coverage | — | — |
 | Agent instructions | — | — |
 
-### Synced templates
+## Synced templates
 
 Every governance template carries a version stamp. Record what this repo installed, so
 both sides can tell when a local copy has fallen behind — without this, a repo is running
@@ -76,11 +101,11 @@ The first column is the **repo-relative installed path** — `docs/agent-routing
 with zero inference; naming the template instead means the drift check has to know where
 every template installs, and that mapping failed in the field. (Canonical dialect:
 repo-relative, decided 2026-08-02.) One exception: a template that installs as a section
-of this file (`governance-sync-claude-section.md`) is declared by template name — its
-location is CLAUDE.md by definition — and this section carries its stamp on the comment
-line under `## Governance` above. Adapted files (copied from a template, then customized
-— not auto-synced) do not declare a version; note them as "Adapted" below the table
-instead.
+of `AGENTS.md` (`governance-sync-claude-section.md`, `closing-contract.md`) is declared by
+template name — its location is `AGENTS.md` by definition — and the section carries its
+stamp on the comment line under its heading. Adapted files (copied from a template, then
+customized — not auto-synced) do not declare a version; note them as "Adapted" below the
+table instead.
 
 | Template | Installed version | Synced on |
 |---|---|---|
@@ -105,10 +130,29 @@ templates, and watch-list conventions. When in doubt, check the template first.
 
 ## Design notes
 
+- **AGENTS.md is the install target** (v2.0.0, issue #130 — a breaking change from
+  installing into `CLAUDE.md`). OpenCode v2 dropped the v1 `CLAUDE.md` fallback and loads
+  only `AGENTS.md`; Claude Code resolves the `@AGENTS.md` import line. One canonical file
+  gives both harnesses the same instructions from one edited file. A section that lives in
+  both files is a drift factory.
+- **The logs moved out of the always-loaded file** (v2.0.0, issue #130). The applied
+  updates log, the layer refresh log, and the synced-templates table are records of what
+  happened, not instructions for the next task. In `HopSkipInc/ai-fleet` they were 49% of a
+  94,737-byte `CLAUDE.md`, re-sent on every request of every session. They now live in
+  `docs/governance-sync-state.md`; the section only points there and carries the doc's
+  skeleton.
+- **The state doc is not a records file** (owner decision, 2026-11-05). It is append-only
+  machine bookkeeping with no dated judgement, so it gets no harness-stanza deny and no
+  mediated write path. Recording an applied prompt is an ordinary append, not a records
+  amendment.
+- **Transition read.** During rollout, `check-downstream-drift.mjs` reads declarations
+  from `docs/governance-sync-state.md` and, failing that, from the old in-section
+  location. It reports a finding only when neither has them — the 2026-08-02
+  declaration-dialect transition, repeated.
 - The section is intentionally small — the agent needs location, convention, and the
-  apply-then-record-locally workflow. Everything else it can discover by reading.
-- The `Applied governance updates` subsection is where the downstream repo records what
-  it has applied. repo-governance reads this during `/review-sync` to reconcile `_client.md`.
+  apply-then-record workflow. Everything else it can discover by reading.
+- The `Applied governance updates` log is where the downstream repo records what it has
+  applied. repo-governance reads it during `/review-sync` to reconcile `_client.md`.
   The downstream repo never writes to repo-governance — that's a trust boundary.
 - The `Layer refresh log` table tracks when each of the five governance layers was last
   refreshed. The staleness check compares this against the triggers in the DoD, which
