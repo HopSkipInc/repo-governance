@@ -1089,3 +1089,162 @@ test('adr-readme-sync: a registered PDR passes', () => {
   const { code, out } = run('check-adr-readme-sync.mjs', dir);
   assert.equal(code, 0, out);
 });
+
+// ------------------------------------------ routing equivalence (PDR-011)
+// The retirement gate: the records-held risk→class rule must reproduce the
+// current tiers. A difference, an untiered issue, or an unapplicable rule is
+// non-zero; an unreadable rule or gh is SKIPPED (exit 2), never a pass.
+
+const EQUIV_RULE = [
+  '# Records',
+  '',
+  '## 8. Risk → class rule',
+  '',
+  '| Risk label | Minimum class |',
+  '|---|---|',
+  '| (none) | standard |',
+  '| `risk:silent-failure` | frontier |',
+  '| `risk:boundary` | frontier |',
+  '| `risk:uncovered` | frontier |',
+  '',
+].join('\n');
+
+const equivFixture = () => fixture({ 'docs/agent-routing-records.md': EQUIV_RULE });
+
+/** gh stub for the paginated `api` fetch. `--slurp` expects an array of pages. */
+function ghApiStub(dir, issues) {
+  const bin = join(dir, 'bin');
+  mkdirSync(bin, { recursive: true });
+  const page = JSON.stringify([issues]).replace(/'/g, `'\''`);
+  writeFileSync(
+    join(bin, 'gh'),
+    `#!/bin/sh\ncase "$1" in\n  api) printf '%s' '${page}' ;;\n  *) printf '[]' ;;\nesac\n`
+  );
+  chmodSync(join(bin, 'gh'), 0o755);
+  return { PATH: `${bin}:${process.env.PATH}`, ROUTING_REPO: 'fixture/repo' };
+}
+
+test('routing-equivalence: a matching backlog passes', () => {
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 1, title: 'x', labels: [{ name: 'impl:standard' }], body: '' },
+    { number: 2, title: 'x', labels: [{ name: 'impl:frontier' }, { name: 'risk:silent-failure' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /OK: every open issue's derived class matches/);
+});
+
+test('routing-equivalence: a standard issue carrying a risk label is a difference (exit 1)', () => {
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 5, title: 'x', labels: [{ name: 'impl:standard' }, { name: 'risk:silent-failure' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 1, out);
+  assert.match(out, /#5\s+impl:standard \(standard\) -> frontier/);
+});
+
+test('routing-equivalence: highest signal wins across several risk labels', () => {
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 3, title: 'x', labels: [{ name: 'impl:frontier' }, { name: 'risk:silent-failure' }, { name: 'risk:boundary' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+});
+
+test('routing-equivalence: an untiered issue is listed, not silently skipped', () => {
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 6, title: 'x', labels: [{ name: 'risk:boundary' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 1, out);
+  assert.match(out, /UNTIERED \(1\)/);
+  assert.match(out, /#6\s+\(none\) -> frontier/);
+});
+
+test('routing-equivalence: a human tier is compared and its gates are shown', () => {
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 7, title: 'x', labels: [{ name: 'impl:human' }, { name: 'risk:boundary' }, { name: 'gate:human-approval' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 1, out);
+  assert.match(out, /#7\s+impl:human \(human\) -> frontier \+ gate:human-approval/);
+});
+
+test('routing-equivalence: a risk label with no rule row is unresolved', () => {
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 8, title: 'x', labels: [{ name: 'impl:frontier' }, { name: 'risk:irreversible' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 1, out);
+  assert.match(out, /no rule row for risk:irreversible/);
+});
+
+test('routing-equivalence: a missing rule section is SKIPPED (exit 2), never a pass', () => {
+  const dir = equivFixture();
+  const rule = '# Records\n\n## 1. Model → class\n\nNo rule here.\n';
+  const withRule = fixture({ 'docs/agent-routing-records.md': rule });
+  const env = ghApiStub(withRule, []);
+  const { code, out } = run('check-routing-equivalence.mjs', withRule, { env });
+  assert.equal(code, 2, out);
+  assert.match(out, /SKIPPED/);
+  assert.doesNotMatch(out, /OK:/);
+});
+
+test('routing-equivalence: a rule naming a non-class is SKIPPED (exit 2)', () => {
+  const dir = equivFixture();
+  const rule = EQUIV_RULE.replace('| `risk:boundary` | frontier |', '| `risk:boundary` | human |');
+  const withRule = fixture({ 'docs/agent-routing-records.md': rule });
+  const env = ghApiStub(withRule, []);
+  const { code, out } = run('check-routing-equivalence.mjs', withRule, { env });
+  assert.equal(code, 2, out);
+  assert.match(out, /SKIPPED/);
+  assert.match(out, /standard or frontier only/);
+});
+
+test('routing-equivalence: no gh auth is SKIPPED (exit 2), never a pass', () => {
+  const dir = equivFixture();
+  const bin = join(dir, 'bin');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\nexit 1\n');
+  chmodSync(join(bin, 'gh'), 0o755);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, {
+    env: { PATH: `${bin}:${process.env.PATH}`, ROUTING_REPO: 'fixture/repo' },
+  });
+  assert.equal(code, 2, out);
+  assert.match(out, /SKIPPED/);
+  assert.doesNotMatch(out, /OK:/);
+});
+
+test('routing-equivalence: the whole backlog is enumerated past the old 500 ceiling', () => {
+  const issues = Array.from({ length: 501 }, (_, i) => ({
+    number: i + 1,
+    title: 'x',
+    labels: i === 500 ? [{ name: 'risk:silent-failure' }] : [{ name: 'impl:standard' }],
+  }));
+  const dir = equivFixture();
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env: ghApiStub(dir, issues) });
+  assert.equal(code, 1, out);
+  assert.match(out, /swept 501 open issues/);
+  assert.match(out, /#501/, out);
+});
+
+test('routing-equivalence: pull requests are not counted as issues', () => {
+  const dir = equivFixture();
+  const { code, out } = run('check-routing-equivalence.mjs', dir, {
+    env: ghApiStub(dir, [{ number: 1, title: 'a PR', labels: [], pull_request: {} }]),
+  });
+  assert.equal(code, 0, out);
+  assert.match(out, /swept 0 open issues/);
+});
+
+test('routing-equivalence: the self-installed copy and the template are byte-identical', () => {
+  const installed = readFileSync(resolve(REPO, 'scripts/check-routing-equivalence.mjs'), 'utf8');
+  const template = readFileSync(resolve(REPO, 'templates/scripts/check-routing-equivalence.mjs'), 'utf8');
+  assert.equal(installed, template, 'scripts/ and templates/scripts/ copies drifted — re-sync and re-stamp');
+});
