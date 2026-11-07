@@ -1,5 +1,5 @@
 ---
-version: 1.4.0
+version: 1.5.0
 updated: 2026-11-07
 description: >
   Classifies backlog issues into PDR-011 risk facts and, during the transition, an
@@ -13,7 +13,7 @@ description: >
   Read-only: it proposes, it never labels. Invoked by the routing-triage skill.
 # routing-class: frontier — the pin's triage class. The `model:` slug is a resolved
 # binding; check-classifier-pin-drift.mjs resolves it and fails closed on drift.
-model: opencode/claude-opus-5
+model: hopskip-gateway/deepseek-v4-1-flash
 mode: subagent
 permission:
   edit: deny
@@ -31,7 +31,7 @@ permission:
 hidden: true
 ---
 
-<!-- template: agents/routing-classifier.opencode.md v1.4.0 · updated 2026-11-07 -->
+<!-- template: agents/routing-classifier.opencode.md v1.5.0 · updated 2026-11-07 -->
 <!-- Install to: ~/.config/opencode/agents/routing-classifier.md (global, not per-repo) -->
 
 # Routing Classifier
@@ -245,8 +245,10 @@ delegate classification to it. The `mode: subagent` + `hidden: true` frontmatter
 never appears as a primary agent and cannot be the default — it is only ever spawned for
 triage.
 
-The `model:` line is a resolved binding produced from the `# routing-class:` line above; it
-goes stale when the class is rebound. Update it from the class map — never by hand — and review
+On **opencode v2** the pin is `hopskip-gateway/deepseek-v4-1-flash` (frontier per the records §1
+class table and the §2 v2 route table); the v1 `opencode/...` route is retired. The `model:` line
+is a resolved binding produced from the `# routing-class:` line above; it goes stale when the
+class is rebound. Update it from the class map — never by hand — and review
 the mapping table in every repo's `docs/agent-routing-records.md` that references it. The pin
 is global, so there is exactly one file to update, but every repo's mapping table references
 it, so a re-sync reviews them in batch.
