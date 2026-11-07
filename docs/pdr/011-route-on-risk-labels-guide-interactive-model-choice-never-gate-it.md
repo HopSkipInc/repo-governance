@@ -1,9 +1,9 @@
 # PDR-011: Route on risk labels; guide interactive model choice, never gate it
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-11-07
-**Confirmed by:** — (drafted for Greg Leizerowicz; unconfirmed)
-**Last confirmed:** —
+**Confirmed by:** Greg Leizerowicz
+**Last confirmed:** 2026-11-07
 
 ---
 
