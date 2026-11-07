@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-// template: scripts/check-routing-equivalence.mjs v1.0.0 · updated 2026-11-07
+// template: scripts/check-routing-equivalence.mjs v1.1.0 · updated 2026-11-07
 /**
  * check-routing-equivalence  [governance template — copy to <project>/scripts/]
  *
  * PDR-011 decision 8's gate. Before a repo stops writing `impl:`, the
  * records-held risk→class rule must reproduce the repo's current tiers. This
- * script applies the rule to every open issue and lists every difference. It
+ * script applies the rule to every open issue (paginated, not a fixed window)
+ * and lists every difference. It
  * exits non-zero while any difference is unresolved.
  *
  * THE RULE
@@ -121,10 +122,16 @@ const rule = parsed.rows;
 const REPO = repoSlug();
 let issues;
 try {
-  issues = JSON.parse(
-    gh(['issue', 'list', '--repo', REPO, '--state', 'open', '--limit', String(LIMIT),
-        '--json', 'number,title,body,labels'])
+  // Every open issue, not a fixed window. `--paginate` follows the Link header
+  // and `--slurp` wraps the pages, so a repo past any single-page ceiling is
+  // still fully enumerated. Pull requests share the issues endpoint; drop them.
+  const pages = JSON.parse(
+    gh(['api', `repos/${REPO}/issues?state=open&per_page=100`, '--paginate', '--slurp'])
   );
+  issues = pages
+    .flat()
+    .filter((i) => !i.pull_request)
+    .map((i) => ({ number: i.number, title: i.title, labels: i.labels ?? [] }));
 } catch (err) {
   skipped(`could not list issues (${String(err.message).split('\n')[0]})`);
 }
