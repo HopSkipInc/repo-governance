@@ -1271,3 +1271,40 @@ test('opencode classifier pin binds a v2 route the records class table lists', (
   });
   assert.ok(match, `opencode pin ${model} does not resolve to a ${cls} model in records §2`);
 });
+
+// 2026-11-07: the first .js template (the opencode v2 hook) must be in both
+// all-template gates. Before this, the version and coverage lints skipped .js
+// entirely and a future unbumped or uncovered plugin would pass unchecked.
+test('template-versions: a .js template is stamped and checked', () => {
+  const dir = fixture({
+    'templates/hook.js': '// template: hook.js v1.0.0 · updated 2026-11-07\n',
+  });
+  const { code, out } = run('check-template-versions.mjs', dir);
+  assert.equal(code, 0, out);
+});
+
+test('template-versions: an unstamped .js template fails', () => {
+  const dir = fixture({ 'templates/hook.js': '// no stamp\n' });
+  const { code, out } = run('check-template-versions.mjs', dir);
+  assert.equal(code, 1, out);
+});
+
+test('analyze-repo-coverage: a .js template in the matrix passes, a missing one fails', () => {
+  const dir = fixture({
+    ...EXCLUDED_TEMPLATES,
+    'templates/hook.js': '// template: hook.js v1.0.0 · updated 2026-11-07\n',
+    '.claude/commands/analyze-repo.md': '| `hook.js` | Always | P1 | because |\n',
+  });
+  const ok = run('check-analyze-repo-coverage.mjs', dir);
+  assert.equal(ok.code, 0, ok.out);
+
+  const dir2 = fixture({
+    ...EXCLUDED_TEMPLATES,
+    'templates/hook.js': '// template: hook.js v1.0.0 · updated 2026-11-07\n',
+    'templates/forgotten.js': '// template: forgotten.js v1.0.0 · updated 2026-11-07\n',
+    '.claude/commands/analyze-repo.md': '| `hook.js` | Always | P1 | because |\n',
+  });
+  const bad = run('check-analyze-repo-coverage.mjs', dir2);
+  assert.equal(bad.code, 1, bad.out);
+  assert.match(bad.out, /forgotten\.js/);
+});

@@ -1,4 +1,4 @@
-// template: hooks/pickup-guidance.opencode.js v1.0.0 · updated 2026-11-07
+// template: hooks/pickup-guidance.opencode.js v1.1.0 · updated 2026-11-07
 /**
  * First-prompt pickup hook — opencode v2 plugin.
  *
@@ -40,7 +40,11 @@ export default Plugin.define({
           if (!event?.sessionID) return;
           if (await ctx.storage.get(seenKey(event.sessionID))) return;
           await ctx.storage.set(seenKey(event.sessionID), true);
-          state.onPrompt(event.sessionID, event.prompt?.text ?? "", { repo, harness: "opencode" });
+          state.onPrompt(event.sessionID, event.prompt?.text ?? "", {
+            repo,
+            harness: "opencode",
+            recordsPath: process.env.ROUTING_RECORDS,
+          });
         } catch {}
       });
 

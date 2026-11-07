@@ -30,7 +30,7 @@ import { join, relative } from 'path';
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const TEMPLATES = join(ROOT, 'templates');
 const MATRIX_FILE = join(ROOT, '.claude/commands/analyze-repo.md');
-const EXTS = ['.md', '.mjs', '.yml'];
+const EXTS = ['.md', '.mjs', '.yml', '.js'];
 
 /**
  * Templates deliberately NOT offered by /analyze-repo, with the reason.

@@ -11,6 +11,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, rmSync 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import {
   formatGuidance,
@@ -116,6 +117,55 @@ test('pickup: gate labels are carried into the advisory', () => {
   });
   const text = formatGuidance(state, null, { harness: 'opencode' });
   assert.match(text, /A human finishes this: gate:credentials/);
+});
+
+const CUSTOM_RULE = [
+  '# Records', '',
+  '## 1. Model → class', '',
+  '| Class | Models | As of |', '|---|---|---|',
+  '| standard | Claude Haiku 4.5 | 2026-11-07 |',
+  '| frontier | Claude Opus 5 | 2026-11-07 |', '',
+  '## 2. Model → harness route', '',
+  '| Model | Claude Code | opencode v2 |', '|---|---|---|',
+  '| Claude Haiku 4.5 | `haiku` | `hopskip-gateway/claude-haiku-4-5-20251001` |',
+  '| Claude Opus 5 | `opus` | `hopskip-gateway/deepseek-v4-1-flash` |', '',
+  '## 8. Risk → class rule', '',
+  '| Risk label | Minimum class |', '|---|---|',
+  '| (none) | frontier |',
+  '| `risk:boundary` | standard |', '',
+].join('\n');
+
+test('pickup: the (none) row applies only to an issue with zero risk labels', () => {
+  const dir = fixture(CUSTOM_RULE);
+  const recordsPath = join(dir, 'docs', 'agent-routing-records.md');
+  const withBoundary = resolveForPrompt('#1', {
+    repo: 'fixture/repo', recordsPath, harness: 'claude', exec: fakeExec(issue(1, ['risk:boundary'])),
+  });
+  assert.equal(withBoundary.requiredClass, 'standard');
+  const zero = resolveForPrompt('#2', {
+    repo: 'fixture/repo', recordsPath, harness: 'claude', exec: fakeExec(issue(2, [])),
+  });
+  assert.equal(zero.requiredClass, 'frontier');
+});
+
+test('pickup: an empty label object is malformed and resolves to null', () => {
+  const state = resolveForPrompt('#1', {
+    repo: 'fixture/repo',
+    recordsPath: join(fixture(), 'docs', 'agent-routing-records.md'),
+    harness: 'claude',
+    exec: () => JSON.stringify({ number: 1, title: 'x', labels: [{}] }),
+  });
+  assert.equal(state, null);
+});
+
+test('pickup: a numeric label is malformed and resolves to null', () => {
+  const state = resolveForPrompt('#1', {
+    repo: 'fixture/repo',
+    recordsPath: join(fixture(), 'docs', 'agent-routing-records.md'),
+    harness: 'claude',
+    exec: () => JSON.stringify({ number: 1, title: 'x', labels: [42] }),
+  });
+  assert.equal(state, null);
 });
 
 test('pickup: formatGuidance compares below, above, equal and unknown', () => {
@@ -317,6 +367,173 @@ test('claude hook: the user-level opt-out suppresses guidance', () => {
   }, promptEvent('s1', '#145'));
   assert.equal(status, 0);
   assert.equal(stdout.trim(), '');
+});
+
+// ------------------------------------------------- opencode v2 adapter (shipped file)
+// Load the actual template file with a stub @opencode/plugin module, then drive
+// its prompt/context hooks with a fake context. This exercises ctx.storage,
+// event.system.push and registration failure, not just the shared helper.
+
+function pluginFixture(records = RULES_OK) {
+  const dir = mkdtempSync(join(tmpdir(), 'pickup-plugin-'));
+  mkdirSync(join(dir, '.opencode', 'plugins'), { recursive: true });
+  mkdirSync(join(dir, 'scripts'), { recursive: true });
+  mkdirSync(join(dir, 'node_modules', '@opencode', 'plugin'), { recursive: true });
+  mkdirSync(join(dir, 'docs'), { recursive: true });
+  writeFileSync(
+    join(dir, 'node_modules', '@opencode', 'plugin', 'package.json'),
+    JSON.stringify({ name: '@opencode/plugin', type: 'module', exports: './index.js' })
+  );
+  writeFileSync(join(dir, 'node_modules', '@opencode', 'plugin', 'index.js'), 'export const Plugin = { define: (p) => p };\n');
+  writeFileSync(
+    join(dir, '.opencode', 'plugins', 'pickup-guidance.js'),
+    readFileSync(resolve(REPO, 'templates/hooks/pickup-guidance.opencode.js'), 'utf8')
+  );
+  writeFileSync(
+    join(dir, 'scripts', 'pickup-guidance.mjs'),
+    readFileSync(resolve(REPO, 'templates/scripts/pickup-guidance.mjs'), 'utf8')
+  );
+  writeFileSync(join(dir, 'docs', 'agent-routing-records.md'), records);
+  return dir;
+}
+
+function fakeCtx({ hookThrows = false } = {}) {
+  const hooks = {};
+  const storage = new Map();
+  const ctx = {
+    storage: {
+      get: async (key) => storage.get(key),
+      set: async (key, value) => { storage.set(key, value); },
+    },
+    session: {
+      hook: async (name, callback) => {
+        if (hookThrows) throw new Error('registration failed');
+        hooks[name] = callback;
+        return { dispose: async () => {} };
+      },
+    },
+  };
+  return { ctx, hooks, storage };
+}
+
+async function loadPlugin(dir) {
+  const mod = await import(pathToFileURL(join(dir, '.opencode', 'plugins', 'pickup-guidance.js')).href);
+  return mod.default;
+}
+
+async function withEnv(values, fn) {
+  const saved = {};
+  for (const [key, value] of Object.entries(values)) {
+    saved[key] = process.env[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+  try {
+    return await fn();
+  } finally {
+    for (const key of Object.keys(values)) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  }
+}
+
+test('opencode v2 adapter: the shipped plugin adds the guidance to system context', async () => {
+  const dir = pluginFixture();
+  const { ctx, hooks } = fakeCtx();
+  const plugin = await loadPlugin(dir);
+  await withEnv({
+    ROUTING_REPO: 'fixture/repo',
+    ROUTING_RECORDS: join(dir, 'docs', 'agent-routing-records.md'),
+    PATH: ghStub(dir, issue(145, ['risk:silent-failure'])),
+    PICKUP_HOOK: undefined,
+  }, async () => {
+    await plugin.setup(ctx);
+    await hooks.prompt({ sessionID: 's1', prompt: { text: '#145' } });
+    const system = [];
+    await hooks.context({
+      sessionID: 's1',
+      model: { providerID: 'hopskip-gateway', id: 'claude-haiku-4-5-20251001' },
+      system,
+    });
+    assert.equal(system.length, 1);
+    assert.equal(system[0].type, 'text');
+    assert.match(system[0].text, /\[pickup\] Required class: frontier/);
+    assert.match(system[0].text, /below the required class/);
+  });
+});
+
+test('opencode v2 adapter: every named error leaves system context untouched', async () => {
+  const cases = [
+    ['no gh auth', () => ghStub(fixture(), null, { fail: true }), false],
+    ['network failure', () => ghStub(fixture(), null, { fail: true, message: 'i/o timeout' }), false],
+    ['unknown issue', () => ghStub(fixture(), null, { fail: true, message: 'Could not resolve to an Issue' }), false],
+    ['malformed labels', () => ghStub(fixture(), { number: 145, title: 'x', labels: [{}] }), false],
+    ['missing rule', () => ghStub(fixture(RULES_MISSING), issue(145, ['risk:silent-failure'])), true],
+  ];
+  for (const [name, makeStub, missingRule] of cases) {
+    const dir = missingRule ? pluginFixture(RULES_MISSING) : pluginFixture();
+    const { ctx, hooks } = fakeCtx();
+    const plugin = await loadPlugin(dir);
+    await withEnv({
+      ROUTING_REPO: 'fixture/repo',
+      ROUTING_RECORDS: join(dir, 'docs', 'agent-routing-records.md'),
+      PATH: makeStub(),
+      PICKUP_HOOK: undefined,
+    }, async () => {
+      await plugin.setup(ctx);
+      await hooks.prompt({ sessionID: 's1', prompt: { text: '#145' } });
+      const system = [];
+      await hooks.context({
+        sessionID: 's1',
+        model: { providerID: 'hopskip-gateway', id: 'claude-haiku-4-5-20251001' },
+        system,
+      });
+      assert.equal(system.length, 0, `${name} should add nothing`);
+    });
+  }
+});
+
+test('opencode v2 adapter: registration failure does not throw', async () => {
+  const dir = pluginFixture();
+  const { ctx, hooks } = fakeCtx({ hookThrows: true });
+  const plugin = await loadPlugin(dir);
+  await withEnv({ ROUTING_REPO: 'fixture/repo', PICKUP_HOOK: undefined }, async () => {
+    await assert.doesNotReject(() => plugin.setup(ctx));
+  });
+  assert.deepEqual(Object.keys(hooks), []);
+});
+
+test('opencode v2 adapter: PICKUP_HOOK=off registers nothing', async () => {
+  const dir = pluginFixture();
+  const { ctx, hooks } = fakeCtx();
+  const plugin = await loadPlugin(dir);
+  await withEnv({ ROUTING_REPO: 'fixture/repo', PICKUP_HOOK: 'off' }, async () => {
+    await plugin.setup(ctx);
+  });
+  assert.deepEqual(Object.keys(hooks), []);
+});
+
+test('opencode v2 adapter: one session gets one guidance block', async () => {
+  const dir = pluginFixture();
+  const { ctx, hooks } = fakeCtx();
+  const plugin = await loadPlugin(dir);
+  await withEnv({
+    ROUTING_REPO: 'fixture/repo',
+    ROUTING_RECORDS: join(dir, 'docs', 'agent-routing-records.md'),
+    PATH: ghStub(dir, issue(145, ['risk:silent-failure'])),
+    PICKUP_HOOK: undefined,
+  }, async () => {
+    await plugin.setup(ctx);
+    await hooks.prompt({ sessionID: 's1', prompt: { text: '#145' } });
+    await hooks.prompt({ sessionID: 's1', prompt: { text: '#143' } });
+    const first = [];
+    await hooks.context({ sessionID: 's1', model: { providerID: 'hopskip-gateway', id: 'claude-haiku-4-5-20251001' }, system: first });
+    assert.match(first[0].text, /Issue #145/);
+    const second = [];
+    await hooks.context({ sessionID: 's1', model: { providerID: 'hopskip-gateway', id: 'claude-haiku-4-5-20251001' }, system: second });
+    assert.equal(second.length, 0);
+  });
 });
 
 test('pickup: the self-installed resolver and the template are byte-identical', () => {

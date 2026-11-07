@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/pickup-guidance.mjs v1.0.0 · updated 2026-11-07
+// template: scripts/pickup-guidance.mjs v1.1.0 · updated 2026-11-07
 /**
  * pickup-guidance  [governance template — copy to <project>/scripts/]
  *
@@ -148,15 +148,28 @@ export function resolveForPrompt(text, opts = {}) {
     if (!existsSync(recordsPath)) return null;
     const records = readRecords(recordsPath);
     const issue = readIssue(ref.number, repo, exec);
-    const labels = Array.isArray(issue?.labels)
-      ? issue.labels.map((l) => (typeof l === 'string' ? l : l?.name)).filter(Boolean)
-      : null;
-    if (!labels) return null;
+    // A malformed label entry is a fail-open case, not a silent drop: an
+    // issue whose labels cannot be read must not be classified as standard.
+    if (!Array.isArray(issue?.labels)) return null;
+    const labels = [];
+    for (const entry of issue.labels) {
+      const name = typeof entry === 'string' ? entry : entry?.name;
+      if (typeof name !== 'string' || !name.trim()) return null;
+      labels.push(name);
+    }
     const risks = labels.filter((l) => l.startsWith('risk:'));
     if (risks.some((r) => !records.rule[r])) return null;
-    let requiredClass = records.rule[NONE];
-    for (const risk of risks) {
-      if (RANK[records.rule[risk]] > RANK[requiredClass]) requiredClass = records.rule[risk];
+    // The (none) row applies only when the issue carries zero risk labels; an
+    // issue with labels takes the highest class among those rows. This is the
+    // same semantics the equivalence check applies.
+    let requiredClass;
+    if (!risks.length) {
+      requiredClass = records.rule[NONE];
+    } else {
+      requiredClass = null;
+      for (const risk of risks) {
+        if (!requiredClass || RANK[records.rule[risk]] > RANK[requiredClass]) requiredClass = records.rule[risk];
+      }
     }
     if (!requiredClass) return null;
     return {
