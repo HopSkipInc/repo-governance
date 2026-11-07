@@ -56,27 +56,34 @@ Notes on contested calls:
 
 Addresses, not capability claims. The same model reached two ways is the same class.
 
-| Model | Claude Code | opencode |
+| Model | Claude Code | opencode v2 |
 |---|---|---|
-| Claude Opus 5 | `opus` | `opencode/claude-opus-5` |
-| Claude Sonnet 5 | `sonnet` | `opencode/claude-sonnet-5` |
-| Claude Haiku 4.5 | `haiku` | — |
-| GLM-5.2 | — | `opencode/glm-5.2` |
-| DeepSeek V4.1 Flash | — | `deepseek/deepseek-flash` |
+| Claude Opus 5 | `opus` | — |
+| Claude Sonnet 5 | `sonnet` | — |
+| Claude Haiku 4.5 | `haiku` | `hopskip-gateway/claude-haiku-4-5-20251001` |
+| GLM-5.2 | — | — |
+| DeepSeek V4.1 Flash | — | `hopskip-gateway/deepseek-v4-1-flash` |
 
 Dashes are "not routed here today", not "unavailable" — fill a cell when a route is actually
 used, so an empty cell never reads as a capability judgement.
+
+**opencode addresses are v2 `provider/model` ids.** The fleet workers run opencode v2; the
+v1 `opencode/...` and `deepseek/...` forms are retired. The v2 provider is `hopskip-gateway`,
+configured against the Hopskip gateway; the two routed models are the ones this repo's gateway
+serves today. A model with no v2 route is left as a dash, not guessed.
 
 ## 3. Classifier pins
 
 | Harness | Pin file | Class | Resolved via | Reviewed |
 |---|---|---|---|---|
 | Claude Code | `.claude/agents/routing-classifier.md` | frontier | §1/§2 → Claude Opus 5 (`opus`) | 2026-09-24 |
-| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | frontier | §1/§2 → Claude Opus 5 (`opencode/claude-opus-5`) | 2026-09-24 |
+| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | frontier | §1/§2 → DeepSeek V4.1 Flash (`hopskip-gateway/deepseek-v4-1-flash`) | 2026-11-07 |
 
 Both pins bind `frontier` and resolve to a model §1 lists there. The Claude Code pin is
 lint-gated here; the opencode pin is global (outside the repo) and is reviewed at re-sync, not
-by the lint.
+by the lint. The opencode pin moved to the v2 route table on 2026-11-07: it binds DeepSeek V4.1
+Flash (`hopskip-gateway/deepseek-v4-1-flash`), the frontier model this gateway serves. The v1
+`opencode/claude-opus-5` route is retired.
 
 **2026-09-24 — the binding moved from a name to a class (ai-fleet #3097).** The pin declares
 `# routing-class: frontier`; the concrete `model:` slug is a *resolved binding*, not a

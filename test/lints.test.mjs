@@ -1248,3 +1248,26 @@ test('routing-equivalence: the self-installed copy and the template are byte-ide
   const template = readFileSync(resolve(REPO, 'templates/scripts/check-routing-equivalence.mjs'), 'utf8');
   assert.equal(installed, template, 'scripts/ and templates/scripts/ copies drifted — re-sync and re-stamp');
 });
+
+// 2026-11-07: the opencode classifier pin must resolve through the v2 route table.
+// The Claude Code pin is covered by check-classifier-pin-drift.mjs; the global
+// opencode pin has no repo lint, so this test holds it to the same agreement.
+test('opencode classifier pin binds a v2 route the records class table lists', () => {
+  const src = readFileSync(resolve(REPO, 'templates/agents/routing-classifier.opencode.md'), 'utf8');
+  const cls = src.match(/# routing-class:\s*(\w+)/)?.[1];
+  const model = src.match(/^model:\s*(\S+)/m)?.[1];
+  assert.equal(cls, 'frontier', 'the opencode classifier must declare its triage class');
+  assert.match(model, /^hopskip-gateway\//, 'the opencode pin must use the v2 provider/model form');
+
+  const records = readFileSync(resolve(REPO, 'docs/agent-routing-records.md'), 'utf8');
+  const classRow = records.split('\n').find((l) => l.startsWith(`| ${cls} |`));
+  assert.ok(classRow, `records §1 has no ${cls} row`);
+  const names = classRow.split('|')[2].split(',').map((s) => s.trim());
+
+  const routeRows = records.split('\n').filter((l) => /^\|.*\|.*\|.*\|$/.test(l));
+  const match = routeRows.find((l) => {
+    const cells = l.split('|').slice(1, -1).map((c) => c.trim().replace(/`/g, ''));
+    return cells[2] === model && names.includes(cells[0]);
+  });
+  assert.ok(match, `opencode pin ${model} does not resolve to a ${cls} model in records §2`);
+});
