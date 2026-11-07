@@ -1,4 +1,4 @@
-<!-- template: harness-enforcement.opencode.md v1.2.0 · updated 2026-09-15 -->
+<!-- template: harness-enforcement.opencode.md v1.3.0 · updated 2026-11-07 -->
 # Harness enforcement — opencode settings stanza
 
 Two invariants, enforced by the harness before the action lands — not by the model, and
@@ -142,6 +142,23 @@ violation it was before. Each mediated path is declared in
 `check-enforcement-stanzas.mjs` asserts the named script exists and stamps the
 declared version — a register row claiming a writer that is not on disk is the
 same fail-open shape the lint exists to catch.
+
+## First-prompt pickup hook (opencode v2)
+
+The permission stanza above is the v1 config form. The pickup hook below targets **opencode
+v2**, which the fleet workers run. v2 loads `.opencode/plugins/pickup-guidance.js`
+automatically. The plugin registers `session.hook("prompt")` to observe the session's first
+prompt and `session.hook("context")` to add the same guidance to the assembled system context
+on the first model call. It never rewrites the prompt, blocks admission, or switches the
+model; every path is wrapped, and a resolver error leaves the context untouched.
+
+**Install** `.opencode/plugins/pickup-guidance.js` and `scripts/pickup-guidance.mjs`. The
+plugin and `/pickup` share the resolver.
+
+**Opt out per engineer, no repo change:** set `PICKUP_HOOK=off` in the user's shell profile,
+or add `"-pickup-guidance"` to the `plugins` array in the user's
+`~/.config/opencode/opencode.json(c)` (the `-` prefix disables the plugin by ID). `/pickup`
+stays available.
 
 ## Limits, on the record
 
