@@ -3,10 +3,10 @@
 **Client:** Hopskip (internal)
 **Source:** repo-governance — #135, templates `agent-routing.md` **1.21.0** ·
 `agent-routing-records.md` **1.2.0** · `issue-authoring.md` **1.6.0** ·
-`scripts/check-issue-routing.mjs` **1.6.0** · `scripts/check-routing-equivalence.mjs` **1.0.0** ·
+`scripts/check-issue-routing.mjs` **1.6.0** · `scripts/check-routing-equivalence.mjs` **1.1.0** ·
 `skills/routing-triage/` **1.8.0** · `agents/routing-classifier.md` **1.4.0** ·
-`skills/pickup/` **1.1.0** · `scripts/pickup-guidance.mjs` **1.0.0** ·
-`hooks/pickup-guidance.mjs` **1.0.0** · `hooks/pickup-guidance.opencode.js` **1.0.0** ·
+`skills/pickup/` **1.1.0** · `scripts/pickup-guidance.mjs` **1.1.0** ·
+`hooks/pickup-guidance.mjs` **1.0.0** · `hooks/pickup-guidance.opencode.js` **1.1.0** ·
 `harness-enforcement.md` **1.4.0** · `harness-enforcement.opencode.md` **1.3.0**.
 **Scope:** install the `risk:` vocabulary, the records-held risk→class rule, the equivalence
 gate, `/pickup`, and the first-prompt hook; then move this repo's `impl:` consumers and its
@@ -65,16 +65,16 @@ equivalence check is zero.
   review row.
 - `templates/issue-authoring.md` **1.6.0** → `docs/issue-authoring.md`.
 - `templates/scripts/check-issue-routing.mjs` **1.6.0** → `scripts/check-issue-routing.mjs`, byte-identical.
-- `templates/scripts/check-routing-equivalence.mjs` **1.0.0** → `scripts/check-routing-equivalence.mjs`.
+- `templates/scripts/check-routing-equivalence.mjs` **1.1.0** → `scripts/check-routing-equivalence.mjs`.
 - `templates/skills/routing-triage/` **1.8.0** → `.claude/skills/routing-triage/`.
 - `templates/agents/routing-classifier.md` **1.4.0** → `.claude/agents/routing-classifier.md`; for
-  opencode v2, install the opencode variant globally instead. The pin is unchanged.
+  opencode v2, install the opencode variant **1.5.0** globally instead. The Claude pin is unchanged; the opencode v2 pin resolves to `hopskip-gateway/deepseek-v4-1-flash` (frontier per records §1).
 - `templates/skills/pickup/` **1.1.0** → `.claude/skills/pickup/` (Claude Code) and
   `.opencode/skills/pickup/` (opencode v2).
-- `templates/scripts/pickup-guidance.mjs` **1.0.0** → `scripts/pickup-guidance.mjs`.
+- `templates/scripts/pickup-guidance.mjs` **1.1.0** → `scripts/pickup-guidance.mjs`.
 - `templates/hooks/pickup-guidance.mjs` **1.0.0** → `.claude/hooks/pickup-guidance.mjs`; add the
   `hooks.UserPromptSubmit` entry from `templates/harness-enforcement.md` **1.4.0**.
-- `templates/hooks/pickup-guidance.opencode.js` **1.0.0** → `.opencode/plugins/pickup-guidance.js`.
+- `templates/hooks/pickup-guidance.opencode.js` **1.1.0** → `.opencode/plugins/pickup-guidance.js`.
 
 **The hook is opt-out per engineer.** Claude Code: `"pickupGuidance": false` in
 `~/.claude/settings.json` (or `"disableAllHooks": true`). opencode v2: `PICKUP_HOOK=off` or
@@ -121,7 +121,9 @@ The function-load probe is the one producer here: it must stop writing a hard-co
 `impl:frontier`. Run the classifier on the probe's issue template and use the `risk:` labels it
 proposes; keep the derived `impl:` only while the transition requires it. Update the instruction
 contract and re-sync the producer prompts. Do not remove the `impl:` label from the backlog
-until the probe no longer writes it and the equivalence check is still zero.
+until the probe no longer writes it and the equivalence check is still zero. The routing lint is
+also a consumer: while it still requires an `impl:` label for an `## Impl tier` block, keep
+writing the label.
 
 ### 7. Demonstrate `/pickup` and the hook
 

@@ -3,10 +3,10 @@
 **Client:** Hopskip (internal)
 **Source:** repo-governance — #135, templates `agent-routing.md` **1.21.0** ·
 `agent-routing-records.md` **1.2.0** · `issue-authoring.md` **1.6.0** ·
-`scripts/check-issue-routing.mjs` **1.6.0** · `scripts/check-routing-equivalence.mjs` **1.0.0** ·
+`scripts/check-issue-routing.mjs` **1.6.0** · `scripts/check-routing-equivalence.mjs` **1.1.0** ·
 `skills/routing-triage/` **1.8.0** · `agents/routing-classifier.md` **1.4.0** ·
-`skills/pickup/` **1.1.0** · `scripts/pickup-guidance.mjs` **1.0.0** ·
-`hooks/pickup-guidance.mjs` **1.0.0** · `hooks/pickup-guidance.opencode.js` **1.0.0** ·
+`skills/pickup/` **1.1.0** · `scripts/pickup-guidance.mjs` **1.1.0** ·
+`hooks/pickup-guidance.mjs` **1.0.0** · `hooks/pickup-guidance.opencode.js` **1.1.0** ·
 `harness-enforcement.md` **1.4.0** · `harness-enforcement.opencode.md` **1.3.0**.
 **Scope:** install the routing set from scratch — the `risk:` vocabulary, the records-held
 risk→class rule, the equivalence gate, `/pickup`, and the first-prompt hook — then backfill the
@@ -24,8 +24,9 @@ policy, no `impl:` labels, and no lint. Issue #135 explicitly includes it, so th
 routing rows to the repo — a `full`-class slice in a `core` repo, on the record.
 
 There is nothing to migrate: the `impl:` consumer list is empty. The work is installation, a
-bounded triage backfill, the equivalence check, and the interactive guidance. With no consumer,
-`impl:` can be retired as soon as the equivalence check is zero and the producers stop writing it.
+bounded triage backfill, the equivalence check, and the interactive guidance. The newly installed
+lint still reads `impl:` (R1–R3), so the retirement is owed until a lint derives the tier from the
+rule; keep writing `impl:` until then.
 
 ## The `impl:` consumers — verified at `1bd6681`
 
@@ -53,15 +54,15 @@ state, not a failure — resolve it by triaging, then re-run.
   repo's records).
 - `templates/issue-authoring.md` **1.6.0** → `docs/issue-authoring.md`.
 - `templates/scripts/check-issue-routing.mjs` **1.6.0** → `scripts/check-issue-routing.mjs`, byte-identical.
-- `templates/scripts/check-routing-equivalence.mjs` **1.0.0** → `scripts/check-routing-equivalence.mjs`.
+- `templates/scripts/check-routing-equivalence.mjs` **1.1.0** → `scripts/check-routing-equivalence.mjs`.
 - `templates/skills/routing-triage/` **1.8.0** → `.claude/skills/routing-triage/`.
 - `templates/agents/routing-classifier.md` **1.4.0** → `.claude/agents/routing-classifier.md`; for
-  opencode v2, install the opencode variant globally instead.
+  opencode v2, install the opencode variant **1.5.0** globally instead.
 - `templates/skills/pickup/` **1.1.0** → `.claude/skills/pickup/` and/or `.opencode/skills/pickup/`.
-- `templates/scripts/pickup-guidance.mjs` **1.0.0** → `scripts/pickup-guidance.mjs`.
+- `templates/scripts/pickup-guidance.mjs` **1.1.0** → `scripts/pickup-guidance.mjs`.
 - `templates/hooks/pickup-guidance.mjs` **1.0.0** → `.claude/hooks/pickup-guidance.mjs`; add the
   `hooks.UserPromptSubmit` entry from `templates/harness-enforcement.md` **1.4.0**.
-- `templates/hooks/pickup-guidance.opencode.js` **1.0.0** → `.opencode/plugins/pickup-guidance.js`.
+- `templates/hooks/pickup-guidance.opencode.js` **1.1.0** → `.opencode/plugins/pickup-guidance.js`.
 - Add the scheduled open pass from `templates/workflows/issue-routing-probe.yml`.
 
 Update `CLAUDE.md` with the risk vocabulary, the `## Risk` section, and the `/pickup` stop rule
@@ -106,8 +107,8 @@ node scripts/check-routing-equivalence.mjs
 
 On the first run every issue is untiered or differs. Resolve each on the record — issue
 mis-tiered (relabel with the reason) or rule wrong (change §8) — and re-run until it prints `OK`
-and exits 0. Record the counts. With no consumer, after zero, record the decision to stop writing
-`impl:` and remove it from the producer prompts.
+and exits 0. Record the counts. The routing lint still reads `impl:` (R1–R3), so do not stop writing it yet.
+Record the retirement as owed; it needs a lint that derives the tier from the rule.
 
 ### 6. Demonstrate `/pickup` and the hook
 
@@ -145,7 +146,7 @@ command is a failure.
 - [ ] `docs/agent-routing.md` byte-identical; `docs/agent-routing-records.md` filled for this repo
 - [ ] The five risk labels exist; every open issue has `risk:` labels and `## Risk`
 - [ ] `check-issue-routing.mjs` reports no R10/R11/R12 findings
-- [ ] `check-routing-equivalence.mjs` exits 0; counts recorded; `impl:` retirement recorded
+- [ ] `check-routing-equivalence.mjs` exits 0; counts recorded; `impl:` retirement recorded as owed (the lint still reads it)
 - [ ] The scheduled open pass is wired
 - [ ] `CLAUDE.md` carries the risk vocabulary and the `/pickup` stop rule
 - [ ] `/pickup` and the hook demonstrated in both harnesses; opt-outs documented

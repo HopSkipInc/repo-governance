@@ -3,10 +3,10 @@
 **Client:** Hopskip (internal)
 **Source:** repo-governance — #135, templates `agent-routing.md` **1.21.0** ·
 `agent-routing-records.md` **1.2.0** · `issue-authoring.md` **1.6.0** ·
-`scripts/check-issue-routing.mjs` **1.6.0** · `scripts/check-routing-equivalence.mjs` **1.0.0** ·
+`scripts/check-issue-routing.mjs` **1.6.0** · `scripts/check-routing-equivalence.mjs` **1.1.0** ·
 `skills/routing-triage/` **1.8.0** · `agents/routing-classifier.md` **1.4.0** ·
-`skills/pickup/` **1.1.0** · `scripts/pickup-guidance.mjs` **1.0.0** ·
-`hooks/pickup-guidance.mjs` **1.0.0** · `hooks/pickup-guidance.opencode.js` **1.0.0** ·
+`skills/pickup/` **1.1.0** · `scripts/pickup-guidance.mjs` **1.1.0** ·
+`hooks/pickup-guidance.mjs` **1.0.0** · `hooks/pickup-guidance.opencode.js` **1.1.0** ·
 `harness-enforcement.md` **1.4.0** · `harness-enforcement.opencode.md` **1.3.0**.
 **Scope:** install the `risk:` vocabulary, the records-held risk→class rule, the equivalence
 gate, `/pickup`, and the first-prompt hook; then move ai-fleet's `impl:` consumers to the rule
@@ -86,18 +86,19 @@ are tests for the consumers above.
   record the repo's Rule and version in the review log. Never `cp` over it.
 - `templates/issue-authoring.md` **1.6.0** → `docs/issue-authoring.md`.
 - `templates/scripts/check-issue-routing.mjs` **1.6.0** → `scripts/check-issue-routing.mjs`, byte-identical.
-- `templates/scripts/check-routing-equivalence.mjs` **1.0.0** → `scripts/check-routing-equivalence.mjs`.
+- `templates/scripts/check-routing-equivalence.mjs` **1.1.0** → `scripts/check-routing-equivalence.mjs`.
 - `templates/skills/routing-triage/` **1.8.0** → `.claude/skills/routing-triage/`.
 - `templates/agents/routing-classifier.md` **1.4.0** → `.claude/agents/routing-classifier.md`; if the
-  team runs opencode v2, install the opencode variant at
-  `~/.config/opencode/agents/routing-classifier.md` instead. The pin and `# routing-class:` marker
-  are unchanged.
+  team runs opencode v2, install the opencode variant **1.5.0** at
+  `~/.config/opencode/agents/routing-classifier.md` instead. The Claude pin and `# routing-class:`
+  marker are unchanged; the opencode v2 pin resolves to
+  `hopskip-gateway/deepseek-v4-1-flash` (frontier per records §1).
 - `templates/skills/pickup/` **1.1.0** → `.claude/skills/pickup/` (Claude Code) and/or
   `.opencode/skills/pickup/` (opencode v2). The skill ID is `pickup`.
-- `templates/scripts/pickup-guidance.mjs` **1.0.0** → `scripts/pickup-guidance.mjs`.
+- `templates/scripts/pickup-guidance.mjs` **1.1.0** → `scripts/pickup-guidance.mjs`.
 - `templates/hooks/pickup-guidance.mjs` **1.0.0** → `.claude/hooks/pickup-guidance.mjs`; add the
   `hooks.UserPromptSubmit` entry from `templates/harness-enforcement.md` **1.4.0**.
-- `templates/hooks/pickup-guidance.opencode.js` **1.0.0** → `.opencode/plugins/pickup-guidance.js`;
+- `templates/hooks/pickup-guidance.opencode.js` **1.1.0** → `.opencode/plugins/pickup-guidance.js`;
   opencode v2 discovers it automatically.
 
 **The hook is opt-out per engineer.** In Claude Code, `"pickupGuidance": false` in
