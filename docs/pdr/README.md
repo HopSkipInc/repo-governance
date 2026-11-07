@@ -18,6 +18,7 @@ Every file in this directory must appear in the table below. `lint:adr-readme-sy
 | [008](008-claim-coverage-is-a-health-metric.md) | Claim coverage is a health metric, not an audit domain | Accepted | 2026-08-02 |
 | [009](009-two-adoption-depths.md) | Two adoption depths — `full` and `core` | Accepted | 2026-08-03 |
 | [010](010-estimation-calibrates-on-observed-deliveries.md) | Estimation calibrates on observed deliveries, measured in tokens | Accepted | 2026-08-17 |
+| [011](011-route-on-risk-labels-guide-interactive-model-choice-never-gate-it.md) | Route on risk labels; guide interactive model choice, never gate it | Proposed | 2026-11-07 |
 
 ## Notes on this corpus
 
