@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.19.0 · updated 2026-11-07 -->
+<!-- template: agent-routing.md v1.20.0 · updated 2026-11-07 -->
 # Agent Routing
 
-**Version:** 1.19.0 · **Last updated:** 2026-11-07
+**Version:** 1.20.0 · **Last updated:** 2026-11-07
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -34,6 +34,7 @@
 | 1.15.0 | 2026-09-24 | **The classifier binds a class, not a model.** The pin declares its triage class (`# routing-class:`); the class→model binding is registry data, resolved by the gateway as the intended chokepoint — or by an install-time generated bridge until the gateway resolves classes. A concrete slug may appear in a repo only when the bridge produced it, and `check-classifier-pin-drift.mjs` gates pin-vs-map agreement, failing closed. 1.4.0's "one place a model name may be written" exception narrows from a name to a binding |
 | 1.16.0 | 2026-09-24 | **`impl:human` gates completion, not preparation.** The tier was read as a capability gate, so "if the tier exceeds your capability class, do not implement" stopped every agent at a human-tier issue and dropped its mechanical preparation into human hands. It is an ownership gate: any capability class may draft the change and hand it over (the `gate:human-approval` shape applied to the tier itself), a human owns the irreversible step and the merge, and the agent stops only where the work itself needs human hands — holding a credential, exercising an external authority. Owner decision, 2026-09-24; no tier definition, class table, or heuristics move |
 | 1.18.0 | 2026-10-15 | **The `impl:` tier is a tier, not a "capability class."** The policy used "capability class" for three different things. It now says **tier** for the issue's requirement, **model capability** for the agent's own (`standard` / `frontier`), and keeps **capability class** only for the ADR-066 sense the classifier pin resolves to — the term ai-fleet's glossary reserves for it. Downstream of HopSkipInc/ai-fleet#2571 |
+| 1.20.0 | 2026-11-07 | **Routing is a records-held rule, and equivalence gates retirement (PDR-011).** `docs/agent-routing-records.md` §8 maps the risk set to a minimum capability class, classes only, with the highest-signal default pre-filled. The frontier ratio is derived from the rule; `impl:` is derived first and retired per consumer after `check-routing-equivalence.mjs` resolves every difference on the record |
 | 1.19.0 | 2026-11-07 | **Risk facts become labels (PDR-011).** Five `risk:` labels record the facts behind a tier — silent failure, boundary, irreversible, new abstraction, uncovered surface — with one-sentence reasons under `## Risk`. Human completion moves to the existing `gate:` family; the spec state moves to the under-structure marker. `impl:` stays required during the transition and is derived from the risk labels plus the records-held rule, then retired per consumer after its repo's equivalence check. R10–R12 in `check-issue-routing.mjs` gate the new vocabulary |
 | 1.17.0 | 2026-10-08 | **An open question is a stop condition.** An issue listing anything under `## Open questions` (issue-authoring 1.5.0) is undecided whatever its status says, so the agent stops at pickup instead of meeting the gap mid-implementation and answering its own question. Pairs with routing-lint R9, which catches the same contradiction in the weekly sweep; the pickup stop covers the days between an issue being marked ready and the next sweep. No tier definitions move |
 
@@ -773,6 +774,34 @@ a guess.
 Per-repo targets and current readings live in the client's governance record
 (`downstream/<client>/_client.md` in the governance repo), not here. They are records, not
 shape, and they do not sync.
+
+## The routing rule and equivalence (PDR-011)
+
+Routing is a rule kept in records, not a verdict relabelled by hand. Each repo's
+`docs/agent-routing-records.md` §8 maps a set of `risk:` labels to a minimum capability
+class. The rule outputs a **class only** — never a model name; the class resolves to a model
+through the class and route tables (§Self-identification). The default rule is the
+assignment-heuristics table read as a function: highest signal wins. A repo may change its
+rule, and changing the rule never touches an issue.
+
+**`impl:` is derived first and retired last.** During the transition every issue keeps its
+`impl:` label and `## Impl tier` line. The label is generated from the issue's risk labels
+and the rule, so existing consumers keep working. A consumer moves to the rule one at a time;
+`impl:` is retired only when none reads it.
+
+**The frontier ratio is derived.** It is the share of open issues whose rule output is the
+`frontier` class. Its decomposition reading above is unchanged; only the numerator's source
+moves from the stored verdict to the rule.
+
+**Prove equivalence before retirement.** Before a repo stops writing `impl:`, run
+`scripts/check-routing-equivalence.mjs` over its labelled backlog. It applies the rule to
+every open issue and lists every difference from the current `impl:` tier; it exits non-zero
+while any difference is unresolved, and reports SKIPPED — never a pass — when it cannot run.
+Every difference is resolved on the record: either the issue was mis-tiered (relabel it, with
+the reason) or the rule was wrong (change the rule). Zero differences is the gate.
+
+**Human completion is not in the class.** It stays in the `gate:` labels. A human-tier issue
+is relabelled `impl:<derived class>` plus its `gate:` labels; the rule never outputs `human`.
 
 ## Audit signals
 
