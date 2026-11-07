@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.5.0 · updated 2026-10-08
+// template: scripts/check-issue-routing.mjs v1.6.0 · updated 2026-11-07
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -19,13 +19,18 @@
  *                            carries no single tier by design   (structural)
  *   R2 tier-line-present   body has an "## Impl tier" section (structural)
  *   R3 kind-declared       tier > standard declares a kind    (structural)
- *   R4 ready-vs-spec       status:ready + spec-component kind (contradiction)
- *   R5 structure-vs-kind   needs-structure + no spec component(contradiction)
+ *   R4 ready-vs-spec       status:ready + spec-component kind or under-structure
+ *                            marker (contradiction)
+ *   R5 structure-vs-kind   needs-structure/needs-spec + no spec component
+ *                            (contradiction)
  *   R6 ungrounded-downgrade  impl: lowered with no body edit  (contradiction)
  *   R7 undecomposed          escalation hedges but never split (contradiction)
  *   R8 uncovered-no-record   escalation blames coverage, no record(contradiction)
  *   R9 ready-with-questions  says ready, ## Open questions lists something
  *                            (contradiction)
+ *   R10 risk-no-reason       a risk: label with no reason line under ## Risk
+ *   R11 unknown-risk         a risk:* label outside the five-label vocabulary
+ *   R12 uncovered-risk-no-record  risk:uncovered with no coverage record
  *
  * R4: an issue that is frontier only because it is under-specified is ready to
  * be *rewritten*, not worked. R5: your own validator says the issue is
@@ -69,6 +74,15 @@
  * something is ready to be *decided*, not worked; without the rule the first
  * party to find out is the agent that picked it up. It applies to every open
  * issue, tiered or not: readiness is not a property of the tier.
+ *
+ * R10–R12 are PDR-011's risk vocabulary. A `risk:` label is a fact about the
+ * issue; the reason line under `## Risk` is what makes it re-evaluatable, and an
+ * unknown label means the vocabulary has stopped being a closed set. R12 is R8
+ * moved to the label that now carries the same signal: `risk:uncovered` without
+ * a coverage record is a standing cost with no expiry condition. They default to
+ * WARN like the other contradiction rules, and the census prints whenever any
+ * issue carries a `risk:` label so a zero-finding run is distinguishable from a
+ * sweep that found nothing to read.
  *
  * Three facts from the 2026-10-08 census of repo-governance's own 40 issues set
  * its shape. Zero `- [x]` lines anywhere — nobody ticks boxes there, so an
@@ -133,10 +147,17 @@ const SEVERITY = {
   R7: 'warn',
   R8: 'warn',
   R9: 'warn',
+  R10: 'warn',
+  R11: 'warn',
+  R12: 'warn',
 };
 
-/** The label your issue-structure validator applies. */
-const STRUCTURE_LABEL = 'needs-structure';
+/**
+ * The repo's under-structure markers. The spec state lives here after PDR-011
+ * decision 3, not in the risk vocabulary. `needs-structure` is the house name;
+ * `needs-spec` is accepted where a repo adopted the narrower one.
+ */
+const STRUCTURE_LABELS = ['needs-structure', 'needs-spec'];
 
 /** Issue states to sweep. `--closed` overrides this — see the header. */
 const STATE = 'open';
@@ -159,6 +180,25 @@ const TIER_RANK = { 'impl:standard': 1, 'impl:frontier': 2, 'impl:human': 3 };
 
 /** Kinds that mean "specification would help". */
 const SPEC_KINDS = ['spec', 'both'];
+
+/**
+ * PDR-011's five `risk:` labels. A fact about the issue, never a difficulty
+ * judgement. An unknown `risk:*` label is a finding: the vocabulary is closed,
+ * and a sixth label is either a typo or a proposal that skipped the PDR.
+ */
+const RISK_LABELS = new Set([
+  'risk:silent-failure',
+  'risk:boundary',
+  'risk:irreversible',
+  'risk:new-abstraction',
+  'risk:uncovered',
+]);
+
+/**
+ * `## Risk`, optionally qualified with a parenthetical. Line-scanned and
+ * fence-aware through sectionLines(), same as `## Open questions`.
+ */
+const RISK_HEADING = /^##[ \t]*Risk(?:[ \t]*\([^)]*\))?[ \t]*$/i;
 
 /**
  * R7: phrases in a tier line that concede a mechanical majority. Each was
@@ -358,6 +398,42 @@ function implLabels(labels) {
   return labels.map((l) => l.name).filter((n) => n.startsWith('impl:'));
 }
 
+function riskLabels(labels) {
+  return labels.map((l) => l.name).filter((n) => n.startsWith('risk:'));
+}
+
+/** The lines of `## Risk`, or null when the section is absent. */
+function riskSection(body) {
+  return sectionLines(body, RISK_HEADING);
+}
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The reason text on the line that declares `label` under `## Risk`, or null
+ * when no line declares it. Markdown bullets and inline emphasis are stripped
+ * first; a line that names the label and nothing else returns '' — present,
+ * but with no reason, which is the malformed shape R10 exists for.
+ */
+function riskReason(lines, label) {
+  if (!lines) return null;
+  const re = new RegExp(`^${escapeRegExp(label)}\\b[\\s—–:-]*(.*)$`, 'i');
+  for (const raw of lines) {
+    const cleaned = raw.replace(/^\s*[-*+]\s*/, '').replace(/[`*_]/g, '').trim();
+    const m = cleaned.match(re);
+    if (m) return m[1].trim();
+  }
+  return null;
+}
+
+/** True when the risk block carries one of the two coverage-record forms on its own line. */
+function riskCoverageRecord(lines) {
+  if (!lines) return false;
+  return lines.some((l) => COVERAGE_GAP.test(l) || COVERAGE_NOT_TESTABLE.test(l));
+}
+
 // -------------------------------------------------------------------- rules
 
 const findings = [];
@@ -407,14 +483,20 @@ const questions = { sections: 0, open: [], ready: [] };
 /** Coverage census — the mechanical half of the audit's signal 6. */
 const coverage = { cited: 0, gap: 0, notTestable: 0, unrecorded: 0, issues: [] };
 
+/** Risk-label census (R10–R12) — the fact vocabulary the rule will read. */
+const riskCensus = { issues: 0, labelled: 0, byLabel: Object.fromEntries([...RISK_LABELS].map((l) => [l, 0])) };
+
 /** Kind coverage census (closed pass only) — the estimability number. */
 const kindCoverage = { escalations: 0, spec: 0, inherent: 0, both: 0, undeclared: 0 };
 
 for (const issue of issues) {
   const names = issue.labels.map((l) => l.name);
   const impls = implLabels(issue.labels);
+  const risks = riskLabels(issue.labels);
   const block = tierBlock(issue.body);
   const kind = declaredKind(block);
+  const riskLines = riskSection(issue.body);
+  const hasSpecMarker = STRUCTURE_LABELS.some((m) => names.includes(m));
 
   // R9 runs before the untiered skip: readiness is claimed by the status, not
   // the tier, so an untriaged issue that says ready with questions still open
@@ -434,19 +516,49 @@ for (const issue of issues) {
     }
   }
 
-  // Untiered issues are only checked by R1 if they carry a tier line, and by
-  // nothing else — an untriaged backlog is not a violation, it is just untriaged.
-  if (impls.length === 0 && !block) continue;
+  // R10–R12 run before the untiered skip: a risk label is a fact about the
+  // issue, and a malformed one does not stop being malformed because the issue
+  // has not been tiered yet. Open-pass only — a closed issue's risk facts are
+  // frozen history, not work in flight.
+  if (!CLOSED) {
+    if (risks.length) {
+      riskCensus.issues += 1;
+      riskCensus.labelled += risks.length;
+    }
+    for (const label of risks) if (RISK_LABELS.has(label)) riskCensus.byLabel[label] += 1;
+    const unknown = risks.filter((r) => !RISK_LABELS.has(r));
+    if (unknown.length) {
+      report('R11', issue.number, `carries unknown risk label(s) ${unknown.join(', ')} — the vocabulary is the five labels in agent-routing.md; a sixth label needs a superseding PDR, not a typo`);
+    }
+    for (const label of risks) {
+      if (!RISK_LABELS.has(label)) continue;
+      const reason = riskReason(riskLines, label);
+      if (reason === null || reason === '') {
+        report('R10', issue.number, `carries ${label} but has no reason line under "## Risk" — one line per label, one sentence of reason. A fact with no explanation cannot be re-evaluated`);
+      }
+    }
+    if (risks.includes('risk:uncovered') && !riskCoverageRecord(riskLines)) {
+      report('R12', issue.number, 'carries risk:uncovered but ## Risk has no coverage record — add "Coverage gap: #N" or "Coverage: not testable — <mechanism>" on its own line, or the label has no expiry condition');
+    }
+  }
 
-  const epic = isEpicShape(names, block);
-  if (impls.length !== 1 && !(epic && impls.length === 0)) {
-    report('R1', issue.number, `expected exactly one impl: label, found ${impls.length}${impls.length ? ` (${impls.join(', ')})` : ''}`);
-  }
-  if (impls.length > 0 && !block) {
-    report('R2', issue.number, `carries ${impls[0]} but has no "## Impl tier" section — the label routes, the line explains; a constraint with no reason cannot be re-evaluated`);
-  }
-  if (impls.length === 0 && block && !epic) {
-    report('R1', issue.number, 'has an "## Impl tier" section but no impl: label — nothing will route on it. If this is an epic, the block should be the child tier table (policy §Mechanism 3), which R1 exempts');
+  // Untiered issues are only checked by R1 if they carry a tier line. An
+  // untriaged backlog is not a violation, it is just untriaged — but risk
+  // labels on one still get the checks above.
+  const inTieredPopulation = impls.length > 0 || Boolean(block);
+  if (!inTieredPopulation && risks.length === 0) continue;
+
+  if (inTieredPopulation) {
+    const epic = isEpicShape(names, block);
+    if (impls.length !== 1 && !(epic && impls.length === 0)) {
+      report('R1', issue.number, `expected exactly one impl: label, found ${impls.length}${impls.length ? ` (${impls.join(', ')})` : ''}`);
+    }
+    if (impls.length > 0 && !block) {
+      report('R2', issue.number, `carries ${impls[0]} but has no "## Impl tier" section — the label routes, the line explains; a constraint with no reason cannot be re-evaluated`);
+    }
+    if (impls.length === 0 && block && !epic) {
+      report('R1', issue.number, 'has an "## Impl tier" section but no impl: label — nothing will route on it. If this is an epic, the block should be the child tier table (policy §Mechanism 3), which R1 exempts');
+    }
   }
 
   const tier = impls[0];
@@ -454,6 +566,12 @@ for (const issue of issues) {
     kindCoverage.escalations += 1;
     if (kind) kindCoverage[kind] += 1;
     else kindCoverage.undeclared += 1;
+  }
+  // R4 restated against the spec marker (PDR-011 decision 3): ready-to-work and
+  // under-specified cannot both be true, whatever the tier or kind says.
+  if (names.includes('status:ready') && hasSpecMarker) {
+    const marker = STRUCTURE_LABELS.find((m) => names.includes(m));
+    report('R4', issue.number, `status:ready + ${marker} — ready to be worked and marked under-specified cannot both be true. Fix the spec and drop the marker, or drop status:ready`);
   }
   if (tier && tier !== 'impl:standard') {
     if (!kind) {
@@ -463,8 +581,9 @@ for (const issue of issues) {
       report('R4', issue.number, `status:ready + ${tier} (${kind}) — ready to be rewritten, not worked. Fix the spec or drop status:ready`);
     }
   }
-  if (tier && names.includes(STRUCTURE_LABEL) && !(kind && SPEC_KINDS.includes(kind))) {
-    report('R5', issue.number, `carries ${STRUCTURE_LABEL} but is tiered ${kind ? `(${kind})` : 'with no spec component'} — the validator says under-specified, triage says specification would not help. Usual correct answer: both`);
+  if (tier && hasSpecMarker && !(kind && SPEC_KINDS.includes(kind))) {
+    const marker = STRUCTURE_LABELS.find((m) => names.includes(m));
+    report('R5', issue.number, `carries ${marker} but is tiered ${kind ? `(${kind})` : 'with no spec component'} — the validator says under-specified, triage says specification would not help. Usual correct answer: both`);
   }
 
   // R7: the tier line concedes a mechanical majority but carries no decomposition
@@ -596,6 +715,19 @@ if (coverage.cited) {
   console.log(
     'These are issues paying frontier rates for a test nobody wrote. Read the list for repeats: ' +
     'one surface named by several escalations is one test\'s worth of work holding all of them above standard.'
+  );
+}
+
+if (riskCensus.issues) {
+  const counts = Object.entries(riskCensus.byLabel)
+    .map(([label, n]) => `${label} ${n}`)
+    .join(', ');
+  console.log(
+    `\nRisk census: ${riskCensus.issues} issue(s) carry ${riskCensus.labelled} risk label(s) — ${counts}.`
+  );
+  console.log(
+    'These are the facts the routing rule reads. A label with no reason line is R10; an unknown label is R11; ' +
+    'risk:uncovered without a coverage record is R12.'
   );
 }
 

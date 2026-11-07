@@ -762,6 +762,126 @@ test('issue-routing R9: a schema quoted in a code fence is not a section', () =>
   assert.doesNotMatch(out, /Open-questions census/);
 });
 
+// --------------------------- 2026-11-07: PDR-011 risk vocabulary (v1.6.0) ----
+// R10–R12 gate the `risk:` facts. The fixtures prove the fire and the clear for
+// each rule: a label with no reason, an unknown label, and risk:uncovered with
+// no coverage record. R4/R5 are restated against the under-structure marker.
+
+const riskIssue = (labels, riskBlock) => ({
+  number: 40,
+  title: 'x',
+  labels: [{ name: 'impl:standard' }, ...labels.map((name) => ({ name }))],
+  body: `Context.\n\n## Impl tier\nstandard — loud.\n\n## Risk\n${riskBlock}\n`,
+});
+
+test('issue-routing R10: a risk label with no reason line fires', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [riskIssue(['risk:silent-failure'], '- risk:boundary — a cross-tenant read.')]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out); // WARN, never a build failure
+  assert.match(out, /#40 \[R10\] carries risk:silent-failure/, out);
+});
+
+test('issue-routing R10: a label present with no reason text fires', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [riskIssue(['risk:silent-failure'], '- risk:silent-failure')]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /#40 \[R10\]/, out);
+});
+
+test('issue-routing R10 clears when each label has a reason line', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    riskIssue(
+      ['risk:silent-failure', 'risk:boundary'],
+      '- `risk:silent-failure` — a wrong answer renders as a valid result.\n- risk:boundary — the predicate decides which tenant\'s rows come back.'
+    ),
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.doesNotMatch(out, /\[R10\]/, out);
+  assert.match(out, /Risk census: 1 issue\(s\) carry 2 risk label\(s\)/, out);
+});
+
+test('issue-routing R11: an unknown risk label fires', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [riskIssue(['risk:flaky'], '- risk:flaky — it might fail.')]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /#40 \[R11\] carries unknown risk label\(s\) risk:flaky/, out);
+});
+
+test('issue-routing R12: risk:uncovered with no coverage record fires', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [riskIssue(['risk:uncovered'], '- risk:uncovered — no test exercises the path.')]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /#40 \[R12\] carries risk:uncovered/, out);
+});
+
+test('issue-routing R12 clears on a linked coverage gap', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    riskIssue(['risk:uncovered'], '- risk:uncovered — no test exercises the path.\n  Coverage gap: #99 — the path is unverified.'),
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.doesNotMatch(out, /\[R12\]/, out);
+});
+
+test('issue-routing R12 clears on a not-testable mechanism but not on the bare phrase', () => {
+  const dir = fixture({});
+  const withMechanism = riskIssue(
+    ['risk:uncovered'],
+    '- risk:uncovered — no test exercises the path.\n  Coverage: not testable — the provider cannot be fault-injected.'
+  );
+  const bare = riskIssue(['risk:uncovered'], '- risk:uncovered — no test exercises the path.\n  Coverage: not testable');
+  const envA = ghStub(fixture({}), [withMechanism]);
+  const outA = run('check-issue-routing.mjs', fixture({}), { env: envA }).out;
+  assert.doesNotMatch(outA, /\[R12\]/, outA);
+  const envB = ghStub(fixture({}), [bare]);
+  const outB = run('check-issue-routing.mjs', fixture({}), { env: envB }).out;
+  assert.match(outB, /\[R12\]/, outB);
+});
+
+test('issue-routing R4: status:ready + a spec marker fires without a spec kind', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 41,
+      title: 'x',
+      labels: [{ name: 'impl:standard' }, { name: 'status:ready' }, { name: 'needs-structure' }],
+      body: '## Impl tier\nstandard — loud.\n',
+    },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /#41 \[R4\] status:ready \+ needs-structure/, out);
+});
+
+test('issue-routing R5: needs-spec + a non-spec tier fires, and a spec kind clears it', () => {
+  const dir = fixture({});
+  const firing = {
+    number: 42,
+    title: 'x',
+    labels: [{ name: 'impl:frontier' }, { name: 'needs-spec' }],
+    body: '## Impl tier\nfrontier (inherent) — silent.\nNot splittable: one predicate.\n',
+  };
+  const clearing = {
+    number: 43,
+    title: 'x',
+    labels: [{ name: 'impl:frontier' }, { name: 'needs-spec' }],
+    body: '## Impl tier\nfrontier (spec) — the retry policy is missing.\nNot splittable: one predicate.\n',
+  };
+  const dirA = fixture({});
+  const outA = run('check-issue-routing.mjs', dirA, { env: ghStub(dirA, [firing]) }).out;
+  assert.match(outA, /#42 \[R5\] carries needs-spec/, outA);
+  const dirB = fixture({});
+  const outB = run('check-issue-routing.mjs', dirB, { env: ghStub(dirB, [clearing]) }).out;
+  assert.doesNotMatch(outB, /\[R5\]/, outB);
+});
+
+test('issue-routing: the self-installed copy and the template are byte-identical', () => {
+  const installed = readFileSync(resolve(REPO, 'scripts/check-issue-routing.mjs'), 'utf8');
+  const template = readFileSync(resolve(REPO, 'templates/scripts/check-issue-routing.mjs'), 'utf8');
+  assert.equal(installed, template, 'scripts/ and templates/scripts/ copies drifted — re-sync and re-stamp');
+});
+
 // --------------------------- 2026-08-17: closed pass (v1.4.0) ----------------
 // The closed pass answers "is this repo's history estimable?" — R1–R3 only over
 // recently closed issues, probe posture by default, kind-coverage census. The gh
