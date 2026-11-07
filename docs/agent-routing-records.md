@@ -56,16 +56,21 @@ Notes on contested calls:
 
 Addresses, not capability claims. The same model reached two ways is the same class.
 
-| Model | Claude Code | opencode |
+| Model | Claude Code | opencode v2 |
 |---|---|---|
-| Claude Opus 5 | `opus` | `opencode/claude-opus-5` |
-| Claude Sonnet 5 | `sonnet` | `opencode/claude-sonnet-5` |
-| Claude Haiku 4.5 | `haiku` | — |
-| GLM-5.2 | — | `opencode/glm-5.2` |
-| DeepSeek V4.1 Flash | — | `deepseek/deepseek-flash` |
+| Claude Opus 5 | `opus` | — |
+| Claude Sonnet 5 | `sonnet` | — |
+| Claude Haiku 4.5 | `haiku` | `hopskip-gateway/claude-haiku-4-5-20251001` |
+| GLM-5.2 | — | — |
+| DeepSeek V4.1 Flash | — | `hopskip-gateway/deepseek-v4-1-flash` |
 
 Dashes are "not routed here today", not "unavailable" — fill a cell when a route is actually
 used, so an empty cell never reads as a capability judgement.
+
+**opencode addresses are v2 `provider/model` ids.** The fleet workers run opencode v2; the
+v1 `opencode/...` and `deepseek/...` forms are retired. The v2 provider is `hopskip-gateway`,
+configured against the Hopskip gateway; the two routed models are the ones this repo's gateway
+serves today. A model with no v2 route is left as a dash, not guessed.
 
 ## 3. Classifier pins
 
