@@ -1,4 +1,4 @@
-<!-- template: agent-routing-records.md v1.1.0 · updated 2026-09-24 -->
+<!-- template: agent-routing-records.md v1.2.0 · updated 2026-11-07 -->
 # Agent Routing — Records for [repo]
 
 **Policy version these records were written against:** [X.Y.Z]
@@ -115,6 +115,30 @@ Path patterns that appeared in three or more `inherent` escalations — mechanic
 and candidates for the Layer 5 lint ("any issue touching `X/` is at least `frontier`").
 
 - [pattern] — [count] escalations
+
+## 8. Risk → class rule
+
+Maps an issue's `risk:` labels to a minimum capability class. **The rule names classes,
+never models** — a class resolves to a model through §1/§2. Gate labels are orthogonal:
+they record human completion and do not change the class.
+
+**Highest signal wins.** The derived class is the highest class among the rows for the
+labels the issue carries. Zero labels uses the `(none)` row. The default below is the
+policy's assignment-heuristics table read as a function; a repo may change a row, and
+changing the rule never touches an issue.
+
+| Risk label | Minimum class |
+|---|---|
+| (none) | standard |
+| `risk:silent-failure` | frontier |
+| `risk:boundary` | frontier |
+| `risk:irreversible` | frontier |
+| `risk:new-abstraction` | frontier |
+| `risk:uncovered` | frontier |
+
+`check-routing-equivalence.mjs` reads this table by its section heading and applies it to
+the open backlog. Every difference from an issue's `impl:` tier is resolved on the record —
+the issue is re-tiered, or the rule is changed — before `impl:` is retired for any consumer.
 
 ## Review log
 

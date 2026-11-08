@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.18.0 · updated 2026-10-15 -->
+<!-- template: agent-routing.md v1.21.0 · updated 2026-11-07 -->
 # Agent Routing
 
-**Version:** 1.18.0 · **Last updated:** 2026-10-15
+**Version:** 1.21.0 · **Last updated:** 2026-11-07
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -34,6 +34,9 @@
 | 1.15.0 | 2026-09-24 | **The classifier binds a class, not a model.** The pin declares its triage class (`# routing-class:`); the class→model binding is registry data, resolved by the gateway as the intended chokepoint — or by an install-time generated bridge until the gateway resolves classes. A concrete slug may appear in a repo only when the bridge produced it, and `check-classifier-pin-drift.mjs` gates pin-vs-map agreement, failing closed. 1.4.0's "one place a model name may be written" exception narrows from a name to a binding |
 | 1.16.0 | 2026-09-24 | **`impl:human` gates completion, not preparation.** The tier was read as a capability gate, so "if the tier exceeds your capability class, do not implement" stopped every agent at a human-tier issue and dropped its mechanical preparation into human hands. It is an ownership gate: any capability class may draft the change and hand it over (the `gate:human-approval` shape applied to the tier itself), a human owns the irreversible step and the merge, and the agent stops only where the work itself needs human hands — holding a credential, exercising an external authority. Owner decision, 2026-09-24; no tier definition, class table, or heuristics move |
 | 1.18.0 | 2026-10-15 | **The `impl:` tier is a tier, not a "capability class."** The policy used "capability class" for three different things. It now says **tier** for the issue's requirement, **model capability** for the agent's own (`standard` / `frontier`), and keeps **capability class** only for the ADR-066 sense the classifier pin resolves to — the term ai-fleet's glossary reserves for it. Downstream of HopSkipInc/ai-fleet#2571 |
+| 1.21.0 | 2026-11-07 | **Interactive pickup advises, never gates (PDR-011 decision 6).** `/pickup <issue>` reads the risk labels, resolves the rule, and prints the required class and the harness switch command generated from the route table. The AGENTS.md stop rule now tells the human which class the issue needs and how to select it (or `/pickup`), then stops — a model switch, not an abandoned task |
+| 1.20.0 | 2026-11-07 | **Routing is a records-held rule, and equivalence gates retirement (PDR-011).** `docs/agent-routing-records.md` §8 maps the risk set to a minimum capability class, classes only, with the highest-signal default pre-filled. The frontier ratio is derived from the rule; `impl:` is derived first and retired per consumer after `check-routing-equivalence.mjs` resolves every difference on the record |
+| 1.19.0 | 2026-11-07 | **Risk facts become labels (PDR-011).** Five `risk:` labels record the facts behind a tier — silent failure, boundary, irreversible, new abstraction, uncovered surface — with one-sentence reasons under `## Risk`. Human completion moves to the existing `gate:` family; the spec state moves to the under-structure marker. `impl:` stays required during the transition and is derived from the risk labels plus the records-held rule, then retired per consumer after its repo's equivalence check. R10–R12 in `check-issue-routing.mjs` gate the new vocabulary |
 | 1.17.0 | 2026-10-08 | **An open question is a stop condition.** An issue listing anything under `## Open questions` (issue-authoring 1.5.0) is undecided whatever its status says, so the agent stops at pickup instead of meeting the gap mid-implementation and answering its own question. Pairs with routing-lint R9, which catches the same contradiction in the weekly sweep; the pickup stop covers the days between an issue being marked ready and the next sweep. No tier definitions move |
 
 ## Purpose
@@ -207,7 +210,8 @@ being followed.
 
 > **An escalation resting on the uncovered-surface signal must carry a coverage record.**
 
-Exactly one of two forms, on its own line in the tier block:
+The same record attaches to a `risk:uncovered` label, under `## Risk`. Exactly one of two
+forms, on its own line in the tier or risk block:
 
 1. **`Coverage gap: #NNN`** — the issue that covers the surface. When it closes, this issue
    is re-tiered. The gap issue is `standard` almost every time: writing a test against a
@@ -272,6 +276,63 @@ An `impl:` label on every issue, declaring the **minimum** tier required. Exactl
   itself), and stops only where the work needs human hands — holding a credential, exercising
   an external authority. A human owns the merge.
 
+## Risk labels — the facts behind the tier (PDR-011)
+
+The `impl:` label records a routing *verdict*. The facts behind it are recorded separately as
+`risk:` labels, so a routing change can be applied to a rule instead of relabelled across the
+backlog by hand.
+
+| Label | Covers |
+|---|---|
+| `risk:silent-failure` | A wrong result looks correct. |
+| `risk:boundary` | Security, isolation or tenancy boundaries, including credential handling. |
+| `risk:irreversible` | A wide blast radius, or hard to reverse, including dropping or renaming migrations. |
+| `risk:new-abstraction` | Requires inventing an abstraction the codebase does not have. |
+| `risk:uncovered` | No existing test covers the surface being changed. |
+
+An issue carries zero or more. Zero means loud, contained work. Each label is a **fact about
+the issue**, never a difficulty judgement. The assignment heuristics below name the label each
+signal produces.
+
+### The `## Risk` section
+
+One line per label, each with a one-sentence reason:
+
+```markdown
+## Risk
+- `risk:boundary` — the scope predicate decides which tenant's rows come back.
+- `risk:uncovered` — no test exercises a cross-tenant read.
+  Coverage gap: #NNN — cross-tenant read scoping is unverified at any level.
+```
+
+A label with no reason line is malformed the same way an escalation with no kind is: the next
+agent sees a fact with no explanation and cannot tell whether it still applies. Rule R10 in
+`check-issue-routing.mjs` flags it; R11 flags an unknown `risk:*` label.
+
+**`risk:uncovered` carries the coverage record.** Exactly one of `Coverage gap: #N` or
+`Coverage: not testable — <mechanism>`, on its own line, as *The coverage rule* already
+requires of an escalation that rests on the uncovered-surface signal. R12 flags its absence.
+When the gap issue closes, the label comes off in the same edit.
+
+**`impl:` stays required during the transition.** It is derived from these labels plus the rule
+kept in `docs/agent-routing-records.md`, and retired per consumer only after that repo's
+equivalence check passes (PDR-011 decision 8). Adding the `risk:` labels never removes the
+`impl:` label or the `## Impl tier` line.
+
+### Human completion is a `gate:` label, not a tier
+
+A product or policy decision, external coordination, credential handling, or removal of a
+safety invariant is recorded by the `gate:` family below — `gate:decision`,
+`gate:human-review`, `gate:human-approval`, or `gate:credentials`. `impl:human` remains during
+the transition as the derived completion gate; it is not a capability class.
+
+### The spec state is the under-structure marker
+
+"Under-specified" is not a risk and not a tier kind. The repo's under-structure marker
+(`needs-structure`, or `needs-spec` where the repo has adopted that name) carries it. A marker
+plus a `spec`-component kind is the same contradiction R5 has always flagged; the marker is now
+the authority, and R4 fires on `status:ready` plus the marker regardless of the tier.
+
 ### The `gate:` family (optional — add when the repo needs it)
 
 `impl:` answers *can an agent own this*. It cannot express "the change is small, but a human
@@ -300,17 +361,17 @@ boundary: pure libraries, static sites, single-tenant internal tools.
 
 Assign by the **highest** signal present, not the average.
 
-| Signal | Tier pressure |
-|---|---|
-| Failure is caught loudly by tests, types, or CI | keeps it `standard` |
-| Failure is silent — a wrong result looks correct | → `frontier`+ |
-| Touches a security, isolation, or tenancy boundary | → `frontier`, often `human` |
-| Requires inventing an abstraction not yet in the codebase | → `frontier` |
-| Blast radius crosses many modules, or is hard to reverse | → `frontier`+ |
-| No existing test covers the surface being changed | → `frontier` |
-| Requires a product, UX, or policy decision | → `human` |
-| Requires coordinating with an external team or system | → `human` |
-| Handles secrets or credentials, or removes a safety invariant | → `human` |
+| Signal | Risk label / completion gate | Tier pressure |
+|---|---|---|
+| Failure is caught loudly by tests, types, or CI | — | keeps it `standard` |
+| Failure is silent — a wrong result looks correct | `risk:silent-failure` | → `frontier`+ |
+| Touches a security, isolation, or tenancy boundary | `risk:boundary` | → `frontier`, often `human` |
+| Requires inventing an abstraction not yet in the codebase | `risk:new-abstraction` | → `frontier` |
+| Blast radius crosses many modules, or is hard to reverse | `risk:irreversible` | → `frontier`+ |
+| No existing test covers the surface being changed | `risk:uncovered` (coverage record required) | → `frontier` |
+| Requires a product, UX, or policy decision | `gate:decision` (or `gate:human-review`) | → human completion |
+| Requires coordinating with an external team or system | `gate:human-approval` | → human completion |
+| Handles secrets or credentials, or removes a safety invariant | `gate:credentials` / `gate:human-approval` | → human completion |
 
 Note what the table implies and state it out loud to your team: **the first and sixth rows
 are the same lever.** Coverage on a surface is what keeps work on that surface cheap to
@@ -325,7 +386,8 @@ falls without anyone re-arguing a single tier.
 
 ## Mechanism
 
-**1. Label.** One `impl:` label per issue, required. Optional `gate:` labels.
+**1. Label.** One `impl:` label per issue, required during the transition. Zero or more
+`risk:` labels, each with a reason line under `## Risk`. Optional `gate:` labels.
 
 **2. Tier line in the body.** The label routes; the line explains. It carries the kind and
 the reason, so the agent sees the *why* before it starts:
@@ -353,6 +415,17 @@ or a `Not splittable:` sentence naming the mechanism. A tier above `standard` mi
 kind or the decomposition record is malformed. **If the reason cites an uncovered surface, a
 coverage record is required too** — `Coverage gap: #NNN` or `Coverage: not testable — …`.
 "It's complicated" is not a reason — say what fails and whether the failure is loud.
+
+The `## Risk` section sits beside `## Impl tier` during the transition. One line per label,
+each with a one-sentence reason; the coverage record for `risk:uncovered` goes on its own
+line beneath the label:
+
+```
+## Risk
+- risk:boundary — the scope predicate decides which tenant's rows come back.
+- risk:uncovered — no test exercises a cross-tenant read.
+  Coverage gap: #NNN — cross-tenant read scoping is unverified at any level.
+```
 
 Note what the coverage record does to the first example: it converts "this is a frontier
 issue" into "this is a frontier issue *until* #NNN closes." A tier with an expiry condition
@@ -395,9 +468,9 @@ Add to agent instructions (CLAUDE.md / AGENTS.md — see the section template be
 
 > Before implementing an issue, read its `impl:` tier and the Impl-tier line. If the tier
 > exceeds your model capability (`standard` / `frontier`), do not attempt implementation.
-> Comment on the issue with what you would need, and stop. `impl:human` is not a capability
-> gate: any class may **prepare** the change, but a human owns the irreversible step and the
-> merge.
+> Tell the human which class this issue needs and how to select it here — or run
+> `/pickup <issue>` — then stop. `impl:human` is not a capability gate: any class may
+> **prepare** the change, but a human owns the irreversible step and the merge.
 
 Be honest about what this buys. **It is advisory and it always will be**, because the model
 that cannot do the work is the same model judging whether it can. The contract catches the
@@ -703,6 +776,43 @@ Per-repo targets and current readings live in the client's governance record
 (`downstream/<client>/_client.md` in the governance repo), not here. They are records, not
 shape, and they do not sync.
 
+## The routing rule and equivalence (PDR-011)
+
+Routing is a rule kept in records, not a verdict relabelled by hand. Each repo's
+`docs/agent-routing-records.md` §8 maps a set of `risk:` labels to a minimum capability
+class. The rule outputs a **class only** — never a model name; the class resolves to a model
+through the class and route tables (§Self-identification). The default rule is the
+assignment-heuristics table read as a function: highest signal wins. A repo may change its
+rule, and changing the rule never touches an issue.
+
+**`impl:` is derived first and retired last.** During the transition every issue keeps its
+`impl:` label and `## Impl tier` line. The label is generated from the issue's risk labels
+and the rule, so existing consumers keep working. A consumer moves to the rule one at a time;
+`impl:` is retired only when none reads it.
+
+**The frontier ratio is derived.** It is the share of open issues whose rule output is the
+`frontier` class. Its decomposition reading above is unchanged; only the numerator's source
+moves from the stored verdict to the rule.
+
+**Prove equivalence before retirement.** Before a repo stops writing `impl:`, run
+`scripts/check-routing-equivalence.mjs` over its labelled backlog. It applies the rule to
+every open issue and lists every difference from the current `impl:` tier; it exits non-zero
+while any difference is unresolved, and reports SKIPPED — never a pass — when it cannot run.
+Every difference is resolved on the record: either the issue was mis-tiered (relabel it, with
+the reason) or the rule was wrong (change the rule). Zero differences is the gate.
+
+**Human completion is not in the class.** It stays in the `gate:` labels. A human-tier issue
+is relabelled `impl:<derived class>` plus its `gate:` labels; the rule never outputs `human`.
+
+### Interactive pickup (PDR-011 decision 6)
+
+When an interactive engineer picks up an issue, `/pickup <issue>` reads its `risk:` labels,
+resolves the rule, and prints the required class plus the exact model-switch command for the
+harness, generated from the route table in `docs/agent-routing-records.md` §2. It also names
+any `gate:` labels. The command is **advisory**: it never blocks, refuses a prompt, or
+switches the model. Where the harness cannot expose the session's current model, it prints
+the required class without a comparison.
+
 ## Audit signals
 
 Six numbers, reported as findings, not as a compliance score:
@@ -789,8 +899,8 @@ them from, and the calibration set is the part with no upstream copy.
 - **`status:ready`** now means *the spec is complete enough for its declared tier*. A
   `status:ready` + `impl:frontier (spec)` issue is a contradiction: it's ready to be rewritten,
   not ready to be worked.
-- **Issue authoring** — `impl:` joins the required label families; the `## Impl tier` block
-  joins the canonical schema.
+- **Issue authoring** — `impl:` and the `risk:` family join the required label families; the
+  `## Impl tier` and `## Risk` blocks join the canonical schema.
 - **`Serves: PDR-NNN`** — a `gate:decision` label usually means the PDR doesn't exist yet.
 - **Definition of Done** — issue-authoring rows require a tier and kind; escalation requires
   a comment and a relabel; downgrade requires an accompanying body edit.
@@ -801,7 +911,11 @@ them from, and the calibration set is the part with no upstream copy.
 ## Agent routing
 
 Every issue carries an `impl:` label — `standard`, `frontier`, or `human` — declaring the
-minimum tier required, and an `## Impl tier` line giving the kind and the reason.
+minimum tier required, and an `## Impl tier` line giving the kind and the reason. It also
+carries zero or more `risk:` labels — `risk:silent-failure`, `risk:boundary`,
+`risk:irreversible`, `risk:new-abstraction`, `risk:uncovered` — recorded under `## Risk`,
+each with a one-sentence reason. Human completion is carried by the `gate:` labels, not by
+the `impl:` tier.
 
 Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
 failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
@@ -811,11 +925,13 @@ to choose drifts toward it.
 
 Before implementing an issue:
 
-1. Read the `impl:` label and the `## Impl tier` line.
+1. Read the `impl:` label, the `## Impl tier` line, and the `risk:` labels under `## Risk`.
 2. If the tier exceeds your model capability (`standard` / `frontier`), do not implement.
-   Comment with what you would need, and stop. `impl:human` is not a capability gate: any
-   class may prepare the change, but no agent completes it unilaterally — a human owns the
-   irreversible step and the merge.
+   Tell the human which class this issue needs and how to select it here (or run
+   `/pickup <issue>`), then stop. In an interactive session that ends in a model switch,
+   not an abandoned task. `impl:human` is not a capability gate: any class may prepare the
+   change, but no agent completes it unilaterally — a human owns the irreversible step and
+   the merge.
 3. If the label or the kind is missing, do not implement. Comment and stop.
 4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
    same failing test; **coding around a blocker instead of removing it** — a fallback,

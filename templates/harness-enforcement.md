@@ -1,4 +1,4 @@
-<!-- template: harness-enforcement.md v1.3.0 · updated 2026-09-15 -->
+<!-- template: harness-enforcement.md v1.4.0 · updated 2026-11-07 -->
 # Harness enforcement — Claude Code settings stanza
 
 Two invariants, enforced by the harness before the action lands — not by the model, and
@@ -167,6 +167,37 @@ it does not improvise. Each mediated path is declared in
 `check-enforcement-stanzas.mjs` asserts the named script exists and stamps the
 declared version — a register row claiming a writer that is not on disk is the
 same fail-open shape the lint exists to catch.
+
+## First-prompt pickup hook (Claude Code)
+
+`hooks.UserPromptSubmit` runs `.claude/hooks/pickup-guidance.mjs` on every prompt. The hook
+acts only on the session's first prompt; `scripts/pickup-guidance.mjs` resolves the issue's
+`risk:` labels through the records rule and prints the guidance to stdout, which Claude Code
+adds as context. It never blocks (exit 0 on every path), never rewrites a prompt, and never
+switches the model. On any error — no `gh`, a network failure, an unknown issue, malformed
+labels, a missing rule, bad stdin — it exits 0 with no output.
+
+**Install** `.claude/hooks/pickup-guidance.mjs` and `scripts/pickup-guidance.mjs`, then merge:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/pickup-guidance.mjs", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The hook and `/pickup` share the resolver, so they cannot disagree.
+
+**Opt out per engineer, no repo change:** set `"pickupGuidance": false` in
+`~/.claude/settings.json` (the hook reads it), or `"disableAllHooks": true` to disable all
+hooks. `/pickup` stays available.
 
 ## Limits, on the record
 

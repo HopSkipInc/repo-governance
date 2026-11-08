@@ -1,8 +1,9 @@
-<!-- template: agent-routing-records.md v1.1.0 · updated 2026-09-24 -->
+<!-- template: agent-routing-records.md v1.2.0 · updated 2026-11-07 -->
 # Agent Routing — Records for repo-governance
 
-**Policy version these records were written against:** 1.16.0
-**Last reviewed:** 2026-09-24 — pin/class review, then the DeepSeek V4.1 Flash frontier
+**Policy version these records were written against:** 1.20.0
+**Last reviewed:** 2026-11-07 — the PDR-011 risk→class rule added in §8; policy 1.20.0.
+Previous: 2026-09-24 — pin/class review, then the DeepSeek V4.1 Flash frontier
 placement. The classifier binding moved from a pinned model name to a class binding gated by
 `check-classifier-pin-drift.mjs` (design: `docs/classifier-class-binding.md`, ai-fleet #3097).
 Later the same day, Greg placed DeepSeek V4.1 Flash on `frontier` for a bounded calibration
@@ -55,27 +56,34 @@ Notes on contested calls:
 
 Addresses, not capability claims. The same model reached two ways is the same class.
 
-| Model | Claude Code | opencode |
+| Model | Claude Code | opencode v2 |
 |---|---|---|
-| Claude Opus 5 | `opus` | `opencode/claude-opus-5` |
-| Claude Sonnet 5 | `sonnet` | `opencode/claude-sonnet-5` |
-| Claude Haiku 4.5 | `haiku` | — |
-| GLM-5.2 | — | `opencode/glm-5.2` |
-| DeepSeek V4.1 Flash | — | `deepseek/deepseek-flash` |
+| Claude Opus 5 | `opus` | — |
+| Claude Sonnet 5 | `sonnet` | — |
+| Claude Haiku 4.5 | `haiku` | `hopskip-gateway/claude-haiku-4-5-20251001` |
+| GLM-5.2 | — | — |
+| DeepSeek V4.1 Flash | — | `hopskip-gateway/deepseek-v4-1-flash` |
 
 Dashes are "not routed here today", not "unavailable" — fill a cell when a route is actually
 used, so an empty cell never reads as a capability judgement.
+
+**opencode addresses are v2 `provider/model` ids.** The fleet workers run opencode v2; the
+v1 `opencode/...` and `deepseek/...` forms are retired. The v2 provider is `hopskip-gateway`,
+configured against the Hopskip gateway; the two routed models are the ones this repo's gateway
+serves today. A model with no v2 route is left as a dash, not guessed.
 
 ## 3. Classifier pins
 
 | Harness | Pin file | Class | Resolved via | Reviewed |
 |---|---|---|---|---|
 | Claude Code | `.claude/agents/routing-classifier.md` | frontier | §1/§2 → Claude Opus 5 (`opus`) | 2026-09-24 |
-| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | frontier | §1/§2 → Claude Opus 5 (`opencode/claude-opus-5`) | 2026-09-24 |
+| opencode | `~/.config/opencode/agents/routing-classifier.md` (global) | frontier | §1/§2 → DeepSeek V4.1 Flash (`hopskip-gateway/deepseek-v4-1-flash`) | 2026-11-07 |
 
 Both pins bind `frontier` and resolve to a model §1 lists there. The Claude Code pin is
 lint-gated here; the opencode pin is global (outside the repo) and is reviewed at re-sync, not
-by the lint.
+by the lint. The opencode pin moved to the v2 route table on 2026-11-07: it binds DeepSeek V4.1
+Flash (`hopskip-gateway/deepseek-v4-1-flash`), the frontier model this gateway serves. The v1
+`opencode/claude-opus-5` route is retired.
 
 **2026-09-24 — the binding moved from a name to a class (ai-fleet #3097).** The pin declares
 `# routing-class: frontier`; the concrete `model:` slug is a *resolved binding*, not a
@@ -236,6 +244,24 @@ decomposition debt is low — the risk is real and it is spread thin, not concen
 
 Too few escalations (5) to reach the three-per-pattern threshold. Nothing to promote yet.
 
+## 8. Risk → class rule
+
+This repo uses the policy's default rule: highest signal wins. The rule names classes, never
+models; gate labels are orthogonal and do not change the class.
+
+| Risk label | Minimum class |
+|---|---|
+| (none) | standard |
+| `risk:silent-failure` | frontier |
+| `risk:boundary` | frontier |
+| `risk:irreversible` | frontier |
+| `risk:new-abstraction` | frontier |
+| `risk:uncovered` | frontier |
+
+`scripts/check-routing-equivalence.mjs` applies this table to the open backlog. Any
+difference from an issue's `impl:` tier is resolved on the record — the issue is re-tiered,
+or the rule is changed — before `impl:` is retired for any consumer.
+
 ## Review log
 
 | Date | Policy version | What changed |
@@ -243,3 +269,4 @@ Too few escalations (5) to reach the three-per-pattern threshold. Nothing to pro
 | 2026-07-24 | 1.0.0 → 1.6.0 | Initial records from the bootstrap run, inside `docs/agent-routing.md` |
 | 2026-07-26 | 1.9.0 | Split into this file. Mapping split into class←model + model→route; Sonnet 5 → standard; `claude-opus-4-8` retired; opencode pin recorded; all four calibration rows resolved against outcomes (`#2` corrected `spec` → `both`); ratio baseline and surfaces added |
 | 2026-09-24 | 1.16.0 | DeepSeek V4.1 Flash added to `frontier` (owner-directed calibration run, no outcome evidence) and its opencode route recorded; `impl:human` completion-gate clarification carried from policy 1.16.0 |
+| 2026-11-07 | 1.20.0 | PDR-011 §8 risk→class rule added; the default highest-signal rule is recorded verbatim |

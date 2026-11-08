@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.5.0 · updated 2026-10-08 -->
+<!-- template: issue-authoring.md v1.6.0 · updated 2026-11-07 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -22,6 +22,11 @@ Every issue body uses this structure:
 ## Impl tier
 <standard | frontier (spec|inherent) | human (spec|inherent) — plus one sentence naming
  what a botched implementation would look like and whether the failure is loud or silent.>
+
+## Risk
+<zero or more `risk:` labels, one line each with a one-sentence reason:
+ - risk:silent-failure — the wrong answer renders as a valid result.
+ A `risk:uncovered` line carries a coverage record on its own line.>
 
 ## Verifiable outcomes (binary, observable)
 - [ ] <outcome 1 — binary, observable>
@@ -57,6 +62,10 @@ Rules:
   its kind — `spec` or `inherent`. See [Agent Routing](agent-routing.md). An escalation with
   no kind is malformed: without it the tier is permanent, and the whole taxonomy stops
   being self-correcting.
+- **Every `risk:` label has a reason line under `## Risk`.** One line per label, with a
+  one-sentence reason. An unknown `risk:*` label is malformed — the five-label vocabulary is
+  closed. `risk:uncovered` carries a coverage record (`Coverage gap: #N` or `Coverage: not
+  testable — <mechanism>`) on its own line, and the label comes off when the gap closes.
 - **Every blocking claim resolves to a reference.** Under `## Dependencies`, a blocker is
   `blocked-by #N` (same repo), `blocked-by owner/repo#N` (cross-repo — pick this one form;
   both it and the bare `repo#N` are in live use, and a backlog running both makes the
@@ -99,6 +108,7 @@ Labels are not decoration — they route, prioritize, and let a periodic audit r
 | **status** | exactly one | `status:ready`, `status:needs-decision`, `status:blocked`, `status:deferred` |
 | **type** | one (or a Work-type line) | `enhancement`, `feature`, `bug`, `epic`, `chore`, `documentation` |
 | **impl:** | exactly one | `impl:standard`, `impl:frontier`, `impl:human` |
+| **risk:** | optional, zero or more | `risk:silent-failure`, `risk:boundary`, `risk:irreversible`, `risk:new-abstraction`, `risk:uncovered` |
 | **gate:** | optional, one or more | `gate:human-approval`, `gate:human-review`, `gate:credentials`, `gate:decision` |
 | **area:** | optional, one or more | `[your subsystem names]` |
 | **theme:** | optional, one or more | `[your roadmap track names]` |
@@ -161,8 +171,11 @@ GitHub cannot restrict who creates an issue through the UI or the API, so enforc
    | Tier above `standard` declares a kind (`spec`, `inherent`, `both`) | tier present, no kind |
    | `status:ready` + a `spec`-component kind | contradiction — ready to be *rewritten*, not worked |
    | Says ready (`status:ready`, or `## Status` beginning `ready`) + an open item under `## Open questions` | contradiction — ready to be *decided*, not worked (R9) |
-   | Carries `needs-structure` + tiered without a `spec` component | contradiction — validator says under-specified, triage says spec wouldn't help; the usual correct answer is `both` |
-   | `impl:` label changed with no body edit in the same window | ungrounded downgrade — see Agent Routing → *Downgrades* |
+    | Carries `needs-structure`/`needs-spec` + tiered without a `spec` component | contradiction — validator says under-specified, triage says spec wouldn't help; the usual correct answer is `both` |
+    | `impl:` label changed with no body edit in the same window | ungrounded downgrade — see Agent Routing → *Downgrades* |
+    | A `risk:` label with no reason line under `## Risk` | malformed fact — a label with no explanation cannot be re-evaluated |
+    | An unknown `risk:*` label | malformed — the vocabulary is the five labels in Agent Routing |
+    | `risk:uncovered` with no coverage record | missing record — the surface has no expiry condition |
 
    The last two are the ones worth wiring first: they catch the two ways the taxonomy quietly
    stops meaning anything.

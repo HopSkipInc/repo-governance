@@ -1,16 +1,18 @@
 ---
 name: routing-triage
 description: >
-  Bootstrap or refresh a repo's agent-routing tiers. Probes the codebase for its risk
-  surfaces — isolation boundaries, credential handling, uncovered code, dropping
-  migrations — then classifies open issues by the failure mode their botched
-  implementation would produce, not by difficulty. Proposes an `impl:` tier and a kind
-  (`spec`, `inherent`, or `both`) with a one-line reason for each, surfaces the disputed calls for
-  a human, applies the labels and tier lines, and writes the repo's calibration set to
-  docs/agent-routing-records.md. Every escalation is decomposed before it is tiered — a split
-  proposal or a non-splittability statement is required, not suggested.
-version: 1.7.0
-updated: 2026-08-17
+  Bootstrap or refresh a repo's agent-routing risk labels and, during the transition, its
+  tiers. Probes the codebase for its risk surfaces — isolation boundaries, credential
+  handling, uncovered code, dropping migrations — then classifies open issues into PDR-011
+  `risk:` facts with one-sentence reasons, a coverage record wherever `risk:uncovered` is
+  proposed, the under-structure marker where the issue is under-specified, and a `gate:`
+  label where completion needs a human. Still proposes an `impl:` tier and kind for the
+  transition. Surfaces the disputed risk calls for a human, applies the labels and `## Risk`
+  lines, and writes the repo's calibration set to docs/agent-routing-records.md. Every
+  escalation is decomposed before it is tiered — a split proposal or a non-splittability
+  statement is required, not suggested.
+version: 1.8.0
+updated: 2026-11-07
 triggers:
   - /routing-triage
   - /routing-triage refresh
@@ -197,7 +199,7 @@ edits the classifier's calls has reintroduced the unpinned path through the back
 
 ### What to produce
 
-#### 1. Proposed tiers (the main table)
+#### 1. Proposed risk facts and tiers (the main table)
 
 One row per issue. Every row cites evidence — a path, a test file's absence, an ADR.
 
@@ -205,34 +207,40 @@ One row per issue. Every row cites evidence — a path, a test file's absence, a
 them: the same-looking issue in your repo may sort differently, and a seeded example that
 disagrees with the merits will drag every triager toward the wrong call.
 
-| # | Proposed | Kind | Failure mode if botched | Evidence |
-|---|---|---|---|---|
-| NNN | standard | — | loud — type error at build | no risk surface touched; `[dir]/` covered by [test] |
-| NNN | frontier | inherent | silent — wrong scope returns plausible rows | touches [isolation path]; no cross-tenant test exists |
-| NNN | frontier | spec | loud, but "correct" is undefined | no tolerance threshold stated in the AC |
-| NNN | human | inherent | silent — removes a fail-open guard | [safety invariant path] |
+| # | Proposed risk labels (one reason each) | Spec marker | Gate | Tier / kind | Failure mode if botched | Evidence |
+|---|---|---|---|---|---|---|
+| NNN | — | — | — | standard | loud — type error at build | no risk surface touched; `[dir]/` covered by [test] |
+| NNN | `risk:silent-failure` — wrong scope returns plausible rows; `risk:boundary` — the scope predicate | — | — | frontier / inherent | silent | touches [isolation path]; no cross-tenant test exists |
+| NNN | `risk:uncovered` — no tolerance test exists | needs-structure | — | frontier / spec | loud, but "correct" is undefined | no tolerance threshold stated in the AC |
+| NNN | `risk:silent-failure` — removes a fail-open guard | — | `gate:human-approval` | human / inherent | silent | [safety invariant path] |
 
-**The "failure mode" column is the load-bearing one.** If the agent cannot state what a
-botched implementation would look like and whether anyone would notice, it has not done the
-classification — it has guessed at difficulty. Reject those rows and make it redo them.
+**The risk labels are facts, not difficulty, and the "failure mode" column is load-bearing.**
+If the agent cannot state what a botched implementation would look like and whether anyone
+would notice, it has not done the classification — it has guessed at difficulty. Reject those
+rows and make it redo them. A risk label with no one-sentence reason is also incomplete.
+If `risk:uncovered` is proposed, a coverage record is required (Step 1.4).
+The `impl:` tier is still required during the transition: PDR-011 derives it from these facts,
+but no repo has retired it yet.
 
-#### 2. Kind splits that matter
+#### 2. Under-specified issues and the spec marker
 
-List every issue proposed above `standard` carrying a `spec` component (`spec` or `both`),
-with the specific sentence that is missing.
+List every issue that should carry `needs-structure` / `needs-spec`, with the specific
+sentence that is missing. The marker is the canonical spec signal; the `spec` component of
+the tier is kept beside it during the transition.
 
 Before finalizing, run the **under-structure cross-check**: any issue carrying the repo's own
-under-structure marker (`needs-structure` or equivalent) that you tiered without a `spec`
-component is a contradiction — the validator says it is under-specified, you said
-specification wouldn't help. Re-examine every one; the usual correct answer is `both`. These are not routing decisions — they are authoring bugs, and
-each one is a candidate for rewrite-then-downgrade. This list is the skill's highest-value
-output.
+under-structure marker that the classifier did not mark as under-specified is a contradiction
+— the validator says it is under-specified, the classification said specification wouldn't
+help. Re-examine every one; the usual correct answer is `both`. These are not routing
+decisions — they are authoring bugs, and each one is a candidate for rewrite-then-downgrade.
+This list is the skill's highest-value output.
 
-#### 3. Disputed calls
+#### 3. Disputed risk calls
 
-Issues where two signals point different directions, or where the agent's confidence is
-low. Present them with the case for each tier. Do not let the agent break its own ties —
-these are the interview.
+Issues where two labels point different directions, where a label is arguable, or where the
+agent's confidence in a gate is low. Present them with the case for each side. Do not let the
+agent break its own ties — these are the interview. **Show every disputed risk call to the
+human before applying any label.**
 
 #### 3a. Decomposition record — required on every escalation
 
@@ -270,12 +278,12 @@ to the human verbatim.
 
 ## Step 2: Wait, then interview
 
-Bring the human the disputes and the `spec` list. Not the whole table — the table is mostly
-uncontroversial and reviewing 30 obvious rows exhausts the attention you need for the six
-that matter.
+Bring the human the disputed risk calls and the spec-marker list. Not the whole table — the
+table is mostly uncontroversial and reviewing 30 obvious rows exhausts the attention you need
+for the six that matter.
 
-Ask, in this order. **Splits come first** — they change which issues are even up for
-discussion, so asking about tiers before splits re-runs the conversation twice:
+Ask, in this order. **Disputed risk calls and splits come first** — they change which issues
+are even up for discussion, so asking about tiers before them re-runs the conversation twice:
 
 1. **The split proposals.** For each, present the `standard` children and the residue, and
    ask for a yes/no. A yes usually converts one escalation into three or four cheap issues
@@ -291,12 +299,12 @@ discussion, so asking about tiers before splits re-runs the conversation twice:
    an expiry date and the gap issue is worth filing today. Push back hard on any "not
    testable" that names no mechanism — it is the cheapest sentence in the procedure and the
    one most often wrong.
-4. **The disputed calls, one at a time.** Present both cases, ask for the call and the
-   *reason*. The reason becomes the tier line.
-5. **The `spec` escalations.** For each: "this is frontier only because the issue doesn't
-   say [X]. Do you want to answer that now and drop it to standard, or leave it?" Many will
-   be answerable in a sentence — that is the whole point of the kind split, and the fastest
-   demonstration of why it exists.
+4. **The disputed risk calls, one at a time.** Present both cases for the label or gate,
+   ask for the call and the *reason*. The reason becomes the `## Risk` line.
+5. **The under-specified issues.** For each: "this should carry `needs-structure` because
+   the issue doesn't say [X]. Do you want to answer that now and drop the marker (and the
+   spec component), or leave it?" Many will be answerable in a sentence — that is the whole
+   point of the marker, and the fastest demonstration of why it exists.
 6. **The surfaces you could not classify.** Verbatim.
 7. **Nothing else.** Do not ask the human to confirm the obvious rows.
 
@@ -309,9 +317,16 @@ signal applies to other rows too. One correction usually moves several.
 
 Only after confirmation. Never bulk-apply proposed tiers unreviewed.
 
-Create the labels if they do not exist:
+Create the labels if they do not exist. The five `risk:` labels are PDR-011's closed
+vocabulary — do not add a sixth without a superseding PDR:
 
 ```bash
+gh label create "risk:silent-failure" --color FBCA04 --description "A wrong result looks correct"
+gh label create "risk:boundary"       --color D93F0B --description "Security, isolation or tenancy boundaries, including credential handling"
+gh label create "risk:irreversible"   --color B60205 --description "A wide blast radius, or hard to reverse, including dropping or renaming migrations"
+gh label create "risk:new-abstraction" --color 5319E7 --description "Requires inventing an abstraction the codebase does not have"
+gh label create "risk:uncovered"      --color C2E0C6 --description "No existing test covers the surface being changed"
+
 gh label create "impl:standard" --color 0E8A16 --description "Any capable coding model can implement from the issue as written"
 gh label create "impl:frontier" --color D93F0B --description "Frontier model may implement autonomously; non-frontier should not"
 gh label create "impl:human"    --color B60205 --description "Needs a human in the loop regardless of model capability"
@@ -331,11 +346,17 @@ gh label create "gate:decision"       --color 5319E7 --description "Outcome shou
 Do not skip this because the labels happen to already exist — verify, because a repo that
 inherited them from an earlier run masks the gap for the next repo that does not.
 
-Then, per issue: apply the label, and **append the tier line to the body**. The label routes;
-the line explains. An issue with a label and no line is malformed — the next agent sees a
-constraint with no reason and cannot tell whether it still applies.
+Then, per issue: apply the `risk:` labels and the `gate:` labels, append the `## Risk`
+section, and append the tier line to the body. The labels route; the lines explain. An issue
+with a label and no line is malformed — the next agent sees a constraint with no reason and
+cannot tell whether it still applies.
 
-```
+```markdown
+## Risk
+- risk:boundary — the scope predicate decides which tenant's rows come back.
+- risk:uncovered — no test exercises a cross-tenant read.
+  Coverage gap: #NNN — cross-tenant read scoping is unverified at any level.
+
 ## Impl tier
 frontier (inherent) — touches the [boundary]; a wrong scope returns plausible-looking
 rows and no test covers cross-tenant reads.
@@ -376,11 +397,12 @@ it was the scripting, not the policy.
 
 ```bash
 # batch.tsv — one line per issue, reviewed before anything executes
-# <issue>\t<impl-label>\t<gate-labels|->\t<tier line>
-while IFS=$'\t' read -r n impl gates line; do
+# <issue>\t<risk-labels|->\t<gate-labels|->\t<risk block>\t<impl-label>\t<tier line>
+while IFS=$'\t' read -r n risks gates risk_block impl line; do
   gh issue view "$n" --json body -q .body > /tmp/body-$n.md
-  printf '\n## Impl tier\n%s\n' "$line" >> /tmp/body-$n.md
+  printf '\n## Risk\n%s\n\n## Impl tier\n%s\n' "$risk_block" "$line" >> /tmp/body-$n.md
   gh issue edit "$n" --add-label "$impl" --body-file /tmp/body-$n.md
+  [ "$risks" != "-" ] && gh issue edit "$n" --add-label "$risks"
   [ "$gates" != "-" ] && gh issue edit "$n" --add-label "$gates"
 done < batch.tsv
 ```
@@ -389,7 +411,7 @@ Read the current body first and append, never overwrite. If the repo has an issu
 the block goes where the schema says. Spot-check three issues after the batch before declaring
 it done.
 
-**Rewrite before you label** any issue the human chose to answer in Step 2.2 — fix the body,
+**Rewrite before you label** any issue the human chose to answer in Step 2.5 — fix the body,
 *then* apply the lower tier. The downgrade and the spec fix land in the same edit. That
 ordering is the anti-gaming rule, and this is the run where you establish it.
 
@@ -493,6 +515,8 @@ how many were fixed-and-downgraded in this pass, and the lint candidates from St
 
 Report to the human:
 
+- **Risk-label census** — how many issues carry each of the five labels, and every call
+  disputed during the pass with its resolution.
 - Tier distribution across the triaged set.
 - **Frontier ratio against this repo's target.** Escalations as a share of tiered issues.
   The target is per-repo and lives in the client's governance record

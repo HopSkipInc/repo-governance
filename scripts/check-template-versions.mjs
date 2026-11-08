@@ -60,7 +60,7 @@ import { join, relative } from 'path';
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const TEMPLATES = join(ROOT, 'templates');
-const EXTS = ['.md', '.mjs', '.yml'];
+const EXTS = ['.md', '.mjs', '.yml', '.js'];
 
 const baseIdx = process.argv.indexOf('--base');
 const BASE = baseIdx !== -1 ? process.argv[baseIdx + 1] : null;
