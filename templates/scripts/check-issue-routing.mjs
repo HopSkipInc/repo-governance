@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.6.0 · updated 2026-11-07
+// template: scripts/check-issue-routing.mjs v1.6.1 · updated 2026-11-08
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -102,6 +102,14 @@
  * reported as SKIPPED, never as passing. A check that fails open is worse than
  * no check, because it reads as evidence.
  *
+ * EVERY ISSUE, NOT A FIXED WINDOW (1.6.1). The sweep previously fetched
+ * `--limit 500`, so on a repo with more open issues the oldest ones were never
+ * read and nothing said so — the same fails-open shape as R6. It now enumerates
+ * the whole result set with `gh api --paginate --slurp`; the closed pass bounds
+ * the walk with a `since` filter and still windows on `closedAt` client-side.
+ * If the fetch fails, the run reports SKIPPED and exits 2 — never a silent
+ * partial pass.
+ *
  * CLOSED PASS (1.4.0+) — `--closed [--days N] [--closed-gate]`
  *
  * The open sweep governs work not yet done. The closed pass answers a
@@ -161,9 +169,6 @@ const STRUCTURE_LABELS = ['needs-structure', 'needs-spec'];
 
 /** Issue states to sweep. `--closed` overrides this — see the header. */
 const STATE = 'open';
-
-/** Max issues to fetch. */
-const LIMIT = 500;
 
 /** Default recency window for the closed pass. */
 const DEFAULT_CLOSED_DAYS = 30;
@@ -298,6 +303,13 @@ function isEpicShape(names, block) {
 
 function gh(args) {
   return execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+}
+
+/** A check that cannot run has not run. Exit 2 so CI can tell it from a pass. */
+function skipped(message) {
+  console.log(`SKIPPED: ${message}`);
+  console.error('Reporting an error, not a pass: a check that cannot run has not run.');
+  process.exit(2);
 }
 
 function repoSlug() {
@@ -462,15 +474,32 @@ if (daysIdx !== -1) {
 const REPO = repoSlug();
 
 const state = CLOSED ? 'closed' : STATE;
-const fields = CLOSED ? 'number,title,body,labels,closedAt' : 'number,title,body,labels';
-const fetched = JSON.parse(
-  gh(['issue', 'list', '--repo', REPO, '--state', state, '--limit', String(LIMIT),
-      '--json', fields])
-);
-
-/** The window filters client-side: one fetch path, no `--search` date dialect. */
 const cutoff = Date.now() - DAYS * 24 * 60 * 60 * 1000;
-const issues = CLOSED ? fetched.filter((i) => Date.parse(i.closedAt) >= cutoff) : fetched;
+
+/**
+ * Every issue, not a fixed window. `--paginate` follows the Link header and
+ * `--slurp` wraps the pages, so a backlog past any single-page ceiling is fully
+ * enumerated — the old `--limit 500` silently truncated the oldest issues.
+ * The closed pass bounds the walk with `since` (updated_at); the window still
+ * filters on `closedAt` client-side, and every issue closed inside the window
+ * was necessarily updated inside it too. Pull requests share the issues
+ * endpoint; drop them.
+ */
+let issues;
+try {
+  const query = new URLSearchParams({ state, per_page: '100' });
+  if (CLOSED) query.set('since', new Date(cutoff).toISOString());
+  const pages = JSON.parse(
+    gh(['api', `repos/${REPO}/issues?${query}`, '--paginate', '--slurp'])
+  );
+  issues = pages
+    .flat()
+    .filter((i) => !i.pull_request)
+    .map((i) => ({ number: i.number, title: i.title, body: i.body, labels: i.labels ?? [], closedAt: i.closed_at }));
+  if (CLOSED) issues = issues.filter((i) => Date.parse(i.closedAt) >= cutoff);
+} catch (err) {
+  skipped(`could not list ${state} issues (${String(err.message).split('\n')[0]})`);
+}
 
 const tiered = [];
 

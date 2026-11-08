@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-routing-equivalence.mjs v1.1.0 · updated 2026-11-07
+// template: scripts/check-routing-equivalence.mjs v1.2.0 · updated 2026-11-08
 /**
  * check-routing-equivalence  [governance template — copy to <project>/scripts/]
  *
@@ -8,6 +8,22 @@
  * script applies the rule to every open issue (paginated, not a fixed window)
  * and lists every difference. It
  * exits non-zero while any difference is unresolved.
+ *
+ * EPICS ARE EXEMPT, NOT UNTIERED. Policy §Mechanism 3 gives an epic a child
+ * tier table instead of a single tier, so it carries no impl: label by design.
+ * The epic shape is detected exactly as `check-issue-routing.mjs`'s
+ * `isEpicShape()` does — the `epic` label, or a child/tier row in the `## Impl
+ * tier` block. Exempt epics are listed under their own heading and do not
+ * count as unresolved; before 1.2.0 every epic counted as an untiered issue,
+ * so the check could not reach zero on any repo with an epic.
+ *
+ * HUMAN IS A GATE, NOT A CLASS. PDR-011 decision 2 moves human completion to
+ * the `gate:` family, so the rule never outputs `human`. An `impl:human` issue
+ * is therefore equivalent when it carries any `gate:` label (the family is
+ * `gate:decision`, `gate:human-review`, `gate:human-approval`, `gate:credentials`)
+ * and the class comparison does not apply to it. An `impl:human` issue with no
+ * `gate:` label is reported under its own heading as needing one, never as a
+ * class difference.
  *
  * THE RULE
  *
@@ -26,8 +42,9 @@
  *
  * EXIT CODES
  *
- *   0  every open issue's derived class matches its `impl:` tier
- *   1  one or more differences, untiered issues, or unresolved inputs
+ *   0  every open issue's derived class matches its `impl:` tier (epics exempt)
+ *   1  one or more differences, untiered issues, `impl:human` issues with no
+ *      gate: label, or unresolved inputs
  *   2  SKIPPED — the check could not run (no rule table, malformed rule,
  *      unknown class, no gh auth, unreadable issue)
  *
@@ -45,13 +62,41 @@ import { join } from 'path';
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const RECORDS = process.env.ROUTING_RECORDS || join(ROOT, 'docs/agent-routing-records.md');
-const LIMIT = 500;
 
 /** The policy's capability classes, ranked. `human` is a completion gate, not a class. */
 const CLASS_RANK = { standard: 1, frontier: 2 };
 
 const RULE_HEADING = /^##[ \t]*\d*\.?[ \t]*Risk.*class rule[ \t]*$/i;
 const NONE_ROW = '(none)';
+
+/**
+ * The epic shape, copied verbatim from `check-issue-routing.mjs` (v1.6.1),
+ * where R1 has exempted it since 1.3.0. An epic carries a tier table over its
+ * children rather than a single tier (policy §Mechanism 3), so it has no
+ * `impl:` label by design. Detected two ways, either sufficient: the repo's
+ * `epic` label, or a row in the `## Impl tier` block pairing a child issue with
+ * a tier.
+ */
+const EPIC_TIER_ROW = /^\s*\|[^\n]*#\d+[^\n]*\|\s*(standard|frontier|human)\s*\|/im;
+
+function isEpicShape(names, block) {
+  return names.some((n) => n.toLowerCase() === 'epic') || (block ? EPIC_TIER_ROW.test(block) : false);
+}
+
+/**
+ * The `## Impl tier` block, copied verbatim from `check-issue-routing.mjs`.
+ * Line-scanned rather than regex-matched because JavaScript has no `\Z` anchor:
+ * `(?=^##\s|\Z)` degrades to "followed by a literal Z" and the block never ends.
+ */
+function tierBlock(body) {
+  if (!body) return null;
+  const lines = body.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^##[ \t]*Impl tier[ \t]*$/i.test(l));
+  if (start === -1) return null;
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((l) => /^##[ \t]/.test(l));
+  return (end === -1 ? rest : rest.slice(0, end)).join('\n').trim();
+}
 
 function skipped(message) {
   console.log(`SKIPPED: ${message}`);
@@ -131,13 +176,15 @@ try {
   issues = pages
     .flat()
     .filter((i) => !i.pull_request)
-    .map((i) => ({ number: i.number, title: i.title, labels: i.labels ?? [] }));
+    .map((i) => ({ number: i.number, title: i.title, labels: i.labels ?? [], body: i.body ?? '' }));
 } catch (err) {
   skipped(`could not list issues (${String(err.message).split('\n')[0]})`);
 }
 
 const differences = [];
 const untiered = [];
+const epics = [];
+const needsGate = [];
 const unresolved = [];
 let labelled = 0;
 
@@ -155,7 +202,13 @@ for (const issue of issues) {
   const impls = names.filter((n) => n.startsWith('impl:'));
   const gates = names.filter((n) => n.startsWith('gate:'));
   if (impls.length === 0) {
-    untiered.push({ number: issue.number, derived, risks });
+    // Policy §Mechanism 3: an epic has no single tier, so it is exempt rather
+    // than untiered. Same detection as check-issue-routing.mjs's isEpicShape().
+    if (isEpicShape(names, tierBlock(issue.body))) {
+      epics.push({ number: issue.number, derived, risks });
+    } else {
+      untiered.push({ number: issue.number, derived, risks });
+    }
     continue;
   }
   if (impls.length > 1) {
@@ -164,7 +217,18 @@ for (const issue of issues) {
   }
 
   const tier = impls[0];
-  const current = tier === 'impl:standard' ? 'standard' : tier === 'impl:frontier' ? 'frontier' : tier === 'impl:human' ? 'human' : null;
+  // PDR-011 decision 2: human completion lives in the gate: family, so an
+  // impl:human issue is equivalent when it carries a gate: label. The rule
+  // outputs classes only and the class comparison does not apply to it.
+  if (tier === 'impl:human') {
+    if (gates.length) {
+      continue; // equivalent — the gate: label is the completion record
+    }
+    needsGate.push({ number: issue.number, risks });
+    continue;
+  }
+
+  const current = tier === 'impl:standard' ? 'standard' : tier === 'impl:frontier' ? 'frontier' : null;
   if (!current) {
     unresolved.push({ number: issue.number, why: `unknown impl: label ${tier}` });
     continue;
@@ -174,16 +238,23 @@ for (const issue of issues) {
   }
 }
 
-console.log(`check-routing-equivalence: ${REPO} — swept ${issues.length} open issues, ${labelled} with risk labels.`);
+console.log(`check-routing-equivalence: ${REPO} — swept ${issues.length} open issues, ${labelled} with risk labels; ${epics.length} epic(s) exempt.`);
 console.log(`Rule: ${RECORDS.replace(ROOT + '/', '')} §8 — ${rule.size} row(s), highest signal wins.`);
-
-if (!differences.length && !untiered.length && !unresolved.length) {
-  console.log(`OK: every open issue's derived class matches its impl: tier (${issues.length} open, ${labelled} labelled).`);
-  process.exit(0);
-}
 
 const riskList = (risks) => (risks.length ? risks.join(', ') : '(zero risk labels)');
 const gateList = (gates) => (gates.length ? ` + ${gates.join(', ')}` : '');
+
+if (epics.length) {
+  console.log(`\nEXEMPT EPICS (${epics.length}) — epic-shaped, no single tier by policy §Mechanism 3:`);
+  for (const e of epics.sort((a, b) => a.number - b.number)) {
+    console.log(`  #${e.number}  (epic) -> ${e.derived}  [${riskList(e.risks)}]`);
+  }
+}
+
+if (!differences.length && !untiered.length && !needsGate.length && !unresolved.length) {
+  console.log(`OK: every open issue's derived class matches its impl: tier (${issues.length} open, ${labelled} labelled, ${epics.length} epic(s) exempt).`);
+  process.exit(0);
+}
 
 if (differences.length) {
   console.log(`\nDIFFERENCES (${differences.length}):`);
@@ -197,6 +268,12 @@ if (untiered.length) {
     console.log(`  #${u.number}  (none) -> ${u.derived}  [${riskList(u.risks)}]`);
   }
 }
+if (needsGate.length) {
+  console.log(`\nIMPL:HUMAN WITHOUT A GATE LABEL (${needsGate.length}) — human completion is a gate: label, so the class comparison does not apply:`);
+  for (const u of needsGate.sort((a, b) => a.number - b.number)) {
+    console.log(`  #${u.number}  add a gate: label (${riskList(u.risks)})`);
+  }
+}
 if (unresolved.length) {
   console.log(`\nUNRESOLVED (${unresolved.length}) — the rule could not be applied:`);
   for (const u of unresolved.sort((a, b) => a.number - b.number)) {
@@ -205,7 +282,7 @@ if (unresolved.length) {
 }
 
 console.log(
-  `\n${differences.length + untiered.length + unresolved.length} item(s) unresolved. ` +
+  `\n${differences.length + untiered.length + needsGate.length + unresolved.length} item(s) unresolved. ` +
   'Resolve each on the record — re-tier the issue, or change the rule — before `impl:` is retired.'
 );
 process.exit(1);
