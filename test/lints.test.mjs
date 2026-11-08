@@ -330,6 +330,12 @@ test('analyze-repo-coverage: a template missing from the matrix fails', () => {
  * `gh` is stubbed on PATH. It answers the paginated issue-list endpoint with
  * the case's pages and every other `api` call with `[]`, which short-circuits
  * R6 without needing GraphQL.
+ *
+ * The list stub *requires* `--paginate --slurp` and exits non-zero without
+ * them. That is deliberate: returning every page regardless of flags would let
+ * a regression that drops pagination pass this fixture, which is the exact
+ * silent-partial-sweep defect the fixture exists to catch. Any other `api`
+ * call (timeline, GraphQL) still gets `[]`.
  */
 function ghPagesStub(dir, pages) {
   const bin = join(dir, 'bin');
@@ -337,7 +343,7 @@ function ghPagesStub(dir, pages) {
   const payload = JSON.stringify(pages).replace(/'/g, `'\\''`);
   writeFileSync(
     join(bin, 'gh'),
-    `#!/bin/sh\ncase "$1" in\n  api)\n    case "$2" in\n      *"/issues?state="*) printf '%s' '${payload}' ;;\n      *) printf '[]' ;;\n    esac ;;\n  *) printf '[]' ;;\nesac\n`
+    `#!/bin/sh\ncase "$1" in\n  api)\n    case "$2" in\n      *"/issues?state="*)\n        case " $* " in\n          *" --paginate "*) ;;\n          *) echo "stub: issue-list fetch is missing --paginate" >&2; exit 1 ;;\n        esac\n        case " $* " in\n          *" --slurp "*) printf '%s' '${payload}' ;;\n          *) echo "stub: issue-list fetch is missing --slurp" >&2; exit 1 ;;\n        esac ;;\n      *) printf '[]' ;;\n    esac ;;\n  *) printf '[]' ;;\nesac\n`
   );
   chmodSync(join(bin, 'gh'), 0o755);
   return { PATH: `${bin}:${process.env.PATH}`, ROUTING_REPO: 'fixture/repo' };
