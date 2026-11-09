@@ -11,8 +11,8 @@ description: >
   lines, and writes the repo's calibration set to docs/agent-routing-records.md. Every
   escalation is decomposed before it is tiered — a split proposal or a non-splittability
   statement is required, not suggested.
-version: 1.8.0
-updated: 2026-11-07
+version: 1.9.0
+updated: 2026-11-09
 triggers:
   - /routing-triage
   - /routing-triage refresh
@@ -112,6 +112,20 @@ gh issue list --state open --label "status:ready" --limit 200 \
 # Does the repo already have routing?
 gh issue list --state open --label "impl:standard" --limit 1 --json number
 ls docs/agent-routing.md 2>/dev/null
+```
+
+**Rolling reports are not candidates — never triage one.** An issue carrying the
+`rolling-report` label is a workflow's output surface, rewritten on every run. A tier line
+or label applied here is removed by the next run, and the two halves disagree until it is:
+a backfill wrote `## Impl tier` into ai-fleet #2567, the workflow removed it about 40
+minutes later, and the labels survived — so the issue flapped between "label with no tier
+line" and "tier line with no label". Filter the label out of the candidate set, and never
+write a risk block, an `impl:` label, or a tier line into one.
+
+```bash
+# Exclude rolling reports from whatever candidate set you built
+gh issue list --state open --label "status:ready" --limit 200 --json number,title,labels,body \
+  | jq '[.[] | select(([.labels[].name] | index("rolling-report")) | not)]'
 ```
 
 ### Sample composition check — do this before classifying anything
@@ -351,6 +365,11 @@ section, and append the tier line to the body. The labels route; the lines expla
 with a label and no line is malformed — the next agent sees a constraint with no reason and
 cannot tell whether it still applies.
 
+**Never write a tier line into a `rolling-report` issue.** It is not work — the workflow
+that owns it rewrites the body on its next run, removing the line while leaving the labels
+behind, which is a worse state than either half alone. If a rolling report appears in the
+batch, drop it before executing.
+
 ```markdown
 ## Risk
 - risk:boundary — the scope predicate decides which tenant's rows come back.
@@ -558,6 +577,8 @@ Report to the human:
 
 Triage only what is new or changed:
 
+- Nothing carrying `rolling-report`: those are a workflow's output surface, not work, and
+  anything written into them is removed on the next run.
 - Open issues with no `impl:` label.
 - Issues whose body changed materially since their tier was set — the spec may have improved.
 - Every `spec` escalation older than one audit cycle: it has been sitting there being

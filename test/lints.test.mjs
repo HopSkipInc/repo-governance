@@ -556,6 +556,49 @@ test('issue-routing: R1 still fires on a bare tier block that is not an epic (gu
   assert.match(out, /child tier table/);
 });
 
+test('issue-routing: R13 warns on a tiered epic and clears on an untiered one (issue #155)', () => {
+  // Policy §Mechanism 3: an epic carries a child tier table, not one tier. A
+  // single impl: label on it is the anomaly the equivalence check now exempts.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 40,
+      title: 'Epic: tiered',
+      labels: [{ name: 'epic' }, { name: 'impl:frontier' }],
+      body: 'Body of work.\n\n## Impl tier\nfrontier (inherent) — a single tier is the anomaly; the child table is the real routing.\n',
+    },
+    {
+      number: 42,
+      title: 'Epic: untiered',
+      labels: [{ name: 'epic' }],
+      body: 'Body of work.\n\n## Impl tier\n\n| Child | Tier | Kind | Why |\n|---|---|---|---|\n| #43 | standard | — | loud failure |\n',
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out); // WARN, never a build failure
+  assert.match(out, /#40 \[R13\] epic carries a single impl:frontier label/, out);
+  assert.doesNotMatch(out, /#42 \[R13\]/, out);
+});
+
+test('issue-routing: a rolling report is skipped before any rule reads it (issue #155)', () => {
+  // This shape would fire R2 (impl: label with no ## Impl tier) and R10 (risk
+  // label with no reason) if the label did not exempt it. The body is rewritten
+  // every run, so a finding here could never be made to stay fixed.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 44,
+      title: 'mcp auth probe — rolling output',
+      labels: [{ name: 'rolling-report' }, { name: 'impl:frontier' }, { name: 'risk:silent-failure' }],
+      body: 'Rewritten each run.\n',
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /1 rolling report\(s\) skipped/, out);
+  assert.doesNotMatch(out, /\[R(2|10|13)\]/, out);
+});
+
 test('issue-routing: kind is not read from prose — "both decision points" declares nothing (U3)', () => {
   // Pre-1.3.0 the whole-block `\b(spec|inherent|both)\b` read "both" here and
   // reported kind=both, silencing R3 on an escalation that declared no kind.
@@ -1258,6 +1301,37 @@ test('routing-equivalence: an untiered epic is exempt by its child tier table', 
   assert.equal(code, 0, out);
   assert.match(out, /EXEMPT EPICS \(1\)/);
   assert.match(out, /#11\s+\(epic\)/);
+  assert.doesNotMatch(out, /UNTIERED/, out);
+});
+
+test('routing-equivalence: a TIERED epic is exempt, not a difference (issue #155)', () => {
+  // 1.2.0 only routed an epic into EXEMPT when it had no impl: label, so every
+  // tiered epic on ai-fleet reported `frontier -> standard (zero risk labels)`.
+  // Policy §Mechanism 3 says an epic has a child table, not a single tier; the
+  // label is the anomaly (check-issue-routing R13), never a class difference.
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 12, title: 'Epic', labels: [{ name: 'epic' }, { name: 'impl:frontier' }], body: 'Body of work.\n' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /EXEMPT EPICS \(1\)/);
+  assert.match(out, /#12\s+\(epic, impl:frontier\)/);
+  assert.doesNotMatch(out, /DIFFERENCES/, out);
+});
+
+test('routing-equivalence: a rolling report is exempt by its label, not counted as a difference (issue #155)', () => {
+  // A rolling report is a workflow's output surface, rewritten every run. This
+  // shape would be a standard -> frontier difference if it were treated as work.
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 13, title: 'probe — rolling output', labels: [{ name: 'rolling-report' }, { name: 'impl:standard' }, { name: 'risk:silent-failure' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /EXEMPT ROLLING REPORTS \(1\)/);
+  assert.match(out, /#13\s+\(rolling report\)/);
+  assert.doesNotMatch(out, /DIFFERENCES/, out);
   assert.doesNotMatch(out, /UNTIERED/, out);
 });
 
