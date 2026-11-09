@@ -11,14 +11,14 @@ routing disagreement: 15 epics carrying an `impl:` label, and 12 bot-owned rolli
 
 | Artifact | Version | Change |
 |---|---|---|
-| `scripts/check-routing-equivalence.mjs` | **1.3.0** | exempts every epic-shaped issue (tiered or not) and every `rolling-report` issue; both get their own EXEMPT heading and never count as unresolved |
+| `scripts/check-routing-equivalence.mjs` | **1.3.1** | exempts every epic-shaped issue (tiered or not) and every `rolling-report` issue; both get their own EXEMPT heading and never count as unresolved |
 | `scripts/check-issue-routing.mjs` | **1.7.0** | new **R13** warns when an epic carries a single `impl:` label; `rolling-report` issues are skipped before any rule reads them |
 | `skills/routing-triage/SKILL.md` | **1.9.0** | excludes `rolling-report` from the candidate set and never writes a tier line into one |
 | `agents/routing-classifier.md` | **1.5.0** | skips `rolling-report` issues |
 | `agents/routing-classifier.opencode.md` | **1.6.0** | skips `rolling-report` issues |
 
 Both scripts are cumulative over the versions the pending 2026-11-08 prompt names: install
-**1.7.0 / 1.3.0**, not 1.6.1 / 1.2.0. One install takes both changes.
+**1.7.0 / 1.3.1**, not 1.6.1 / 1.2.0. One install takes both changes.
 
 ## The marker
 
@@ -94,7 +94,7 @@ node scripts/check-routing-equivalence.mjs
 The properties to observe, in order of importance:
 
 - the 15 `epic`-labelled issues never appear under **DIFFERENCES** — under 1.2.0 a tiered
-  epic was compared; under 1.3.0 every epic is under **EXEMPT EPICS**;
+  epic was compared; under 1.3.1 every epic is under **EXEMPT EPICS**;
 - the 12 `rolling-report` issues appear under **EXEMPT ROLLING REPORTS** and nowhere else;
 - the routing lint prints `N rolling report(s) skipped` (12 on ai-fleet after step 3), and
   no `[R13]` finding remains once no epic carries an `impl:` label;
@@ -103,7 +103,7 @@ The properties to observe, in order of importance:
   survivors are real — triage them; do not narrow the check.
 
 **State of ai-fleet on 2026-11-09, for the re-run's baseline:** all 15 epics named in the
-issue carry the `epic` label and none carries an `impl:` label, so the 1.3.0 epic exemption
+issue carry the `epic` label and none carries an `impl:` label, so the 1.3.1 epic exemption
 guarantees that a labelled epic never returns as a difference; today it moves #2090 and
 #4588 from "compared" to the EXEMPT list (both already equivalent). Of the 12 rolling
 reports, eleven currently compare equivalent under the rule and **#3243 is the sole

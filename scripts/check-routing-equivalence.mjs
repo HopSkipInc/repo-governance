@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-routing-equivalence.mjs v1.3.0 · updated 2026-11-09
+// template: scripts/check-routing-equivalence.mjs v1.3.1 · updated 2026-11-09
 /**
  * check-routing-equivalence  [governance template — copy to <project>/scripts/]
  *
