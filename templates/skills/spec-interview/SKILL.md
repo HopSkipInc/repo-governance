@@ -5,7 +5,7 @@ description: >
   Look up facts, work the decision tree in numbered rounds, and obtain human confirmation
   before writing the canonical issue body. Withhold recommendations on boundary decisions.
   Supports readable-repo and no-repo modes, without mandatory tools or subagents.
-version: 1.0.0
+version: 1.0.1
 updated: 2026-11-09
 triggers:
   - /spec-interview
@@ -51,6 +51,23 @@ the repo is readable. Verify that a proposed install target has a live consumer;
 existence is not enough. Cite each fact by `file:line`, named record or issue. Separate
 observed behaviour from recorded intent, and surface contradictions without resolving them.
 Never ask a human a factual question the accessible code or records can answer.
+
+**Separate recorded decisions from open choices before making cards.** A decision already
+settled by the repo's own record is a fact to look up, not a blank-slate decision to ask
+again. Cite the record, state its existing answer, and ask the owner to **confirm its
+application or explicitly request an override**. Do not present a settled rule as one of
+several equally undecided options. Confirmation carries the recorded answer forward;
+an override is a new proposed decision, not permission to silently rewrite the record.
+Respect the target's record-change and approval procedure before treating an override
+as effective. If records conflict or applicability is unclear, show the evidence and
+ask about that uncertainty instead of inventing a resolution.
+
+On a boundary, reporting the recorded answer is **not an agent recommendation**. The card
+still says `Recommendation: None — boundary; existing rule cited above`, and asks for an
+explicit confirmation or override, not a “yes accepts my pick” shortcut. Keep the original
+record's provenance separate from who confirmed its application and when. This applies
+to refusal/admission proofs too: look up an already-specified converse before asking
+the author to decide it from scratch.
 
 For boundary detection, read the target's `docs/testing-strategy.md` §6 (or equivalent),
 the calibration set in `docs/agent-routing-records.md`, and surfaces named by accessible
