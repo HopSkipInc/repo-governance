@@ -215,21 +215,25 @@ for (const issue of issues) {
   const risks = names.filter((n) => n.startsWith('risk:'));
   if (risks.length) labelled += 1;
 
+  const impls = names.filter((n) => n.startsWith('impl:'));
+  const gates = names.filter((n) => n.startsWith('gate:'));
+  // Policy §Mechanism 3: an epic has no single tier, so it is exempt rather
+  // than untiered or a difference — including when it carries an `impl:` label,
+  // which is the anomaly check-issue-routing.mjs's R13 reports. This runs before
+  // derive(): an epic is exempt from the rule entirely, so an unmapped risk
+  // label on one is not an unresolved item either.
+  if (isEpicShape(names, tierBlock(issue.body))) {
+    const derived = derive(risks, rule);
+    epics.push({ number: issue.number, derived: typeof derived === 'object' ? '(rule not applicable)' : derived, risks, impls });
+    continue;
+  }
+
   const derived = derive(risks, rule);
   if (typeof derived === 'object' && derived.error) {
     unresolved.push({ number: issue.number, why: derived.error });
     continue;
   }
 
-  const impls = names.filter((n) => n.startsWith('impl:'));
-  const gates = names.filter((n) => n.startsWith('gate:'));
-  // Policy §Mechanism 3: an epic has no single tier, so it is exempt rather
-  // than untiered or a difference — including when it carries an `impl:` label,
-  // which is the anomaly check-issue-routing.mjs's R13 reports.
-  if (isEpicShape(names, tierBlock(issue.body))) {
-    epics.push({ number: issue.number, derived, risks, impls });
-    continue;
-  }
   if (impls.length === 0) {
     untiered.push({ number: issue.number, derived, risks });
     continue;

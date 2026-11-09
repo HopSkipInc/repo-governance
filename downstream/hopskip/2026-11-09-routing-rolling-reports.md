@@ -102,16 +102,20 @@ The properties to observe, in order of importance:
   defects. Record the before/after count in the PR. If it is not at or below 4, the
   survivors are real — triage them; do not narrow the check.
 
-**State of ai-fleet on 2026-11-09, for the re-run's baseline:** all 15 epics carry the `epic`
-label and none carries an `impl:` label, so the 1.3.0 epic exemption is a guarantee for the
-next run that labels one rather than a change in today's count. The 12 rolling reports carry
-`impl:` / `needs-structure` and are the items the marker is there to remove.
+**State of ai-fleet on 2026-11-09, for the re-run's baseline:** all 15 epics named in the
+issue carry the `epic` label and none carries an `impl:` label, so the 1.3.0 epic exemption
+guarantees that a labelled epic never returns as a difference; today it moves #2090 and
+#4588 from "compared" to the EXEMPT list (both already equivalent). Of the 12 rolling
+reports, eleven currently compare equivalent under the rule and **#3243 is the sole
+unresolved item** — applying the marker to it is what clears the run.
 
 ## Not done here, owed
 
 - **The 12 ai-fleet rolling reports** need the label added there (step 3). repo-governance
   must not write labels into another repo.
 - **The 12 ai-fleet workflows** need `rolling-report` on their `gh issue create` calls
-  (step 4). Until both land, the equivalence check will still list those 12.
+  (step 4). That change is what keeps future runs marked; it is not what exempts an
+  already-labelled issue. On 2026-11-09 only #3243 is listed, and applying the label to it
+  is what takes the check to exit 0.
 - **The backfill** (risk labels on the remaining frontier issues, tiers on the untriaged
   backlog) remains ai-fleet#4681, unchanged by this prompt.

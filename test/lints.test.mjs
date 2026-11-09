@@ -1320,6 +1320,21 @@ test('routing-equivalence: a TIERED epic is exempt, not a difference (issue #155
   assert.doesNotMatch(out, /DIFFERENCES/, out);
 });
 
+test('routing-equivalence: an epic with an unmapped risk label is exempt, not unresolved (issue #155)', () => {
+  // "Exempt every epic-shaped issue" has to mean before the rule is applied:
+  // an epic carrying a risk label the rule does not map is still an epic, and
+  // the check has nothing to compare on it. Only ordinary issues are unresolved.
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 14, title: 'Epic', labels: [{ name: 'epic' }, { name: 'impl:frontier' }, { name: 'risk:irreversible' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /EXEMPT EPICS \(1\)/);
+  assert.match(out, /#14\s+\(epic, impl:frontier\) -> \(rule not applicable\)/);
+  assert.doesNotMatch(out, /UNRESOLVED/, out);
+});
+
 test('routing-equivalence: a rolling report is exempt by its label, not counted as a difference (issue #155)', () => {
   // A rolling report is a workflow's output surface, rewritten every run. This
   // shape would be a standard -> frontier difference if it were treated as work.
