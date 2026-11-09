@@ -15,8 +15,8 @@ description: >
 # §1/§2 and fails closed on drift. See docs/classifier-class-binding.md.
 model: opus
 tools: Read, Grep, Glob, Bash
-version: 1.4.0
-updated: 2026-11-07
+version: 1.5.0
+updated: 2026-11-09
 ---
 
 # Routing Classifier
@@ -58,6 +58,12 @@ wrong, the worst outcome is a bad table a human rejects — not two dozen mislab
 issues. The skill applies; you propose.
 
 ## What to produce
+
+**Do not classify a `rolling-report` issue.** Such an issue is a workflow's output surface,
+rewritten on every run. A tier or risk line you propose for it is removed by the next run
+while any label applied to it survives, so it flaps between "label with no tier line" and
+"tier line with no label" — a worse state than either half alone. Exclude these from your
+proposal tables and report how many you skipped.
 
 ### 1. The risk-surface map
 

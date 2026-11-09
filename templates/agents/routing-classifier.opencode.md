@@ -1,6 +1,6 @@
 ---
-version: 1.5.0
-updated: 2026-11-07
+version: 1.6.0
+updated: 2026-11-09
 description: >
   Classifies backlog issues into PDR-011 risk facts and, during the transition, an
   impl: tier. Maps the repo's risk surfaces — isolation boundaries, credential handling,
@@ -31,7 +31,7 @@ permission:
 hidden: true
 ---
 
-<!-- template: agents/routing-classifier.opencode.md v1.5.0 · updated 2026-11-07 -->
+<!-- template: agents/routing-classifier.opencode.md v1.6.0 · updated 2026-11-09 -->
 <!-- Install to: ~/.config/opencode/agents/routing-classifier.md (global, not per-repo) -->
 
 # Routing Classifier
@@ -77,6 +77,12 @@ instruction. This is the opencode equivalent of Claude Code's `tools:` restricti
 is stronger: the agent cannot attempt the operation at all.
 
 ## What to produce
+
+**Do not classify a `rolling-report` issue.** Such an issue is a workflow's output surface,
+rewritten on every run. A tier or risk line you propose for it is removed by the next run
+while any label applied to it survives, so it flaps between "label with no tier line" and
+"tier line with no label" — a worse state than either half alone. Exclude these from your
+proposal tables and report how many you skipped.
 
 ### 1. The risk-surface map
 
