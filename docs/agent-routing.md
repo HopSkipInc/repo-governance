@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.21.0 · updated 2026-11-07 -->
+<!-- template: agent-routing.md v1.22.0 · updated 2026-11-09 -->
 # Agent Routing
 
-**Version:** 1.21.0 · **Last updated:** 2026-11-07
+**Version:** 1.22.0 · **Last updated:** 2026-11-09
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -16,6 +16,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.22.0 | 2026-11-09 | **Rewrite it has an interview procedure.** `spec-interview` looks up facts, batches independent decisions, withholds boundary recommendations and obtains human confirmation before writing; it never tiers its own output |
 | 1.0.0 | 2026-07-24 | Initial — three `impl:` tiers, `spec`/`inherent` kinds, `gate:` family |
 | 1.1.0 | 2026-07-24 | `gate:` from day one on boundary repos; "Responses to an escalation" (accept / rewrite / **split**) |
 | 1.2.0 | 2026-07-24 | `both` kind; ratio measured pre-response; curated-baseline caveat; provisional calibration sets |
@@ -133,8 +134,11 @@ still paying out a year later.
 
 1. **Accept it.** The tier stands, the work waits for a frontier model or a human. Correct
    for a genuinely indivisible `inherent` issue.
-2. **Rewrite it.** `spec` only. Write the missing sentence; the tier drops. Body edit and
-   label change in the same commit — see *Downgrades*.
+2. **Rewrite it.** `spec` only. Use `spec-interview` (installed in your harness's skills
+   directory; source: `templates/skills/spec-interview/SKILL.md`) to find the missing
+   sentences with the author. Independent triage decides the resulting tier; body edit
+   and label change land together — see *Downgrades*. On `both`, the same interview
+   retires the spec component, but the inherent tier stays.
 3. **Split it.** Lift the mechanical half into its own issue. Plumbing, config, scaffolding,
    the cost cap wrapped around the admission logic, the endpoint around the check. The new
    issue routes `standard`; the residue stays `frontier` and gets smaller.

@@ -47,6 +47,7 @@ A small, portable practice built around five observations:
 | `templates/scripts/lint-stub-tests.mjs` | Lint (REPORT, npm repos) | A `test`/`test:*` script that exits 0 without running anything — false-green CI |
 | `templates/skills/competitive-analysis/` | Skill | Self-discovering competitive analysis → a watch-item doc + PR |
 | `templates/skills/pdr-interview/` | Skill | Probes the repo, then interviews the person who holds the thesis → a PDR corpus + PR |
+| `templates/skills/spec-interview/` | Skill | Looks up facts, interviews the issue author in decision rounds → confirmed issue body plus attributed answers; harness-neutral, with no-repo mode and independent triage |
 | `templates/skills/adr-interview/` | Skill | Probes the codebase for load-bearing patterns, surfaces enforcement gaps → an ADR corpus with lints + PR |
 | `templates/skills/clean-code-interview/` | Skill | Probes for naming/organization conventions, triages intentional vs accidental → coding standard ADRs + convention notes + PR |
 | `templates/code-conventions.md` | Form | The layer-3 records file that **never syncs**: enforced (ADR + lint), documented (preference), and **not codified** — the last one is what stops each refresh re-proposing the patterns the last one dropped |

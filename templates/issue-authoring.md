@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.6.0 · updated 2026-11-07 -->
+<!-- template: issue-authoring.md v1.7.0 · updated 2026-11-09 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -142,6 +142,13 @@ An issue that is 80% mechanical and 20% dangerous is two issues. Splitting it is
 response available — it routes the cheap half cheaply and shrinks the risky half — but it is
 **far cheaper at creation than at triage.** Splitting later means a new issue, renumbering,
 cross-references, and edits to every epic table that referenced the original.
+
+**Specify at authoring too.** Use `spec-interview` (installed in your harness's skills
+directory; source: `templates/skills/spec-interview/SKILL.md`) to look up facts and work
+the author's decision tree before writing. Independent questions are batched; boundary
+decisions get no recommendation; unknowns stay under `## Open questions`. The author
+confirms the body and the separate attributed decisions list; the skill never tiers its
+own output. The same procedure powers Agent Routing's *Rewrite it* response.
 
 Two tells, both visible while writing:
 
