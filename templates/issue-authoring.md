@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.7.0 · updated 2026-11-09 -->
+<!-- template: issue-authoring.md v1.8.0 · updated 2026-11-09 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -20,11 +20,13 @@ Every issue body uses this structure:
 <PDR-NNN — or "none — <one-line reason>". Features and epics only; omit for bugs and chores.>
 
 ## Impl tier
-<standard | frontier (spec|inherent) | human (spec|inherent) — plus one sentence naming
+<triaged issues only; untriaged issues omit this section entirely.
+ standard | frontier (spec|inherent) | human (spec|inherent) — plus one sentence naming
  what a botched implementation would look like and whether the failure is loud or silent.>
 
 ## Risk
-<zero or more `risk:` labels, one line each with a one-sentence reason:
+<omit when no risk facts have been assigned; never a pending-triage placeholder.
+ zero or more `risk:` labels, one line each with a one-sentence reason:
  - risk:silent-failure — the wrong answer renders as a valid result.
  A `risk:uncovered` line carries a coverage record on its own line.>
 
@@ -58,8 +60,11 @@ Rules:
 - The body must contain a **Verifiable outcomes** (or **Acceptance Criteria**) section with **at least one** checkbox line (`- [ ]`).
 - The body must contain a **Verification** section.
 - The body must contain a **Work type** line, **or** carry a type label.
-- The body must contain an **Impl tier** line, and any tier above `standard` must declare
-  its kind — `spec` or `inherent`. See [Agent Routing](agent-routing.md). An escalation with
+- Once triaged (carrying an `impl:` label), the body must contain an **Impl tier** line.
+  An untriaged issue carries neither an `impl:` label nor an `## Impl tier` section;
+  do not write a pending-triage placeholder. It awaits independent triage and is not
+  eligible for automated pickup. Any tier above `standard` must declare
+  its kind — `spec`, `inherent`, or `both`. See [Agent Routing](agent-routing.md). An escalation with
   no kind is malformed: without it the tier is permanent, and the whole taxonomy stops
   being self-correcting.
 - **Every `risk:` label has a reason line under `## Risk`.** One line per label, with a
@@ -107,7 +112,7 @@ Labels are not decoration — they route, prioritize, and let a periodic audit r
 | **priority** | exactly one | `P0`, `P1`, `P2` |
 | **status** | exactly one | `status:ready`, `status:needs-decision`, `status:blocked`, `status:deferred` |
 | **type** | one (or a Work-type line) | `enhancement`, `feature`, `bug`, `epic`, `chore`, `documentation` |
-| **impl:** | exactly one | `impl:standard`, `impl:frontier`, `impl:human` |
+| **impl:** | exactly one once triaged; none before triage | `impl:standard`, `impl:frontier`, `impl:human` |
 | **risk:** | optional, zero or more | `risk:silent-failure`, `risk:boundary`, `risk:irreversible`, `risk:new-abstraction`, `risk:uncovered` |
 | **gate:** | optional, one or more | `gate:human-approval`, `gate:human-review`, `gate:credentials`, `gate:decision` |
 | **area:** | optional, one or more | `[your subsystem names]` |
@@ -173,8 +178,8 @@ GitHub cannot restrict who creates an issue through the UI or the API, so enforc
 
    | Rule | Failure |
    |---|---|
-   | Exactly one `impl:` label | missing or multiple |
-   | Body has an `## Impl tier` line | missing |
+    | Triaged issues carry exactly one `impl:` label; untriaged issues carry neither label nor tier section | multiple labels, or a tier section with no label (R1); neither is an untriaged issue, not a violation |
+    | Body has an `## Impl tier` line once triaged (carries an `impl:` label); untriaged bodies omit the section | missing on a labelled issue (R2); an unlabelled placeholder tier section fires R1 |
    | Tier above `standard` declares a kind (`spec`, `inherent`, `both`) | tier present, no kind |
    | `status:ready` + a `spec`-component kind | contradiction — ready to be *rewritten*, not worked |
    | Says ready (`status:ready`, or `## Status` beginning `ready`) + an open item under `## Open questions` | contradiction — ready to be *decided*, not worked (R9) |

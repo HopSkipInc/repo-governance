@@ -5,7 +5,7 @@ description: >
   Look up facts, work the decision tree in numbered rounds, and obtain human confirmation
   before writing the canonical issue body. Withhold recommendations on boundary decisions.
   Supports readable-repo and no-repo modes, without mandatory tools or subagents.
-version: 1.0.1
+version: 1.0.2
 updated: 2026-11-09
 triggers:
   - /spec-interview
@@ -161,13 +161,17 @@ for confirmation, but unresolved items stay under `## Open questions` and status
 chat is not permission to edit an existing issue, write files or apply labels.
 
 Use the target's canonical Issue Authoring schema: Work type; Serves where required; Impl
-tier (independently supplied, otherwise explicitly pending triage); Risk (independently
-supplied, otherwise pending triage); binary Verifiable outcomes; exact Verification;
+tier only once independently triaged (carrying an `impl:` label); Risk only for assigned
+risk facts, never a placeholder; binary Verifiable outcomes; exact Verification;
 Not in scope with one reason per cut branch; Open questions for every unresolved decision
 or fact; applicable Definition of Done including the PR closing reference; Dependencies
 with resolvable refs or `none`; and dated Status. Omit optional empty sections where allowed.
-An untiered output is an authoring handoff, **not an exception to the target's triage
-requirement** and not eligible for automated pickup. Disclose mode/access limits alongside
+**An untriaged output omits `## Impl tier` entirely and carries no `impl:` label. Omit
+placeholder `## Risk` sections too.** State pending independent triage in the handoff or
+dated Status, not in either placeholder section. The routing sweep skips tier checks only
+when both the label and tier section are absent (R1); do not invent a tier to make it pass.
+An untiered output is an authoring handoff, **not eligible for automated pickup**; triage
+must add the label and matching tier section together. Disclose mode/access limits alongside
 the output and deliver the decisions list separately from the issue body (for example in
 the handoff or an issue comment), so prose edits cannot replace the answer history.
 
