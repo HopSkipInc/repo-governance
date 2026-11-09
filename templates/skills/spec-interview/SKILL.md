@@ -5,7 +5,7 @@ description: >
   Look up facts, work the decision tree in numbered rounds, and obtain human confirmation
   before writing the canonical issue body. Withhold recommendations on boundary decisions.
   Supports readable-repo and no-repo modes, without mandatory tools or subagents.
-version: 1.0.2
+version: 1.0.3
 updated: 2026-11-09
 triggers:
   - /spec-interview
@@ -64,7 +64,10 @@ ask about that uncertainty instead of inventing a resolution.
 
 On a boundary, reporting the recorded answer is **not an agent recommendation**. The card
 still says `Recommendation: None — boundary; existing rule cited above`, and asks for an
-explicit confirmation or override, not a “yes accepts my pick” shortcut. Keep the original
+explicit confirmation or override, not a “yes accepts my pick” shortcut. Confirmation must
+name the chosen option or explain why the recorded rule applies; a bare “yes” is not an
+explicit boundary confirmation, even for a single card. Ask again rather than attributing
+a decision to it. Keep the original
 record's provenance separate from who confirmed its application and when. This applies
 to refusal/admission proofs too: look up an already-specified converse before asking
 the author to decide it from scratch.
@@ -75,6 +78,11 @@ open `inherent`/`both` issues. Note sources you could not inspect. A human can f
 question as a boundary decision; that overrides your read. **In no-repo mode the human's
 flag is the only boundary source. When unsure, withhold the recommendation.** Do not spawn
 a routing-classifier risk-surface probe as a prerequisite for interviewing.
+
+**Readable repo with zero boundary sources is still unsure.** No testing-strategy §6 (or
+equivalent), an empty calibration set, and no open `inherent`/`both` issues do not establish
+that a question is non-boundary. Withhold recommendations until the uncertainty is resolved;
+repo access alone is not a boundary assessment.
 
 Build a working tree/list with stable question IDs, prerequisites, evidence, decision owner
 and state: unanswered, answered, excluded branch, or unresolved. On a Rewrite-it run,
@@ -114,7 +122,8 @@ An unavailable fact is stated as unknown, citing the supplied request or the acc
 not dressed up as code context. Option costs are predictions, not observed facts; label
 them as such and cite any factual premise. No recommendation, leading wording, preferred
 ordering or “yes accepts” shortcut on an `inherent` surface, a human-flagged boundary,
-or an uncertain boundary. Require an explicit answer there. An unqualified “yes” to a
+or an uncertain boundary. Require an answer naming the option or why the recorded rule
+applies; a bare “yes” is not an answer there. An unqualified “yes” to a
 multi-card round is ambiguous: ask which recommendations it accepts, never fill the rest.
 
 Keep answers **apart from the issue prose**, as a decisions list:
@@ -130,8 +139,13 @@ and their reasons; a later prose rewrite must not silently change what was decid
 An agent recommendation is not an answer. Human confirmation of a draft is recorded
 separately from the individual answers.
 
-“I don't know — check the code” is valid. With access, inspect the code; without it,
-retain the fact under `## Open questions`, with what must be checked and by whom if known.
+“I don't know — check the code” is valid. Distinguish a factual question from a decision
+question. With access, inspect the code and report what it currently does as a cited fact.
+For a factual question, that evidence may resolve the unknown. For a decision question,
+**ask the decision again with that fact as context: current behaviour is never the answer**.
+Only the human's subsequent decision resolves it; do not convert code inspection into
+consent. Without access, retain both the fact to verify and any unanswered decision under
+`## Open questions`, with what must be checked and by whom if known.
 Do not interpret “don't know” as consent to the recommendation. An unanswered prerequisite
 blocks its dependent questions; do not traverse that branch on an invented assumption.
 

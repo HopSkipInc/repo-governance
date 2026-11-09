@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.8.0 · updated 2026-11-09 -->
+<!-- template: issue-authoring.md v1.9.0 · updated 2026-11-09 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -148,9 +148,11 @@ response available — it routes the cheap half cheaply and shrinks the risky ha
 **far cheaper at creation than at triage.** Splitting later means a new issue, renumbering,
 cross-references, and edits to every epic table that referenced the original.
 
-**Specify at authoring too.** Use `spec-interview` (installed in your harness's skills
-directory; source: `templates/skills/spec-interview/SKILL.md`) to look up facts and work
-the author's decision tree before writing. Independent questions are batched; boundary
+**Specify at authoring too.** `spec-interview` ships with agent-routing (full adoption
+class). Where installed in your harness's skills directory, use it to look up facts and
+work the author's decision tree before writing. Do not point an author at an uninstalled
+skill; without it, use this policy directly or request installation through governance sync.
+Independent questions are batched; boundary
 decisions get no recommendation; unknowns stay under `## Open questions`. The author
 confirms the body and the separate attributed decisions list; the skill never tiers its
 own output. The same procedure powers Agent Routing's *Rewrite it* response.
@@ -162,8 +164,9 @@ Two tells, both visible while writing:
 2. **The acceptance criteria change character partway down.** The first three items are
    plumbing, config, or scaffolding; the fourth is the entire risk. Cut between them.
 
-If either tell fires, file two issues. The mechanical one is `impl:standard` and can be worked
-immediately by anything; the residue carries the boundary and waits for what it needs. See
+If either tell fires, file two issues. The mechanical half **routes standard at triage**;
+independent triage supplies its label and tier line before automated pickup. The residue
+carries the boundary and waits for what it needs. See
 [Agent Routing](agent-routing.md) → *Responses to an escalation*.
 
 ## The layered enforcement model
