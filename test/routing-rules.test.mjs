@@ -101,7 +101,10 @@ test('classifier pins: five lowering fields plus the Disputed marker', () => {
     ['Claude Code', CLASSIFIER, '1.6.0'],
     ['opencode', CLASSIFIER_OPENCODE, '1.7.0'],
   ]) {
-    assert.match(src, new RegExp(`^version: ${version.replace(/\./g, '\\.')}$`, 'm'), `${label} pin version stamp`);
+    assert.ok(
+      src.split('\n').includes(`version: ${version}`),
+      `${label} pin version stamp must be exactly "version: ${version}"`,
+    );
     for (const field of ['decision_shape', 'human_step', 'spec_only_frontier', 'evidence_only', 'remaining_scope', 'Disputed']) {
       assert.ok(src.includes(field), `${label} classifier is missing the ${field} field`);
     }
