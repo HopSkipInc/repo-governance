@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.8.0 · updated 2026-11-10
+// template: scripts/check-issue-routing.mjs v1.9.1 · updated 2026-11-10
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -32,6 +32,16 @@
  *   R11 unknown-risk         a risk:* label outside the five-label vocabulary
  *   R12 uncovered-risk-no-record  risk:uncovered with no coverage record
  *   R13 epic-single-tier     an epic carries a single impl: label (warn)
+ *   R14 reference-unreachable  ready private design link, no same-line repo path
+ *   R15 render-unrunnable      design reference or visual outcome, no Render command
+ *
+ * 1.9.1: distinguish mirror filenames/directories from before/after prose;
+ * accept shell redirection while rejecting angle-bracket command placeholders.
+ * 1.9.0 (issue #160, C1): UI lanes named an inaccessible private canvas and
+ * screenshot outcomes; component swaps passed while composition diverged.
+ * R14/R15 are open-pass WARN backstops, before the untiered skip. They inspect
+ * declared paths/commands, not artifact existence or command execution; pickup
+ * stops when the implementing session cannot actually reach a resource.
  *
  * R4: an issue that is frontier only because it is under-specified is ready to
  * be *rewritten*, not worked. R5: your own validator says the issue is
@@ -192,6 +202,8 @@ const SEVERITY = {
   R11: 'warn',
   R12: 'warn',
   R13: 'warn',
+  R14: 'warn',
+  R15: 'warn',
 };
 
 /**
@@ -322,6 +334,10 @@ const COVERAGE_NOT_TESTABLE = /\bcoverage\b\s*[::-]\s*not testable\b\s*[—–\-
 const OPEN_QUESTIONS_HEADING = /^##[ \t]*Open questions?(?:[ \t]*\([^)]*\))?[ \t]*$/i;
 const STATUS_HEADING = /^##[ \t]*Status(?:[ \t]*\([^)]*\))?[ \t]*$/i;
 const READY_LABEL = 'status:ready';
+const DESIGN_HEADING = /^##[ \t]*Design reference(?:[ \t]*\([^)]*\))?[ \t]*$/i;
+const OUTCOMES_HEADING = /^##[ \t]*(?:Verifiable outcomes|Acceptance criteria)(?:[ \t]*\([^)]*\))?[ \t]*$/i;
+const DESIGN_LINK = /https?:\/\/(?:www\.)?(?:claude\.ai\/(?:code\/)?artifact(?:\/|\b)|figma\.com(?:\/|\b))[^\s<>`]*/i;
+const VISUAL_OUTCOME = /\bscreenshots?\b|\bvisual\s+comparisons?\b/i;
 
 /**
  * R9: a top-level list item — bullet or numbered — is one question. Indented
@@ -461,6 +477,30 @@ function readyAssertion(names, body) {
   return null;
 }
 
+/** R14/R15 ignore fenced examples; use sectionLines' existing fence convention. */
+function unfencedLines(body) {
+  let fenced = false;
+  return (body ?? '').split(/\r?\n/).filter((line) => {
+    if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; return false; }
+    return !fenced;
+  });
+}
+
+/** Declared repo-relative path, not a URL whose path happens to look local. */
+function hasRepoPath(line) {
+  const local = line.replace(/https?:\/\/[^\s<>`]*/gi, '');
+  return /(?:^|[\s`(\[])(?:\.\/)?[\w.-]+\/(?:[\w.-]+\/)*(?:[\w.-]+\.[\w-]+|[\w.-]+\/)(?=$|[\s`)\],;])/u.test(local);
+}
+
+function hasRenderCommand(lines) {
+  return lines.some((line) => {
+    const match = line.match(/^[ \t]*Render:[ \t]*(.+)$/i);
+    if (!match) return false;
+    const command = match[1].trim().replace(/^`+|`+$/g, '').trim();
+    return Boolean(command) && !/<[A-Za-z][\w-]*(?: [A-Za-z][\w-]*)*>/.test(command) && !/^(?:none|n\/a|tbd|todo|pending)\b/i.test(command);
+  });
+}
+
 function implLabels(labels) {
   return labels.map((l) => l.name).filter((n) => n.startsWith('impl:'));
 }
@@ -593,6 +633,19 @@ for (const issue of issues) {
   const kind = declaredKind(block);
   const riskLines = riskSection(issue.body);
   const hasSpecMarker = STRUCTURE_LABELS.some((m) => names.includes(m));
+
+  if (!CLOSED) {
+    const lines = unfencedLines(issue.body);
+    const ready = readyAssertion(names, issue.body);
+    if (ready && lines.some((line) => DESIGN_LINK.test(line) && !hasRepoPath(line))) {
+      report('R14', issue.number, `says ready (${ready}) but cites a private design link without a repo mirror path on the same line — mirror the source and image, then repoint the reference`);
+    }
+    const design = sectionLines(issue.body, DESIGN_HEADING);
+    const visual = (sectionLines(issue.body, OUTCOMES_HEADING) ?? []).some((line) => VISUAL_OUTCOME.test(line));
+    if ((design !== null || visual) && !hasRenderCommand(lines)) {
+      report('R15', issue.number, 'has a Design reference or screenshot/visual-comparison outcome but no concrete standalone "Render: <command>" line — name the credential-free before/after render command');
+    }
+  }
 
   // R9 runs before the untiered skip: readiness is claimed by the status, not
   // the tier, so an untriaged issue that says ready with questions still open

@@ -541,6 +541,69 @@ test('issue-routing R6: the first failed read stops dispatch of queued issues', 
   assert.deepEqual(readNumbers, [200, 201, 202, 203, 204, 205, 206, 207]);
 });
 
+test('issue-routing R14: ready private design links require same-line repo mirrors, even before triage', () => {
+  const dir = fixture({});
+  const links = ['https://claude.ai/artifact/private', 'https://claude.ai/code/artifact/private', 'https://www.figma.com/design/private'];
+  const env = ghStub(dir, links.map((url, i) => ({ number: 70 + i, title: 'UI', labels: [{ name: 'status:ready' }], body: `Read first: ${url}\n` })));
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  for (const number of [70, 71, 72]) assert.match(out, new RegExp(`#${number} \\[R14\\]`));
+});
+
+test('issue-routing R14: real repo paths clear, unrelated URLs and next-line mirrors do not', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 73, labels: [], body: 'Read first: https://claude.ai/artifact/private — `docs/design/board.html` + `docs/design/board.png`\n\n## Status\nready — 2026-11-10' },
+    { number: 74, labels: [{ name: 'status:ready' }], body: 'Read first: https://claude.ai/artifact/private https://example.com/docs/design/board.png' },
+    { number: 75, labels: [{ name: 'status:ready' }], body: 'Read first: https://figma.com/file/private\nMirror: docs/design/board.png' },
+    { number: 76, labels: [], body: 'Read first: https://figma.com/file/private\n\n## Status\nblocked — 2026-11-10' },
+    { number: 77, labels: [{ name: 'status:ready' }], body: '```\nRead first: https://figma.com/design/private\n```' },
+    { number: 78, labels: [{ name: 'status:ready' }], body: 'Read first: https://claude.ai/artifact/private — before/after screenshots required' },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.doesNotMatch(out, /#(?:73|76|77) \[R14\]/);
+  assert.match(out, /#74 \[R14\]/);
+  assert.match(out, /#75 \[R14\]/);
+  assert.match(out, /#78 \[R14\]/);
+});
+
+test('issue-routing R15: Design reference or visual outcomes need a concrete standalone Render line', () => {
+  const dir = fixture({});
+  const bodies = [
+    '## Design reference\nReference: none — component table decides',
+    '## Verifiable outcomes (binary, observable)\n- [ ] Before/after screenshots attached',
+    '## Acceptance Criteria\n- [ ] Visual comparison matches board',
+    '## Design reference\nRender: <command>',
+    '## Design reference\nRender: ``',
+    '## Design reference\n\n```\nRender: node fake.mjs\n```',
+  ];
+  const env = ghStub(dir, bodies.map((body, i) => ({ number: 80 + i, labels: [], body })));
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  for (const number of [80, 81, 82, 83, 84, 85]) assert.match(out, new RegExp(`#${number} \\[R15\\]`));
+});
+
+test('issue-routing R15: runnable command clears, schema fences and nonvisual outcomes are ignored', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 86, labels: [], body: '## Design reference\nReference: none — component table decides\nRender: `node scripts/render.mjs --fixtures`' },
+    { number: 87, labels: [], body: '## Verifiable outcomes\n- [ ] screenshots attached\n\n## Verification\nRender: npm run render:fixtures' },
+    { number: 88, labels: [], body: '```\n## Design reference\nRender: <command>\n```\n\n## Verifiable outcomes\n- [ ] tests pass' },
+    { number: 89, labels: [], body: 'Context: screenshots explain the incident.\n\n## Verifiable outcomes\n- [ ] lint warns' },
+    { number: 91, labels: [], body: '## Design reference\nRender: node scripts/render.mjs --fixtures > render.log' },
+    { number: 92, labels: [], body: '## Design reference\nRender: node scripts/render.mjs --fixtures 2>&1' },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.doesNotMatch(out, /\[R15\]/);
+});
+
+test('issue-routing R14/R15: closed history is not rechecked for design readiness', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [{ number: 90, labels: [{ name: 'status:ready' }], closed_at: new Date().toISOString(), body: 'Read first: https://claude.ai/artifact/private\n\n## Design reference\nReference: none — table decides' }]);
+  const { out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed'] });
+  assert.doesNotMatch(out, /\[R1[45]\]/);
+});
+
 test('issue-routing: a well-formed escalation passes', () => {
   const dir = fixture({});
   const env = ghStub(dir, [
