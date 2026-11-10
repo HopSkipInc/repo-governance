@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.9.0 · updated 2026-11-10
+// template: scripts/check-issue-routing.mjs v1.9.1 · updated 2026-11-10
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -35,6 +35,8 @@
  *   R14 reference-unreachable  ready private design link, no same-line repo path
  *   R15 render-unrunnable      design reference or visual outcome, no Render command
  *
+ * 1.9.1: distinguish mirror filenames/directories from before/after prose;
+ * accept shell redirection while rejecting angle-bracket command placeholders.
  * 1.9.0 (issue #160, C1): UI lanes named an inaccessible private canvas and
  * screenshot outcomes; component swaps passed while composition diverged.
  * R14/R15 are open-pass WARN backstops, before the untiered skip. They inspect
@@ -487,7 +489,7 @@ function unfencedLines(body) {
 /** Declared repo-relative path, not a URL whose path happens to look local. */
 function hasRepoPath(line) {
   const local = line.replace(/https?:\/\/[^\s<>`]*/gi, '');
-  return /(?:^|[\s`(\[])(?:\.\/)?[\w.-]+\/(?:[\w.-]+\/)*[\w.-]+(?:\/)?(?=$|[\s`)\],;])/u.test(local);
+  return /(?:^|[\s`(\[])(?:\.\/)?[\w.-]+\/(?:[\w.-]+\/)*(?:[\w.-]+\.[\w-]+|[\w.-]+\/)(?=$|[\s`)\],;])/u.test(local);
 }
 
 function hasRenderCommand(lines) {
@@ -495,7 +497,7 @@ function hasRenderCommand(lines) {
     const match = line.match(/^[ \t]*Render:[ \t]*(.+)$/i);
     if (!match) return false;
     const command = match[1].trim().replace(/^`+|`+$/g, '').trim();
-    return Boolean(command) && !/[<>]/.test(command) && !/^(?:none|n\/a|tbd|todo|pending)\b/i.test(command);
+    return Boolean(command) && !/<[A-Za-z][\w-]*(?: [A-Za-z][\w-]*)*>/.test(command) && !/^(?:none|n\/a|tbd|todo|pending)\b/i.test(command);
   });
 }
 

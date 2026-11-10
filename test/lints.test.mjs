@@ -558,11 +558,13 @@ test('issue-routing R14: real repo paths clear, unrelated URLs and next-line mir
     { number: 75, labels: [{ name: 'status:ready' }], body: 'Read first: https://figma.com/file/private\nMirror: docs/design/board.png' },
     { number: 76, labels: [], body: 'Read first: https://figma.com/file/private\n\n## Status\nblocked — 2026-11-10' },
     { number: 77, labels: [{ name: 'status:ready' }], body: '```\nRead first: https://figma.com/design/private\n```' },
+    { number: 78, labels: [{ name: 'status:ready' }], body: 'Read first: https://claude.ai/artifact/private — before/after screenshots required' },
   ]);
   const { out } = run('check-issue-routing.mjs', dir, { env });
   assert.doesNotMatch(out, /#(?:73|76|77) \[R14\]/);
   assert.match(out, /#74 \[R14\]/);
   assert.match(out, /#75 \[R14\]/);
+  assert.match(out, /#78 \[R14\]/);
 });
 
 test('issue-routing R15: Design reference or visual outcomes need a concrete standalone Render line', () => {
@@ -588,6 +590,8 @@ test('issue-routing R15: runnable command clears, schema fences and nonvisual ou
     { number: 87, labels: [], body: '## Verifiable outcomes\n- [ ] screenshots attached\n\n## Verification\nRender: npm run render:fixtures' },
     { number: 88, labels: [], body: '```\n## Design reference\nRender: <command>\n```\n\n## Verifiable outcomes\n- [ ] tests pass' },
     { number: 89, labels: [], body: 'Context: screenshots explain the incident.\n\n## Verifiable outcomes\n- [ ] lint warns' },
+    { number: 91, labels: [], body: '## Design reference\nRender: node scripts/render.mjs --fixtures > render.log' },
+    { number: 92, labels: [], body: '## Design reference\nRender: node scripts/render.mjs --fixtures 2>&1' },
   ]);
   const { out } = run('check-issue-routing.mjs', dir, { env });
   assert.doesNotMatch(out, /\[R15\]/);
