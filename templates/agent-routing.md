@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.23.1 · updated 2026-11-10 -->
+<!-- template: agent-routing.md v1.24.0 · updated 2026-11-10 -->
 # Agent Routing
 
-**Version:** 1.23.1 · **Last updated:** 2026-11-10
+**Version:** 1.24.0 · **Last updated:** 2026-11-10
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -16,6 +16,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.24.0 | 2026-11-10 | **The three-attempt stop counts causes, not tests.** Three attempts that fail with the same cause stop the work; a failure that shows something new (a different assertion, error or location) is a new cause and restarts the count, and the cause is named before each new attempt. Owner decision 2026-11-10, after three same-test stops in one day each turned out to be a different, diagnosed setup cause |
 | 1.23.1 | 2026-11-10 | **Rule-text corrections to 1.23.0 before release.** Rule 4's removal direction stated plainly (remove when something else *would* expose the error); 3a named as the explicit exception to the same-edit rule; a Rule-4 removal named as the third lowering path. No rule changes from 1.23.0 |
 | 1.23.0 | 2026-11-10 | **The four backfill rules (PDR-011 amendment, 2026-11-08).** `gate:decision` narrows to a deliverable that writes or changes an ADR/PDR or adds a cross-cutting layer; an open question takes no gate and is `status:needs-decision`. `gate:human-approval` names the five steps that sit outside the merge path; an automatic deploy on merge is inside it. The only sanctioned frontier lowerings are 3a (spec-only frontier) and 3b (evidence-only remaining scope), and a disputed lowering keeps the existing tier. `risk:silent-failure` applies only when nothing else would show the wrong result. A person-set gate is never removed |
 | 1.22.0 | 2026-11-09 | **Rewrite it has an interview procedure.** `spec-interview` looks up facts, batches independent decisions, withholds boundary recommendations and obtains human confirmation before writing; it never tiers its own output |
@@ -505,7 +506,10 @@ The fence is the dispatcher (Layer 1 below).
 they can actually evaluate, held to the same standard as acceptance criteria — binary and
 observable:
 
-- Three attempts at the same failing test.
+- Three attempts that fail with the same cause. The cause is what the failure shows: the
+  same assertion, error or location failing the same way. Name it before the next attempt.
+  A failure that shows something new is a new cause and restarts the count; a cause that
+  is only re-described, with the same failure, is not.
 - About to create a file type with no precedent in the repo.
 - The change touches a migration that drops or renames.
 - No existing test covers the surface being modified.
@@ -978,8 +982,8 @@ Before implementing an issue:
    change, but no agent completes it unilaterally — a human owns the irreversible step and
    the merge.
 3. If the label or the kind is missing, do not implement. Comment and stop.
-4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
-   same failing test; **coding around a blocker instead of removing it** — a fallback,
+4. Stop and comment if any of these fire, whatever the tier says: three attempts that
+   fail with the same cause; **coding around a blocker instead of removing it** — a fallback,
    default, retry, cast, or broad catch you would not have written had the call worked;
    **weakening a test, assertion, or matcher to reach green**; creating a file type with
    no precedent here; touching a migration that drops or renames; no existing test covers
