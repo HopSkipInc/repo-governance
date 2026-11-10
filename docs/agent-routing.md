@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.24.0 · updated 2026-11-10 -->
+<!-- template: agent-routing.md v1.25.0 · updated 2026-11-10 -->
 # Agent Routing
 
-**Version:** 1.24.0 · **Last updated:** 2026-11-10
+**Version:** 1.25.0 · **Last updated:** 2026-11-10
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -16,6 +16,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.25.0 | 2026-11-10 | **An unreachable resource stops implementation, for every work type.** UI lanes named a private design canvas and visual outcomes no implementing session could reach; the outcomes were waived and component swaps passed while composition diverged. The observable stop list and shipped AGENTS.md block now require a comment and a stopped turn, with no edit landing or outcome carried forward or waived (issue #160, lane B1) |
 | 1.24.0 | 2026-11-10 | **The three-attempt stop counts causes, not tests.** Three attempts that fail with the same cause stop the work; a failure that shows something new (a different assertion, error or location) is a new cause and restarts the count, and the cause is named before each new attempt. Owner decision 2026-11-10, after three same-test stops in one day each turned out to be a different, diagnosed setup cause |
 | 1.23.1 | 2026-11-10 | **Rule-text corrections to 1.23.0 before release.** Rule 4's removal direction stated plainly (remove when something else *would* expose the error); 3a named as the explicit exception to the same-edit rule; a Rule-4 removal named as the third lowering path. No rule changes from 1.23.0 |
 | 1.23.0 | 2026-11-10 | **The four backfill rules (PDR-011 amendment, 2026-11-08).** `gate:decision` narrows to a deliverable that writes or changes an ADR/PDR or adds a cross-cutting layer; an open question takes no gate and is `status:needs-decision`. `gate:human-approval` names the five steps that sit outside the merge path; an automatic deploy on merge is inside it. The only sanctioned frontier lowerings are 3a (spec-only frontier) and 3b (evidence-only remaining scope), and a disputed lowering keeps the existing tier. `risk:silent-failure` applies only when nothing else would show the wrong result. A person-set gate is never removed |
@@ -517,6 +518,9 @@ observable:
 - The issue's Impl-tier line is missing, or its kind is missing.
 - The issue lists anything open under `## Open questions` — it is undecided, whatever its
   status says.
+- A verifiable outcome or a "Read first" resource the session cannot reach is a stop,
+  for any work type. Comment with the unreachable resource and stop: the edit does not
+  land and the turn ends; the outcome is never carried forward or waived.
 
 Any of these fires → comment and stop, whatever the tier said.
 
@@ -989,6 +993,10 @@ Before implementing an issue:
    no precedent here; touching a migration that drops or renames; no existing test covers
    the surface you are changing; the diff exceeds [N] files; the issue lists anything
    open under `## Open questions` (undecided, whatever its status says).
+
+   A verifiable outcome or a "Read first" resource the session cannot reach is a stop,
+   for any work type. Comment with the unreachable resource and stop: the edit does not
+   land and the turn ends; the outcome is never carried forward or waived.
 
    **Stopping means the edit does not land and the turn ends.** A question you then answer
    yourself two paragraphs later is not a stop — it is the workaround applied to the stop
