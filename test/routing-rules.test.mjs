@@ -18,6 +18,7 @@ const REPO = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: '
 const read = (rel) => readFileSync(resolve(REPO, rel), 'utf8');
 
 const POLICY = read('templates/agent-routing.md');
+const AUTHORING = read('templates/issue-authoring.md');
 const CLASSIFIER = read('templates/agents/routing-classifier.md');
 const CLASSIFIER_OPENCODE = read('templates/agents/routing-classifier.opencode.md');
 const SKILL = read('templates/skills/routing-triage/SKILL.md');
@@ -121,6 +122,27 @@ test('unreachable resources stop every work type in the policy, shipped block an
     assert.ok(text.includes('A verifiable outcome or a "Read first" resource the session cannot reach is a stop, for any work type.'), `${name} must stop on either unreachable resource`);
     assert.ok(text.includes('Comment with the unreachable resource and stop: the edit does not land and the turn ends; the outcome is never carried forward or waived.'), `${name} must preserve the stop's consequences`);
   }
+});
+
+test('UI authoring: canonical design reference names repo sources, images, composition and credential-free Render', () => {
+  const schema = AUTHORING.split('## The canonical issue schema\n')[1]?.split('\nRules:')[0];
+  assert.ok(schema, 'canonical schema is missing');
+  assert.match(schema, /\n## Design reference\n/);
+  assert.match(schema, /\nReference: <repo source path \+ image path, or none — <named rule> decides>\n/);
+  assert.match(schema, /\nComposition: /);
+  assert.match(schema, /\nRender: <exact command/);
+  const rule = AUTHORING.split('## Design reference for rendered UI\n')[1]?.split('\n## Label taxonomy')[0];
+  assert.ok(rule, 'rendered UI authoring rule is missing');
+  for (const requirement of [
+    /required when an issue's outcomes change a rendered UI/,
+    /source \+ image/,
+    /private tool may appear only beside its repo mirror/,
+    /Reference: none — <named rule> decides/,
+    /sections, columns, copy, filters, and status mapping/,
+    /not only the components/,
+    /Render: <command>/,
+    /before\/after images without live credentials/,
+  ]) assert.match(rule, requirement);
 });
 
 test('classifier pins: five lowering fields plus the Disputed marker', () => {
