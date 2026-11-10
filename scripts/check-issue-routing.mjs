@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.7.0 · updated 2026-11-09
+// template: scripts/check-issue-routing.mjs v1.8.0 · updated 2026-11-10
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -123,6 +123,15 @@
  * the class rule, and 11 workflow-output issues plus one probe sat in UNTIERED
  * or flapped between "label with no tier line" and "tier line with no label".
  *
+ * 1.8.0 (issue #164) is R6's read path only. The per-issue sweep was serial and
+ * fetched `userContentEdits` for every issue carrying any impl: label event,
+ * which on ai-fleet's ~680 tiered issues projected to ~21 minutes — past the
+ * 20-minute verification bound, with no output until it finished. Edit history
+ * is now fetched only when the label events contain a possible downgrade (a
+ * lone `labeled:` event cannot be one), and the per-issue REST reads run through
+ * a bounded pool. The findings are unchanged; the first read failure still
+ * reports R6 SKIPPED, never a pass.
+ *
  * EVERY ISSUE, NOT A FIXED WINDOW (1.6.1). The sweep previously fetched
  * `--limit 500`, so on a repo with more open issues the oldest ones were never
  * read and nothing said so — the same fails-open shape as R6. It now enumerates
@@ -161,7 +170,10 @@
  *                  backlog sweep, not a diff check)
  */
 
-import { execFileSync } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 // ---------------------------------------------------------------- configure
 
@@ -201,6 +213,14 @@ const CLOSED_RULES = new Set(['R1', 'R2', 'R3']);
 
 /** R6: a body edit this many minutes either side of the label change counts as grounding it. */
 const GROUNDING_WINDOW_MINUTES = 60;
+
+/**
+ * R6 is I/O-bound and each `gh` call is a separate round trip, so the sweep
+ * runs the per-issue reads through a small pool. Eight is read-only and well
+ * inside GitHub's guidance against large concurrent bursts; raising it buys
+ * little because `gh` startup is a fixed cost per call.
+ */
+const R6_CONCURRENCY = 8;
 
 /** Tier ranking — a move to a lower rank is a downgrade. */
 const TIER_RANK = { 'impl:standard': 1, 'impl:frontier': 2, 'impl:human': 3 };
@@ -332,6 +352,12 @@ function isEpicShape(names, block) {
 
 function gh(args) {
   return execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+}
+
+/** Async sibling of gh(), for the R6 pool. Same subprocess and buffer ceiling. */
+async function ghAsync(args) {
+  const { stdout } = await execFileAsync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  return stdout;
 }
 
 /** A check that cannot run has not run. Exit 2 so CI can tell it from a pass. */
@@ -708,23 +734,22 @@ for (const issue of issues) {
 let r6Skipped = null;
 if (!CLOSED && SEVERITY.R6 !== 'off' && tiered.length) {
   const [owner, name] = REPO.split('/');
-  for (const number of tiered) {
-    let events, edits;
-    try {
-      events = JSON.parse(gh(['api', `repos/${REPO}/issues/${number}/timeline`, '--paginate']))
-        .filter((e) => (e.event === 'labeled' || e.event === 'unlabeled') && e.label?.name?.startsWith('impl:'));
-      if (!events.length) continue;
-      const q = `query($o:String!,$n:String!,$i:Int!){repository(owner:$o,name:$n){issue(number:$i){userContentEdits(first:100){nodes{editedAt}}}}}`;
-      const res = JSON.parse(gh(['api', 'graphql', '-f', `query=${q}`, '-F', `o=${owner}`, '-F', `n=${name}`, '-F', `i=${number}`]));
-      edits = res.data.repository.issue.userContentEdits.nodes.map((e) => Date.parse(e.editedAt));
-    } catch (err) {
-      r6Skipped = err.message.split('\n')[0];
-      break;
-    }
+
+  /**
+   * One tiered issue. The REST read is unavoidable; the GraphQL edit history is
+   * fetched only when the label events can contain a downgrade. A single
+   * `labeled:impl:*` is a triage label being applied, not a tier being lowered,
+   * so most issues need no second call at all.
+   */
+  const r6Issue = async (number) => {
+    const events = JSON.parse(await ghAsync(['api', `repos/${REPO}/issues/${number}/timeline`, '--paginate']))
+      .filter((e) => (e.event === 'labeled' || e.event === 'unlabeled') && e.label?.name?.startsWith('impl:'));
+    if (!events.length) return;
 
     // Reconstruct downgrades: an impl: label added whose rank is lower than one removed nearby.
     const added = events.filter((e) => e.event === 'labeled');
     const removed = events.filter((e) => e.event === 'unlabeled');
+    const candidates = [];
     for (const a of added) {
       const t = Date.parse(a.created_at);
       const near = removed.find((r) => Math.abs(Date.parse(r.created_at) - t) < GROUNDING_WINDOW_MINUTES * 60000);
@@ -732,12 +757,37 @@ if (!CLOSED && SEVERITY.R6 !== 'off' && tiered.length) {
       const from = TIER_RANK[near.label.name] ?? 0;
       const to = TIER_RANK[a.label.name] ?? 0;
       if (to >= from) continue; // not a downgrade
-      const grounded = edits.some((e) => Math.abs(e - t) < GROUNDING_WINDOW_MINUTES * 60000);
+      candidates.push({ at: t, from: near.label.name, to: a.label.name });
+    }
+    if (!candidates.length) return;
+
+    const q = `query($o:String!,$n:String!,$i:Int!){repository(owner:$o,name:$n){issue(number:$i){userContentEdits(first:100){nodes{editedAt}}}}}`;
+    const res = JSON.parse(await ghAsync(['api', 'graphql', '-f', `query=${q}`, '-F', `o=${owner}`, '-F', `n=${name}`, '-F', `i=${number}`]));
+    const edits = res.data.repository.issue.userContentEdits.nodes.map((e) => Date.parse(e.editedAt));
+
+    for (const c of candidates) {
+      const grounded = edits.some((e) => Math.abs(e - c.at) < GROUNDING_WINDOW_MINUTES * 60000);
       if (!grounded) {
-        report('R6', number, `downgraded ${near.label.name} → ${a.label.name} with no body edit within ${GROUNDING_WINDOW_MINUTES}m. A tier may only be lowered in the same edit that removes the reason; an inherent tier cannot be lowered by relabeling at all`);
+        report('R6', number, `downgraded ${c.from} → ${c.to} with no body edit within ${GROUNDING_WINDOW_MINUTES}m. A tier may only be lowered in the same edit that removes the reason; an inherent tier cannot be lowered by relabeling at all`);
       }
     }
-  }
+  };
+
+  // Bounded pool. The first error stops further dispatch, in-flight calls settle,
+  // and r6Skipped turns the run into the SKIPPED report below — never OK. Output
+  // sorts findings by issue number, so completion order cannot change the result.
+  let next = 0;
+  const worker = async () => {
+    while (!r6Skipped && next < tiered.length) {
+      const number = tiered[next++];
+      try {
+        await r6Issue(number);
+      } catch (err) {
+        r6Skipped = err.message.split('\n')[0];
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(R6_CONCURRENCY, tiered.length) }, worker));
 }
 
 // ------------------------------------------------------------------- output

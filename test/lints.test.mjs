@@ -356,6 +356,131 @@ function ghStub(dir, issues) {
 
 const tierBody = (line) => `Some description.\n\n## Impl tier\n${line}\n`;
 
+/**
+ * `gh` stub for the R6 read path: paginated issue list, per-issue timeline, and
+ * the GraphQL userContentEdits query. Every invocation is appended to
+ * `gh-calls.log`, so a fixture can assert that an issue which cannot contain a
+ * downgrade never spends a GraphQL call. `failures` maps an issue number to
+ * 'timeline' or 'graphql' to exercise the SKIPPED path.
+ */
+function ghR6Stub(dir, issues, { timelines = {}, edits = {}, failures = {} } = {}) {
+  const bin = join(dir, 'bin');
+  mkdirSync(bin, { recursive: true });
+  const log = join(dir, 'gh-calls.log');
+  const state = JSON.stringify({ issues, timelines, edits, failures, log });
+  writeFileSync(
+    join(bin, 'gh'),
+    String.raw`#!/usr/bin/env node
+const fs = require('fs');
+const state = ${state};
+const args = process.argv.slice(2);
+fs.appendFileSync(state.log, args.join(' ') + '\n');
+const fail = (m) => { process.stderr.write(m + '\n'); process.exit(1); };
+if (args[0] === 'api' && args[1] === 'graphql') {
+  let n = null;
+  for (let i = 0; i < args.length - 1; i++) if (args[i] === '-F' && args[i + 1].indexOf('i=') === 0) n = args[i + 1].slice(2);
+  if (n === null) fail('stub: graphql call without an issue number');
+  if (state.failures[n] === 'graphql') fail('stub: forced graphql failure');
+  const nodes = (state.edits[n] || []).map((editedAt) => ({ editedAt }));
+  process.stdout.write(JSON.stringify({ data: { repository: { issue: { userContentEdits: { nodes } } } } }));
+  process.exit(0);
+}
+if (args[0] === 'api') {
+  const url = args[1] || '';
+  if (url.indexOf('/issues?state=') !== -1) {
+    if (args.indexOf('--paginate') === -1) fail('stub: issue-list fetch is missing --paginate');
+    if (args.indexOf('--slurp') === -1) fail('stub: issue-list fetch is missing --slurp');
+    process.stdout.write(JSON.stringify([state.issues]));
+    process.exit(0);
+  }
+  const m = url.match(/\/issues\/(\d+)\/timeline$/);
+  if (m) {
+    const n = m[1];
+    if (state.failures[n] === 'timeline') fail('stub: forced timeline failure');
+    process.stdout.write(JSON.stringify(state.timelines[n] || []));
+    process.exit(0);
+  }
+  process.stdout.write('[]');
+  process.exit(0);
+}
+process.stdout.write('[]');
+`
+  );
+  chmodSync(join(bin, 'gh'), 0o755);
+  return { env: { PATH: `${bin}:${process.env.PATH}`, ROUTING_REPO: 'fixture/repo' }, log };
+}
+
+const R6_T0 = '2026-11-10T12:00:00Z';
+const atMin = (m) => new Date(Date.parse(R6_T0) + m * 60000).toISOString();
+const labelEvent = (event, name, minute) => ({ event, label: { name }, created_at: atMin(minute) });
+const tieredIssue = (number) => ({ number, title: `tier ${number}`, labels: [{ name: 'impl:standard' }], body: tierBody('standard') });
+const downgradeEvents = [labelEvent('unlabeled', 'impl:frontier', 0), labelEvent('labeled', 'impl:standard', 5)];
+const upgradeEvents = [labelEvent('unlabeled', 'impl:standard', 0), labelEvent('labeled', 'impl:frontier', 5)];
+
+test('issue-routing R6: a downgrade with no body edit nearby fires', () => {
+  const dir = fixture({});
+  const { env } = ghR6Stub(dir, [tieredIssue(100)], { timelines: { 100: downgradeEvents }, edits: { 100: [] } });
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /#100 \[R6\]/);
+});
+
+test('issue-routing R6: an edit inside the grounding window clears, one outside it does not', () => {
+  const dir = fixture({});
+  const near = ghR6Stub(dir, [tieredIssue(101)], { timelines: { 101: downgradeEvents }, edits: { 101: [atMin(2)] } });
+  const grounded = run('check-issue-routing.mjs', dir, { env: near.env });
+  assert.doesNotMatch(grounded.out, /\[R6\]/);
+
+  const dir2 = fixture({});
+  const far = ghR6Stub(dir2, [tieredIssue(101)], { timelines: { 101: downgradeEvents }, edits: { 101: [atMin(120)] } });
+  const ungrounded = run('check-issue-routing.mjs', dir2, { env: far.env });
+  assert.match(ungrounded.out, /#101 \[R6\]/);
+});
+
+test('issue-routing R6: a lone labeled event spends no GraphQL call', () => {
+  const dir = fixture({});
+  const stub = ghR6Stub(dir, [tieredIssue(102)], { timelines: { 102: [labelEvent('labeled', 'impl:standard', 0)] } });
+  const { out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  assert.doesNotMatch(out, /\[R6\]/);
+  assert.doesNotMatch(readFileSync(stub.log, 'utf8'), /graphql/);
+});
+
+test('issue-routing R6: an upgrade pair spends no GraphQL call', () => {
+  const dir = fixture({});
+  const stub = ghR6Stub(dir, [tieredIssue(103)], { timelines: { 103: upgradeEvents } });
+  const { out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  assert.doesNotMatch(out, /\[R6\]/);
+  assert.doesNotMatch(readFileSync(stub.log, 'utf8'), /graphql/);
+});
+
+test('issue-routing R6: a failed timeline read reports SKIPPED, never OK', () => {
+  const dir = fixture({});
+  const stub = ghR6Stub(dir, [tieredIssue(105)], { failures: { 105: 'timeline' } });
+  const { out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  assert.match(out, /R6 SKIPPED/);
+  assert.match(out, /Not counted as passing/);
+  assert.doesNotMatch(out, /OK:/);
+});
+
+test('issue-routing R6: a failed edit-history read on a candidate reports SKIPPED, never OK', () => {
+  const dir = fixture({});
+  const stub = ghR6Stub(dir, [tieredIssue(106)], { timelines: { 106: downgradeEvents }, failures: { 106: 'graphql' } });
+  const { out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  assert.match(out, /R6 SKIPPED/);
+  assert.match(out, /Not counted as passing/);
+  assert.doesNotMatch(out, /OK:/);
+});
+
+test('issue-routing R6: concurrent findings are reported in issue order', () => {
+  const dir = fixture({});
+  const { env } = ghR6Stub(dir, [tieredIssue(108), tieredIssue(107)], {
+    timelines: { 107: downgradeEvents, 108: downgradeEvents },
+    edits: { 107: [], 108: [] },
+  });
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /#107 \[R6\][\s\S]*#108 \[R6\]/);
+});
+
 test('issue-routing: a well-formed escalation passes', () => {
   const dir = fixture({});
   const env = ghStub(dir, [
