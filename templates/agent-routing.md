@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.23.0 · updated 2026-11-10 -->
+<!-- template: agent-routing.md v1.23.1 · updated 2026-11-10 -->
 # Agent Routing
 
-**Version:** 1.23.0 · **Last updated:** 2026-11-10
+**Version:** 1.23.1 · **Last updated:** 2026-11-10
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -16,6 +16,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.23.1 | 2026-11-10 | **Rule-text corrections to 1.23.0 before release.** Rule 4's removal direction stated plainly (remove when something else *would* expose the error); 3a named as the explicit exception to the same-edit rule; a Rule-4 removal named as the third lowering path. No rule changes from 1.23.0 |
 | 1.23.0 | 2026-11-10 | **The four backfill rules (PDR-011 amendment, 2026-11-08).** `gate:decision` narrows to a deliverable that writes or changes an ADR/PDR or adds a cross-cutting layer; an open question takes no gate and is `status:needs-decision`. `gate:human-approval` names the five steps that sit outside the merge path; an automatic deploy on merge is inside it. The only sanctioned frontier lowerings are 3a (spec-only frontier) and 3b (evidence-only remaining scope), and a disputed lowering keeps the existing tier. `risk:silent-failure` applies only when nothing else would show the wrong result. A person-set gate is never removed |
 | 1.22.0 | 2026-11-09 | **Rewrite it has an interview procedure.** `spec-interview` looks up facts, batches independent decisions, withholds boundary recommendations and obtains human confirmation before writing; it never tiers its own output |
 | 1.0.0 | 2026-07-24 | Initial — three `impl:` tiers, `spec`/`inherent` kinds, `gate:` family |

@@ -87,8 +87,8 @@ test('policy: the sanctioned lowerings and dispute default sit beside Downgrades
 });
 
 test('policy: version stamps agree and the mothership copy is byte-identical', () => {
-  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.23\.0 · updated 2026-11-10 -->/);
-  assert.match(POLICY, /\*\*Version:\*\* 1\.23\.0/);
+  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.23\.1 · updated 2026-11-10 -->/);
+  assert.match(POLICY, /\*\*Version:\*\* 1\.23\.1/);
   assert.equal(
     read('docs/agent-routing.md'),
     POLICY,
@@ -116,7 +116,7 @@ test('classifier pins: five lowering fields plus the Disputed marker', () => {
 });
 
 test('triage skill Step 3 applies the rules and writes the remaining-scope section', () => {
-  assert.match(SKILL, /^version: 1\.10\.0$/m);
+  assert.match(SKILL, /^version: 1\.10\.1$/m);
   assert.match(SKILL, /`decision_shape` decides `gate:decision`/);
   assert.match(SKILL, /`human_step` decides `gate:human-approval`/);
   assert.match(SKILL, /Never remove a person-set `gate:` label/);

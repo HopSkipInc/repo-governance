@@ -11,7 +11,7 @@ description: >
   lines, and writes the repo's calibration set to docs/agent-routing-records.md. Every
   escalation is decomposed before it is tiered — a split proposal or a non-splittability
   statement is required, not suggested.
-version: 1.10.0
+version: 1.10.1
 updated: 2026-11-10
 triggers:
   - /routing-triage
