@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-11-07
 **Confirmed by:** Greg Leizerowicz
-**Last confirmed:** 2026-11-07
+**Last confirmed:** 2026-11-08
 
 ---
 
@@ -99,3 +99,49 @@ The direction was raised 2026-11-06 while reviewing ai-fleet#2871 and was decide
   - writing a model name into a label or into the rule.
 - **Downstream:** ai-fleet's `impl:` consumers move to the rule one at a time: ADR-088 D5's Autopilot selector, the roadmap generator's tier column, ADR-088's merge-yield slices, and HopSkipInc/ai-fleet#2871's dispatch default.
 - **Stops:** the routing-classifier stops proposing a tier and proposes risk labels with reasons.
+
+## Amendment (2026-11-08)
+
+Adopted by the owner on HopSkipInc/ai-fleet#4681 after the PDR-011 risk-label backfill, and
+applied there to the remaining 383 issues. This amendment refines **decision 2** (the
+`gate:` family) and the routing policy's never-downgrade rule (`docs/agent-routing.md`
+§Downgrades). It changes nothing else: the `risk:` vocabulary, the records-held rule, the
+equivalence gate and the interactive guidance stand as written.
+
+**Rule 1 — `gate:decision`.** The label applies only when the deliverable writes or changes
+an ADR/PDR (or a row in an ADR's decision table), or adds a new cross-cutting layer an ADR
+must sanction. An issue that only leaves a question open gets no gate; its `status:ready`
+becomes `status:needs-decision`. Implementing a rule an ADR already states gets nothing.
+
+**Rule 2 — `gate:human-approval`.** The label applies only when the *remaining* work includes
+a step outside the merge path. The step kinds are: prod configuration set by hand; a live
+test against prod; a per-environment switch flipped outside the merge; deleting prod data or
+relaxing a safety invariant; a grant the owner issues. A deploy that runs automatically on
+merge is inside the merge path.
+
+**Rule 3 — the two sanctioned lowerings.** A frontier tier may come down only in these two
+shapes:
+
+- **(a)** an issue that is frontier *only* because it is under-specified, with no `risk:`
+  fact, becomes `impl:standard` and loses `status:ready` until it is rewritten;
+- **(b)** when all code has merged and only post-deploy evidence remains, the issue narrows
+  to that evidence task, recorded in a dated `## Remaining scope (YYYY-MM-DD)` section, and is
+  re-tiered on that task.
+
+**Rule 4 — `risk:silent-failure`.** The label applies only when nothing else would show the
+wrong result. It does not apply to a notification whose content is also listed where it is
+acted on, or to a CI check that joins two sources which already fail closed and ships a
+red-first test.
+
+**The dispute default.** When the classifier's own reading marks a 3a, 3b or Rule-4 lowering
+as disputable, the existing tier stands. This is the owner's "keep the existing tier" default,
+applied to lowerings; on ai-fleet's backfill it decided six issues.
+
+**A person-set gate is never removed.** Rules 1 and 2 govern additions. Two ai-fleet issues
+(#3207, #1378) carry a person-set `gate:decision` that Rule 1 would remove, and they went to
+the owner instead. The same holds in every governed repo.
+
+**Evidence on adoption (ai-fleet, 383 rule-mode issues).** `gate:human-approval` added 75,
+`gate:decision` added 68, `status:ready` → `status:needs-decision` 19; lowerings: 3a 5,
+3b 8, Rule 4 1, stopped by the dispute default 6. Equivalence moved from 485 unresolved to
+31; none of the residue comes from these rules (see #155).

@@ -1,6 +1,6 @@
 ---
-version: 1.6.0
-updated: 2026-11-09
+version: 1.7.0
+updated: 2026-11-10
 description: >
   Classifies backlog issues into PDR-011 risk facts and, during the transition, an
   impl: tier. Maps the repo's risk surfaces — isolation boundaries, credential handling,
@@ -31,7 +31,7 @@ permission:
 hidden: true
 ---
 
-<!-- template: agents/routing-classifier.opencode.md v1.6.0 · updated 2026-11-09 -->
+<!-- template: agents/routing-classifier.opencode.md v1.7.0 · updated 2026-11-10 -->
 <!-- Install to: ~/.config/opencode/agents/routing-classifier.md (global, not per-repo) -->
 
 # Routing Classifier
@@ -131,6 +131,28 @@ Rules for the row:
 - **The tier is still proposed.** `impl:` is derived from the risk labels plus the rule in
   `docs/agent-routing-records.md`; until that derivation ships in the repo, propose the tier
   and kind as today.
+
+**Every row also carries the lowering fields.** These are what make a lowering auditable
+instead of a quiet relabel, and the skill applies them in Step 3:
+
+- **`decision_shape`** — one of `decision-record` (writes or changes an ADR/PDR, or a row in
+  an ADR's decision table), `new-layer` (adds a cross-cutting layer an ADR must sanction),
+  `open-question` (leaves a question open — no gate; the issue is `status:needs-decision`),
+  `implements-existing` (applies a rule an ADR already states — no gate), `none`.
+- **`human_step`** — one of the five steps outside the merge path
+  (`prod-config-by-hand`, `live-prod-test`, `per-env-switch`,
+  `delete-prod-data-or-relax-invariant`, `owner-issued-grant`), or `none`. Propose
+  `gate:human-approval` only when it is not `none`; an automatic deploy on merge is `none`.
+- **`spec_only_frontier`** — `yes` when the issue is frontier *only* because it is
+  under-specified and carries no `risk:` fact. That is lowerable under 3a: propose
+  `impl:standard` and drop `status:ready` until the issue is rewritten.
+- **`evidence_only` / `remaining_scope`** — `yes` when all code has merged and only
+  post-deploy evidence remains (3b); `remaining_scope` is the one-line evidence task, and
+  the tier is re-proposed on that task. The skill records it in a dated
+  `## Remaining scope (YYYY-MM-DD)` section.
+- **`Disputed`** — mark a row `Disputed` when a reasonable reader could contest its 3a, 3b
+  or Rule-4 lowering. The existing tier stands, and the skill brings the row to the human
+  before applying anything.
 
 **Four columns are load-bearing.** If the decomposition column is empty on a row above
 `standard`, the row is incomplete. And if you cannot state what a botched implementation
