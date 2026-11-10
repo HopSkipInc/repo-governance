@@ -87,8 +87,8 @@ test('policy: the sanctioned lowerings and dispute default sit beside Downgrades
 });
 
 test('policy: version stamps agree and the mothership copy is byte-identical', () => {
-  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.24\.0 · updated 2026-11-10 -->/);
-  assert.match(POLICY, /\*\*Version:\*\* 1\.24\.0/);
+  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.25\.0 · updated 2026-11-10 -->/);
+  assert.match(POLICY, /\*\*Version:\*\* 1\.25\.0/);
   assert.equal(
     read('docs/agent-routing.md'),
     POLICY,
@@ -105,6 +105,22 @@ test('policy: the three-attempt stop counts causes, not tests (1.24.0)', () => {
   assert.match(POLICY, /three attempts that\s+fail with the same cause;/);
   assert.doesNotMatch(POLICY, /same failing test/i);
   assert.doesNotMatch(read('AGENTS.md'), /same failing test/i);
+});
+
+test('unreachable resources stop every work type in the policy, shipped block and local instructions', () => {
+  const stopList = POLICY.split('### Observable stop conditions\n')[1]?.split('### Self-identification\n')[0];
+  const shippedBlock = POLICY.split('## CLAUDE.md / AGENTS.md section\n')[1]?.split('## Anti-patterns\n')[0];
+  const localBlock = read('AGENTS.md').split('## Agent routing\n')[1]?.split('## Gotchas\n')[0];
+  for (const [name, section] of [
+    ['observable stop list', stopList],
+    ['shipped AGENTS.md block', shippedBlock],
+    ['local AGENTS.md block', localBlock],
+  ]) {
+    assert.ok(section, `${name} is missing`);
+    const text = section.replace(/\s+/g, ' ');
+    assert.ok(text.includes('A verifiable outcome or a "Read first" resource the session cannot reach is a stop, for any work type.'), `${name} must stop on either unreachable resource`);
+    assert.ok(text.includes('Comment with the unreachable resource and stop: the edit does not land and the turn ends; the outcome is never carried forward or waived.'), `${name} must preserve the stop's consequences`);
+  }
 });
 
 test('classifier pins: five lowering fields plus the Disputed marker', () => {

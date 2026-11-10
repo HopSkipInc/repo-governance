@@ -141,6 +141,10 @@ Before implementing an issue:
    open under `## Open questions` (undecided, whatever its status says); or you are about
    to overwrite a records file listed above.
 
+   A verifiable outcome or a "Read first" resource the session cannot reach is a stop,
+   for any work type. Comment with the unreachable resource and stop: the edit does not
+   land and the turn ends; the outcome is never carried forward or waived.
+
    **Stopping means the edit does not land and the turn ends.** A question you then answer
    yourself two paragraphs later is not a stop — it is the workaround applied to the stop
    rule, and it is the observed way this condition fails. A degradation that is genuinely
