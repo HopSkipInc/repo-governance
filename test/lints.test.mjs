@@ -363,11 +363,11 @@ const tierBody = (line) => `Some description.\n\n## Impl tier\n${line}\n`;
  * downgrade never spends a GraphQL call. `failures` maps an issue number to
  * 'timeline' or 'graphql' to exercise the SKIPPED path.
  */
-function ghR6Stub(dir, issues, { timelines = {}, edits = {}, failures = {} } = {}) {
+function ghR6Stub(dir, issues, { timelines = {}, edits = {}, failures = {}, delayMs = 0 } = {}) {
   const bin = join(dir, 'bin');
   mkdirSync(bin, { recursive: true });
   const log = join(dir, 'gh-calls.log');
-  const state = JSON.stringify({ issues, timelines, edits, failures, log });
+  const state = JSON.stringify({ issues, timelines, edits, failures, delayMs, log });
   writeFileSync(
     join(bin, 'gh'),
     String.raw`#!/usr/bin/env node
@@ -397,6 +397,12 @@ if (args[0] === 'api') {
   if (m) {
     const n = m[1];
     if (state.failures[n] === 'timeline') fail('stub: forced timeline failure');
+    if (state.delayMs) {
+      fs.appendFileSync(state.log, 'BEGIN ' + Date.now() + '\n');
+      const until = Date.now() + state.delayMs;
+      while (Date.now() < until) {}
+      fs.appendFileSync(state.log, 'END ' + Date.now() + '\n');
+    }
     process.stdout.write(JSON.stringify(state.timelines[n] || []));
     process.exit(0);
   }
@@ -429,7 +435,9 @@ test('issue-routing R6: an edit inside the grounding window clears, one outside 
   const dir = fixture({});
   const near = ghR6Stub(dir, [tieredIssue(101)], { timelines: { 101: downgradeEvents }, edits: { 101: [atMin(2)] } });
   const grounded = run('check-issue-routing.mjs', dir, { env: near.env });
+  assert.equal(grounded.code, 0, grounded.out);
   assert.doesNotMatch(grounded.out, /\[R6\]/);
+  assert.doesNotMatch(grounded.out, /R6 SKIPPED/);
 
   const dir2 = fixture({});
   const far = ghR6Stub(dir2, [tieredIssue(101)], { timelines: { 101: downgradeEvents }, edits: { 101: [atMin(120)] } });
@@ -440,16 +448,20 @@ test('issue-routing R6: an edit inside the grounding window clears, one outside 
 test('issue-routing R6: a lone labeled event spends no GraphQL call', () => {
   const dir = fixture({});
   const stub = ghR6Stub(dir, [tieredIssue(102)], { timelines: { 102: [labelEvent('labeled', 'impl:standard', 0)] } });
-  const { out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  const { code, out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  assert.equal(code, 0, out);
   assert.doesNotMatch(out, /\[R6\]/);
+  assert.doesNotMatch(out, /R6 SKIPPED/);
   assert.doesNotMatch(readFileSync(stub.log, 'utf8'), /graphql/);
 });
 
 test('issue-routing R6: an upgrade pair spends no GraphQL call', () => {
   const dir = fixture({});
   const stub = ghR6Stub(dir, [tieredIssue(103)], { timelines: { 103: upgradeEvents } });
-  const { out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  const { code, out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  assert.equal(code, 0, out);
   assert.doesNotMatch(out, /\[R6\]/);
+  assert.doesNotMatch(out, /R6 SKIPPED/);
   assert.doesNotMatch(readFileSync(stub.log, 'utf8'), /graphql/);
 });
 
@@ -479,6 +491,34 @@ test('issue-routing R6: concurrent findings are reported in issue order', () => 
   });
   const { out } = run('check-issue-routing.mjs', dir, { env });
   assert.match(out, /#107 \[R6\][\s\S]*#108 \[R6\]/);
+});
+
+test('issue-routing R6: the read pool overlaps reads and never exceeds 8', () => {
+  const dir = fixture({});
+  const issues = Array.from({ length: 12 }, (_, i) => tieredIssue(200 + i));
+  const stub = ghR6Stub(dir, issues, { delayMs: 500 });
+  const { code, out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /R6 SKIPPED/);
+
+  const lines = readFileSync(stub.log, 'utf8').trim().split('\n');
+  const begins = lines.filter((l) => l.startsWith('BEGIN ')).map((l) => Number(l.slice(6)));
+  const ends = lines.filter((l) => l.startsWith('END ')).map((l) => Number(l.slice(4)));
+  assert.equal(begins.length, 12, 'every tiered issue was read exactly once');
+  assert.equal(ends.length, 12);
+
+  // A BEGIN opens an interval and an END closes it. At equal milliseconds, sort
+  // the close first so the measured maximum cannot overcount.
+  const events = [...begins.map((ms) => [ms, 1]), ...ends.map((ms) => [ms, -1])]
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  let active = 0;
+  let max = 0;
+  for (const [, delta] of events) {
+    active += delta;
+    max = Math.max(max, active);
+  }
+  assert.ok(max <= 8, `max concurrency ${max} exceeded the pool of 8`);
+  assert.ok(max >= 2, `expected overlapping reads, saw max ${max}`);
 });
 
 test('issue-routing: a well-formed escalation passes', () => {
