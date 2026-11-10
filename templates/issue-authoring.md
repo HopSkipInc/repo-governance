@@ -1,8 +1,14 @@
-<!-- template: issue-authoring.md v1.9.0 · updated 2026-11-09 -->
+<!-- template: issue-authoring.md v1.10.0 · updated 2026-11-10 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
 **Related:** [Definition of Done](definition-of-done.md) · [Agent Routing](agent-routing.md) · [Epic Handoff](epic-handoff.md)
+
+**Changelog**
+
+| Version | Date | Change |
+|---|---|---|
+| 1.10.0 | 2026-11-10 | **Rendered UI work names an accessible design reference and render path.** A private canvas held composition while lane issues named only components; component swaps passed without matching the design. The canonical schema now requires repo sources and images (or a named deciding rule), composition, and a credential-free `Render:` command (issue #160, lane A) |
 
 ## Purpose
 
@@ -36,6 +42,12 @@ Every issue body uses this structure:
 
 ## Verification (how the work is proven done)
 - <exact command / named test file / query>
+
+## Design reference
+<required for outcomes changing rendered UI; omit otherwise>
+Reference: <repo source path + image path, or none — <named rule> decides>
+Composition: <sections, columns, copy, filters, status mapping fixed by the reference>
+Render: <exact command producing before/after images without live credentials>
 
 ## Not in scope
 <optional — what this issue deliberately excludes, one line each with the reason>
@@ -102,6 +114,28 @@ For **epics**: "Verifiable outcomes" = "epic closes when all child issues close"
 
 <!-- Delete this rule if your repo has no docs/pdr/ -->
 For **features and epics** (only): a **Serves** line naming the product decision this work advances (`PDR-NNN`), or `none` with a one-line reason. Bugs and chores don't carry it — an escape hatch that costs less than a lie is what stops the field from becoming decoration. The audit reports the orphan rate, not a compliance score: a few `none`s are healthy, a majority means the PDR corpus has stopped describing what the team is building.
+
+## Design reference for rendered UI
+
+`## Design reference` is required when an issue's outcomes change a rendered UI,
+whatever its work type. It records all three parts:
+
+1. **Reference:** the repo path of each reference (source + image). A link into a
+   private tool may appear only beside its repo mirror, on the same line. When no
+   design reference applies, write `Reference: none — <named rule> decides`, naming
+   the rule that decides (for example, the design system's component table), not
+   leaving the section blank.
+2. **Composition:** the sections, columns, copy, filters, and status mapping the
+   reference fixes, not only the components being swapped. The deciding rule supplies
+   this composition when `Reference: none` is used.
+3. **Render:** put `Render: <command>` on its own line. This is the exact command the
+   implementing session runs to produce before/after images without live credentials,
+   including when there is no reference. Name a runnable repo render path, not a
+   screenshot instruction that depends on access to a private canvas or live product.
+
+An inaccessible reference or verification resource is a pickup stop, not permission
+to approximate or waive the outcome; see [Agent Routing](agent-routing.md) →
+*Observable stop conditions*.
 
 ## Label taxonomy
 
