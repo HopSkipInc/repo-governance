@@ -78,8 +78,8 @@ issues already carrying `gate:` labels or a frontier tier under these rules. For
   no person set it; an automatic deploy on merge does not qualify;
 - a frontier issue that is 3a or 3b — lower only when the classifier does not mark it
   `Disputed`; write the `## Remaining scope (YYYY-MM-DD)` section for 3b;
-- a `risk:silent-failure` that rule 4 excludes — remove the label and adjust the tier only
-  if no other risk fact holds it up.
+- a `risk:silent-failure` that rule 4 excludes — remove the label, and adjust the tier only
+  if no other risk fact holds it up and the classifier does not mark the call `Disputed`.
 
 Do this from a reviewed batch file (the skill's Step 3), never an ad-hoc loop, and read each
 current body before appending. **`impl:` stays required** during the transition; the rules

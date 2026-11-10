@@ -378,8 +378,11 @@ inherited them from an earlier run masks the gap for the next repo that does not
   gate does not apply but a person set it, leave the label and take the issue to the human.
 - **Lower only via 3a, 3b or Rule 4, and never on a disputed call.** A row marked `Disputed`
   keeps its existing tier and goes to the human. 3a drops to `impl:standard` and removes
-  `status:ready` until the rewrite lands; 3b re-tiers on the remaining evidence; Rule 4 removes
-  `risk:silent-failure` only when nothing else would show the wrong result.
+  `status:ready` until the rewrite lands; 3b re-tiers on the remaining evidence; Rule 4
+  removes `risk:silent-failure` when something else *would* show the wrong result (the
+  notification's content is listed where it is acted on, or the CI check joins two
+  fail-closed sources and ships a red-first test). If nothing else would show it, the label
+  stays.
 
 Then, per issue: apply the `risk:` labels and the `gate:` labels, append the `## Risk`
 section, and append the tier line to the body. The labels route; the lines explain. An issue

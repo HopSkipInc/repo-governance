@@ -119,8 +119,8 @@ test against prod; a per-environment switch flipped outside the merge; deleting 
 relaxing a safety invariant; a grant the owner issues. A deploy that runs automatically on
 merge is inside the merge path.
 
-**Rule 3 — the two sanctioned lowerings.** A frontier tier may come down only in these two
-shapes:
+**Rule 3 — the two spec and evidence lowerings.** A frontier tier may come down in these
+two shapes (Rule 4 below is the third path):
 
 - **(a)** an issue that is frontier *only* because it is under-specified, with no `risk:`
   fact, becomes `impl:standard` and loses `status:ready` until it is rewritten;
@@ -131,7 +131,9 @@ shapes:
 **Rule 4 — `risk:silent-failure`.** The label applies only when nothing else would show the
 wrong result. It does not apply to a notification whose content is also listed where it is
 acted on, or to a CI check that joins two sources which already fail closed and ships a
-red-first test.
+red-first test. When the exclusion holds, removing the label lowers the tier only if no other
+`risk:` fact holds it up; that removal is the third lowering path and carries the same
+dispute default.
 
 **The dispute default.** When the classifier's own reading marks a 3a, 3b or Rule-4 lowering
 as disputable, the existing tier stands. This is the owner's "keep the existing tier" default,

@@ -749,16 +749,21 @@ the frontier ratio is a metric people want to improve, and relabeling is free.
 
 ### When a frontier tier comes down
 
-These are the only sanctioned lowerings of a frontier tier. Every other de-escalation above
-still applies — this is not a general licence to relabel.
+These are the only sanctioned lowerings of a frontier tier: 3a, 3b, and a Rule-4 removal
+where no other `risk:` fact holds the tier up. Every other de-escalation above still applies
+— this is not a general licence to relabel.
 
 - **3a — under-specified and nothing else.** An issue that is `frontier` *only* because it is
   under-specified, with no `risk:` fact behind it, becomes `impl:standard` and loses
-  `status:ready` until it is rewritten. The rewrite is the body edit the rule above already
-  requires.
+  `status:ready` until it is rewritten. **This is an explicit exception to the same-edit rule
+  above:** the tier comes down before the rewrite, and `status:ready` comes off so the issue
+  is not worked until the rewrite lands.
 - **3b — evidence only.** When all the code has merged and only post-deploy evidence
   remains, narrow the issue to that evidence task, record it in a dated
   `## Remaining scope (YYYY-MM-DD)` section, and re-tier on the remaining task.
+- **Rule 4 — the silent-failure label comes off.** When something else *would* show the wrong
+  result, remove `risk:silent-failure`; if no other `risk:` fact holds the tier up, re-tier on
+  what remains.
 - **The dispute default.** When the classifier's own reading marks a 3a, 3b or Rule-4
   lowering as `Disputed`, the existing tier stands. Lowering is the direction with the
   incentive behind it, so an arguable lowering does not move.
@@ -994,14 +999,15 @@ subagent sees nothing of this conversation. Concurrent subagents need disjoint f
 surfaces or separate worktree lanes, exactly as concurrent sessions do. Subagents
 prepare; you review and merge.
 
-You may escalate an issue's tier at any time. You may never downgrade one — least of all
-on an issue you are about to implement — except by the two sanctioned lowerings in
+You may escalate an issue's tier at any time. You may never downgrade one, least of all on
+an issue you are about to implement. The only sanctioned lowerings are in
 `docs/agent-routing.md` §*When a frontier tier comes down* (3a: spec-only frontier, loses
 `status:ready` until rewritten; 3b: all code merged, narrowed to a dated `## Remaining
-scope` evidence task), and never on a lowering the classifier marks `Disputed`. An
-escalation you raise must carry the same decomposition record as any other: either lift the
-mechanical half into a new `standard` issue, or state in one sentence what makes it
-inseparable.
+scope` evidence task; and a Rule-4 removal where no other risk holds the tier). Triaging a
+backlog may apply them; the agent about to implement the issue may not, and a lowering the
+classifier marks `Disputed` keeps the existing tier. An escalation you raise must carry the
+same decomposition record as any other: either lift the mechanical half into a new `standard`
+issue, or state in one sentence what makes it inseparable.
 
 Tier definitions are in `docs/agent-routing.md`. The model→class mapping and this repo's
 calibration examples are in `docs/agent-routing-records.md`.

@@ -26,11 +26,13 @@ const PDR = read('docs/pdr/011-route-on-risk-labels-guide-interactive-model-choi
 test('PDR-011 amendment: dated, Last confirmed bumped, rules 1-4 recorded', () => {
   assert.match(PDR, /## Amendment \(2026-11-08\)/);
   assert.match(PDR, /\*\*Last confirmed:\*\* 2026-11-08/);
-  for (const rule of ['Rule 1 — `gate:decision`', 'Rule 2 — `gate:human-approval`', 'Rule 3 — the two sanctioned lowerings', 'Rule 4 — `risk:silent-failure`']) {
+  for (const rule of ['Rule 1 — `gate:decision`', 'Rule 2 — `gate:human-approval`', 'Rule 3 — the two spec and evidence lowerings', 'Rule 4 — `risk:silent-failure`']) {
     assert.ok(PDR.includes(rule), `PDR-011 amendment is missing "${rule}"`);
   }
   assert.match(PDR, /\*\*The dispute default\.\*\*/);
   assert.match(PDR, /\*\*A person-set gate is never removed\.\*\*/);
+  assert.match(PDR, /Rule 4 below is the third path/);
+  assert.match(PDR, /third lowering path and carries the same\s+dispute default/);
 });
 
 test('policy: gate:decision excludes an open question and names status:needs-decision', () => {
@@ -71,11 +73,17 @@ test('policy: the sanctioned lowerings and dispute default sit beside Downgrades
   const section = POLICY.slice(POLICY.indexOf('### When a frontier tier comes down'));
   assert.match(section, /3a — under-specified and nothing else/);
   assert.match(section, /becomes `impl:standard` and loses[\s\S]*`status:ready`/);
+  assert.match(section, /explicit exception to the same-edit rule/);
   assert.match(section, /3b — evidence only/);
   assert.match(section, /## Remaining scope \(YYYY-MM-DD\)/);
+  assert.match(section, /Rule 4 — the silent-failure label comes off/);
   assert.match(section, /The dispute default/);
   assert.match(section, /marks a 3a, 3b or Rule-4[\s\S]*lowering as `Disputed`, the existing tier stands/);
   assert.match(POLICY, /A `gate:` label a person set is kept/);
+  // The CLAUDE.md excerpt must not turn the sanctioned triage lowerings into a
+  // licence for the implementing agent to lower its own issue.
+  assert.match(POLICY, /You may never downgrade one, least of all on\s+an issue you are about to implement/);
+  assert.match(POLICY, /the agent about to implement the issue may not/);
 });
 
 test('policy: version stamps agree and the mothership copy is byte-identical', () => {
@@ -114,6 +122,11 @@ test('triage skill Step 3 applies the rules and writes the remaining-scope secti
   assert.match(SKILL, /Never remove a person-set `gate:` label/);
   assert.match(SKILL, /Lower only via 3a, 3b or Rule 4, and never on a disputed call/);
   assert.match(SKILL, /## Remaining scope \(YYYY-MM-DD\)/);
+  // Rule 4 removes the label when something else WOULD show the error. The
+  // inverted predicate ("only when nothing else would show it") would strip the
+  // label from real silent failures and keep it on the exclusions.
+  assert.match(SKILL, /Rule 4\s+removes `risk:silent-failure` when something else \*would\* show the wrong result/);
+  assert.doesNotMatch(SKILL, /Rule 4 removes `risk:silent-failure` only when nothing else would show/);
   assert.doesNotMatch(
     SKILL,
     /Outcome should be recorded as a PDR\/ADR by a person first/,
@@ -129,6 +142,7 @@ test('downstream: one prompt, a row for every governed routing repo, core includ
     assert.ok(body.includes(repo), `downstream prompt does not name ${repo}`);
   }
   assert.match(body, /`full` \*\*and\*\* `core` alike/);
+  assert.match(body, /rule 4 excludes[\s\S]*the classifier does not mark the call `Disputed`/);
 
   const board = read('downstream/hopskip/_client.md');
   const rows = board.split('\n').filter((l) => l.includes('(2026-11-10-routing-backfill-rules.md)'));
