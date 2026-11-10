@@ -19,7 +19,7 @@ has each repo re-check the calls made under the old text.
 
 | Artifact | Version | Change |
 |---|---|---|
-| `docs/agent-routing.md` | **1.23.1** | Rules 1–4 in the gate table, heuristics table and `risk:silent-failure` row; new §*When a frontier tier comes down* (3a, 3b, dispute default); a person-set gate is never removed |
+| `docs/agent-routing.md` | **1.24.0** | Rules 1–4 in the gate table, heuristics table and `risk:silent-failure` row; new §*When a frontier tier comes down* (3a, 3b, dispute default); a person-set gate is never removed. **1.24.0** (2026-11-10, owner decision): the three-attempt stop counts causes, not tests — three attempts that fail with the same cause stop the work, and a failure that shows something new restarts the count. Where the repo mirrors item 4 of the AGENTS section in its own `AGENTS.md`/`CLAUDE.md`, hand-port that one phrase (ai-fleet applied it directly on 2026-11-10) |
 | `skills/routing-triage/SKILL.md` | **1.10.1** | Step 3 applies the gate and lowering fields; never removes a person-set gate; writes the rule-3b `## Remaining scope (YYYY-MM-DD)` section |
 | `agents/routing-classifier.md` | **1.6.0** | per-row lowering fields: `decision_shape`, `human_step`, `spec_only_frontier`, `evidence_only` / `remaining_scope`, `Disputed` |
 | `agents/routing-classifier.opencode.md` | **1.7.0** | same fields; opencode pin (global file) |
@@ -64,7 +64,7 @@ cp ~/repos/HopSkipInc/repo-governance/templates/skills/routing-triage/SKILL.md \
 Install the classifier pin for your harness from `templates/agents/`: Claude Code reads the
 per-repo `.claude/agents/routing-classifier.md`; opencode reads the global
 `~/.config/opencode/agents/routing-classifier.md` and needs a restart. Bump the
-Synced-templates rows to 1.23.1 / 1.10.1 / 1.6.0 (or 1.7.0 for the opencode pin) in the
+Synced-templates rows to 1.24.0 / 1.10.1 / 1.6.0 (or 1.7.0 for the opencode pin) in the
 same commit. `docs/agent-routing.md` must be byte-identical to the template — verify with
 `diff -q`, not by reading it.
 

@@ -132,8 +132,8 @@ Before implementing an issue:
    class may prepare the change, but no agent completes it unilaterally — a human owns the
    irreversible step and the merge.
 3. If the label or the kind is missing, do not implement. Comment and stop.
-4. Stop and comment if any of these fire, whatever the tier says: three attempts at the
-   same failing test; **coding around a blocker instead of removing it** — a fallback,
+4. Stop and comment if any of these fire, whatever the tier says: three attempts that
+   fail with the same cause; **coding around a blocker instead of removing it** — a fallback,
    default, retry, cast, or broad catch you would not have written had the call worked;
    **weakening a test, assertion, or matcher to reach green**; creating a file type with
    no precedent here; touching a migration that drops or renames; no existing test covers

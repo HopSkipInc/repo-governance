@@ -87,13 +87,24 @@ test('policy: the sanctioned lowerings and dispute default sit beside Downgrades
 });
 
 test('policy: version stamps agree and the mothership copy is byte-identical', () => {
-  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.23\.1 · updated 2026-11-10 -->/);
-  assert.match(POLICY, /\*\*Version:\*\* 1\.23\.1/);
+  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.24\.0 · updated 2026-11-10 -->/);
+  assert.match(POLICY, /\*\*Version:\*\* 1\.24\.0/);
   assert.equal(
     read('docs/agent-routing.md'),
     POLICY,
     'docs/agent-routing.md drifted from templates/agent-routing.md — re-sync the registered pair',
   );
+});
+
+test('policy: the three-attempt stop counts causes, not tests (1.24.0)', () => {
+  // Observable-conditions list: the definition of a cause, and that only a new failure restarts the count.
+  assert.match(POLICY, /- Three attempts that fail with the same cause\. The cause is what the failure shows/);
+  assert.match(POLICY, /A failure that shows something new is a new cause and restarts the count/);
+  assert.match(POLICY, /is only re-described, with the same failure, is not\./);
+  // AGENTS section item 4 carries the same rule, and the old per-test wording is gone everywhere.
+  assert.match(POLICY, /three attempts that\s+fail with the same cause;/);
+  assert.doesNotMatch(POLICY, /same failing test/i);
+  assert.doesNotMatch(read('AGENTS.md'), /same failing test/i);
 });
 
 test('classifier pins: five lowering fields plus the Disputed marker', () => {
