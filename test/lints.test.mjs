@@ -521,6 +521,26 @@ test('issue-routing R6: the read pool overlaps reads and never exceeds 8', () =>
   assert.ok(max >= 2, `expected overlapping reads, saw max ${max}`);
 });
 
+test('issue-routing R6: the first failed read stops dispatch of queued issues', () => {
+  const dir = fixture({});
+  // Issue 200 fails immediately; 201–207 are held in flight by the stub's delay;
+  // 208–211 are still queued when the failure lands and must never be read.
+  const issues = Array.from({ length: 12 }, (_, i) => tieredIssue(200 + i));
+  const stub = ghR6Stub(dir, issues, { failures: { 200: 'timeline' }, delayMs: 800 });
+  const { out } = run('check-issue-routing.mjs', dir, { env: stub.env });
+  assert.match(out, /R6 SKIPPED/);
+  assert.match(out, /Not counted as passing/);
+  assert.doesNotMatch(out, /OK:/);
+
+  const readNumbers = readFileSync(stub.log, 'utf8')
+    .trim()
+    .split('\n')
+    .filter((l) => l.includes('/timeline'))
+    .map((l) => Number(l.match(/\/issues\/(\d+)\/timeline/)[1]))
+    .sort((a, b) => a - b);
+  assert.deepEqual(readNumbers, [200, 201, 202, 203, 204, 205, 206, 207]);
+});
+
 test('issue-routing: a well-formed escalation passes', () => {
   const dir = fixture({});
   const env = ghStub(dir, [
