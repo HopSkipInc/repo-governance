@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.21.0 · updated 2026-11-07 -->
+<!-- template: agent-routing.md v1.23.1 · updated 2026-11-10 -->
 # Agent Routing
 
-**Version:** 1.21.0 · **Last updated:** 2026-11-07
+**Version:** 1.23.1 · **Last updated:** 2026-11-10
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -16,6 +16,9 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.23.1 | 2026-11-10 | **Rule-text corrections to 1.23.0 before release.** Rule 4's removal direction stated plainly (remove when something else *would* expose the error); 3a named as the explicit exception to the same-edit rule; a Rule-4 removal named as the third lowering path. No rule changes from 1.23.0 |
+| 1.23.0 | 2026-11-10 | **The four backfill rules (PDR-011 amendment, 2026-11-08).** `gate:decision` narrows to a deliverable that writes or changes an ADR/PDR or adds a cross-cutting layer; an open question takes no gate and is `status:needs-decision`. `gate:human-approval` names the five steps that sit outside the merge path; an automatic deploy on merge is inside it. The only sanctioned frontier lowerings are 3a (spec-only frontier) and 3b (evidence-only remaining scope), and a disputed lowering keeps the existing tier. `risk:silent-failure` applies only when nothing else would show the wrong result. A person-set gate is never removed |
+| 1.22.0 | 2026-11-09 | **Rewrite it has an interview procedure.** `spec-interview` looks up facts, batches independent decisions, withholds boundary recommendations and obtains human confirmation before writing; it never tiers its own output |
 | 1.0.0 | 2026-07-24 | Initial — three `impl:` tiers, `spec`/`inherent` kinds, `gate:` family |
 | 1.1.0 | 2026-07-24 | `gate:` from day one on boundary repos; "Responses to an escalation" (accept / rewrite / **split**) |
 | 1.2.0 | 2026-07-24 | `both` kind; ratio measured pre-response; curated-baseline caveat; provisional calibration sets |
@@ -133,8 +136,11 @@ still paying out a year later.
 
 1. **Accept it.** The tier stands, the work waits for a frontier model or a human. Correct
    for a genuinely indivisible `inherent` issue.
-2. **Rewrite it.** `spec` only. Write the missing sentence; the tier drops. Body edit and
-   label change in the same commit — see *Downgrades*.
+2. **Rewrite it.** `spec` only. Use `spec-interview` (installed in your harness's skills
+   directory; source: `templates/skills/spec-interview/SKILL.md`) to find the missing
+   sentences with the author. Independent triage decides the resulting tier; body edit
+   and label change land together — see *Downgrades*. On `both`, the same interview
+   retires the spec component, but the inherent tier stays.
 3. **Split it.** Lift the mechanical half into its own issue. Plumbing, config, scaffolding,
    the cost cap wrapped around the admission logic, the endpoint around the check. The new
    issue routes `standard`; the residue stays `frontier` and gets smaller.
@@ -284,7 +290,7 @@ backlog by hand.
 
 | Label | Covers |
 |---|---|
-| `risk:silent-failure` | A wrong result looks correct. |
+| `risk:silent-failure` | A wrong result looks correct, and **nothing else would show it**. Does not apply to a notification whose content is also listed where it is acted on, or to a CI check that joins two sources which already fail closed and ships a red-first test. |
 | `risk:boundary` | Security, isolation or tenancy boundaries, including credential handling. |
 | `risk:irreversible` | A wide blast radius, or hard to reverse, including dropping or renaming migrations. |
 | `risk:new-abstraction` | Requires inventing an abstraction the codebase does not have. |
@@ -293,6 +299,13 @@ backlog by hand.
 An issue carries zero or more. Zero means loud, contained work. Each label is a **fact about
 the issue**, never a difficulty judgement. The assignment heuristics below name the label each
 signal produces.
+
+**Rule 4 — the silent-failure test.** `risk:silent-failure` applies only when nothing else
+would show the wrong result. A notification whose content is also listed on the page where it
+is acted on is not silent: a reader sees the mistake where it matters. A CI check that joins
+two sources which each already fail closed, and ships a red-first test, is not silent either:
+the test is the thing that would show it. Apply the label to the surface, not to the symptom
+that happened to start the conversation.
 
 ### The `## Risk` section
 
@@ -341,10 +354,14 @@ more per issue:
 
 | Label | Meaning |
 |---|---|
-| `gate:human-approval` | An agent may prepare the change; a human owns the irreversible step (prod data, money, outbound comms). |
+| `gate:human-approval` | An agent may prepare the change; the **remaining** work includes a step outside the merge path: prod configuration set by hand; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues. A deploy that runs automatically on merge is **inside** the merge path and takes no gate. |
 | `gate:human-review` | A judgment call no test settles — UX, prose, threat modelling. |
 | `gate:credentials` | The agent structurally cannot hold the keys. |
-| `gate:decision` | The outcome should be recorded as a PDR or ADR before the code lands — an agent drafts the record through the repo's mediated write path; a person owns it at merge. |
+| `gate:decision` | The deliverable writes or changes an ADR/PDR (or a row in an ADR's decision table), or adds a new cross-cutting layer an ADR must sanction — an agent drafts the record through the repo's mediated write path; a person owns it at merge. An issue that only leaves a question open takes **no gate**: it gets `status:needs-decision`. Implementing a rule an ADR already states gets nothing. |
+
+**Rules 1 and 2 govern additions.** They narrow when each gate applies; they never remove
+one. A `gate:` label a person set is kept even when a rule above would not add it — send that
+issue to the owner instead of clearing the gate.
 
 Without this family, "one-line config change on the tenant wall" has to be filed
 `impl:human`, which over-escalates the *implementation* in order to protect the *merge* —
@@ -364,14 +381,18 @@ Assign by the **highest** signal present, not the average.
 | Signal | Risk label / completion gate | Tier pressure |
 |---|---|---|
 | Failure is caught loudly by tests, types, or CI | — | keeps it `standard` |
-| Failure is silent — a wrong result looks correct | `risk:silent-failure` | → `frontier`+ |
+| Failure is silent — a wrong result looks correct, and nothing else would show it | `risk:silent-failure` | → `frontier`+ |
 | Touches a security, isolation, or tenancy boundary | `risk:boundary` | → `frontier`, often `human` |
 | Requires inventing an abstraction not yet in the codebase | `risk:new-abstraction` | → `frontier` |
 | Blast radius crosses many modules, or is hard to reverse | `risk:irreversible` | → `frontier`+ |
 | No existing test covers the surface being changed | `risk:uncovered` (coverage record required) | → `frontier` |
-| Requires a product, UX, or policy decision | `gate:decision` (or `gate:human-review`) | → human completion |
-| Requires coordinating with an external team or system | `gate:human-approval` | → human completion |
-| Handles secrets or credentials, or removes a safety invariant | `gate:credentials` / `gate:human-approval` | → human completion |
+| Writes or changes an ADR/PDR, or adds a cross-cutting layer an ADR must sanction | `gate:decision` | → human completion |
+| Leaves a question open — an answer is needed, not a record | no gate; `status:ready` → `status:needs-decision` | → human decision |
+| Implements a rule an ADR already states | — | — |
+| The remaining work includes a step outside the merge path (prod configuration set by hand; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues) | `gate:human-approval` | → human completion |
+| Requires coordinating with an external team or system — an agreement no test settles | `gate:human-review` | → human review |
+| Requires a judgment call no test settles | `gate:human-review` | → human completion |
+| Handles secrets or credentials, or the agent cannot hold the keys | `gate:credentials` | → human completion |
 
 Note what the table implies and state it out loud to your team: **the first and sixth rows
 are the same lever.** Coverage on a surface is what keeps work on that surface cheap to
@@ -727,6 +748,30 @@ the frontier ratio is a metric people want to improve, and relabeling is free.
 - An agent **never** downgrades the tier of an issue it is about to implement. Escalation is
   self-service; de-escalation is not.
 
+### When a frontier tier comes down
+
+These are the only sanctioned lowerings of a frontier tier: 3a, 3b, and a Rule-4 removal
+where no other `risk:` fact holds the tier up. Every other de-escalation above still applies
+— this is not a general licence to relabel.
+
+- **3a — under-specified and nothing else.** An issue that is `frontier` *only* because it is
+  under-specified, with no `risk:` fact behind it, becomes `impl:standard` and loses
+  `status:ready` until it is rewritten. **This is an explicit exception to the same-edit rule
+  above:** the tier comes down before the rewrite, and `status:ready` comes off so the issue
+  is not worked until the rewrite lands.
+- **3b — evidence only.** When all the code has merged and only post-deploy evidence
+  remains, narrow the issue to that evidence task, record it in a dated
+  `## Remaining scope (YYYY-MM-DD)` section, and re-tier on the remaining task.
+- **Rule 4 — the silent-failure label comes off.** When something else *would* show the wrong
+  result, remove `risk:silent-failure`; if no other `risk:` fact holds the tier up, re-tier on
+  what remains.
+- **The dispute default.** When the classifier's own reading marks a 3a, 3b or Rule-4
+  lowering as `Disputed`, the existing tier stands. Lowering is the direction with the
+  incentive behind it, so an arguable lowering does not move.
+
+Rules 1 and 2 above govern gate additions and never remove a person-set gate; these
+lowerings change a tier, never a gate.
+
 ## The frontier ratio and what it measures
 
 Two different numbers get called "the frontier ratio," and conflating them makes both
@@ -955,9 +1000,14 @@ subagent sees nothing of this conversation. Concurrent subagents need disjoint f
 surfaces or separate worktree lanes, exactly as concurrent sessions do. Subagents
 prepare; you review and merge.
 
-You may escalate an issue's tier at any time. You may never downgrade one — least of all
-on an issue you are about to implement. An escalation you raise must carry the same
-decomposition record as any other: either lift the mechanical half into a new `standard`
+You may escalate an issue's tier at any time. You may never downgrade one, least of all on
+an issue you are about to implement. The only sanctioned lowerings are in
+`docs/agent-routing.md` §*When a frontier tier comes down* (3a: spec-only frontier, loses
+`status:ready` until rewritten; 3b: all code merged, narrowed to a dated `## Remaining
+scope` evidence task; and a Rule-4 removal where no other risk holds the tier). Triaging a
+backlog may apply them; the agent about to implement the issue may not, and a lowering the
+classifier marks `Disputed` keeps the existing tier. An escalation you raise must carry the
+same decomposition record as any other: either lift the mechanical half into a new `standard`
 issue, or state in one sentence what makes it inseparable.
 
 Tier definitions are in `docs/agent-routing.md`. The model→class mapping and this repo's

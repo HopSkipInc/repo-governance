@@ -11,8 +11,8 @@ description: >
   lines, and writes the repo's calibration set to docs/agent-routing-records.md. Every
   escalation is decomposed before it is tiered — a split proposal or a non-splittability
   statement is required, not suggested.
-version: 1.8.0
-updated: 2026-11-07
+version: 1.10.1
+updated: 2026-11-10
 triggers:
   - /routing-triage
   - /routing-triage refresh
@@ -112,6 +112,20 @@ gh issue list --state open --label "status:ready" --limit 200 \
 # Does the repo already have routing?
 gh issue list --state open --label "impl:standard" --limit 1 --json number
 ls docs/agent-routing.md 2>/dev/null
+```
+
+**Rolling reports are not candidates — never triage one.** An issue carrying the
+`rolling-report` label is a workflow's output surface, rewritten on every run. A tier line
+or label applied here is removed by the next run, and the two halves disagree until it is:
+a backfill wrote `## Impl tier` into ai-fleet #2567, the workflow removed it about 40
+minutes later, and the labels survived — so the issue flapped between "label with no tier
+line" and "tier line with no label". Filter the label out of the candidate set, and never
+write a risk block, an `impl:` label, or a tier line into one.
+
+```bash
+# Exclude rolling reports from whatever candidate set you built
+gh issue list --state open --label "status:ready" --limit 200 --json number,title,labels,body \
+  | jq '[.[] | select(([.labels[].name] | index("rolling-report")) | not)]'
 ```
 
 ### Sample composition check — do this before classifying anything
@@ -221,6 +235,10 @@ rows and make it redo them. A risk label with no one-sentence reason is also inc
 If `risk:uncovered` is proposed, a coverage record is required (Step 1.4).
 The `impl:` tier is still required during the transition: PDR-011 derives it from these facts,
 but no repo has retired it yet.
+
+The classifier also returns the per-issue lowering fields — `decision_shape`, `human_step`,
+`spec_only_frontier`, `evidence_only` / `remaining_scope`, and a `Disputed` marker — defined
+in the agent's *Rules for the row*. Step 3 applies them; do not drop them from the proposal.
 
 #### 2. Under-specified issues and the spec marker
 
@@ -337,19 +355,44 @@ gh label create "impl:human"    --color B60205 --description "Needs a human in t
 arrives in the first pass, not eventually:
 
 ```bash
-gh label create "gate:human-approval" --color 5319E7 --description "Agent may prepare; a human owns the irreversible step"
+gh label create "gate:human-approval" --color 5319E7 --description "Remaining work has a step outside the merge path"
 gh label create "gate:human-review"   --color 5319E7 --description "Judgment call no test settles"
 gh label create "gate:credentials"    --color 5319E7 --description "Agent structurally cannot hold the keys"
-gh label create "gate:decision"       --color 5319E7 --description "Outcome should be recorded as a PDR/ADR by a person first"
+gh label create "gate:decision"       --color 5319E7 --description "Deliverable writes or changes an ADR/PDR, or a new layer an ADR must sanction"
 ```
 
 Do not skip this because the labels happen to already exist — verify, because a repo that
 inherited them from an earlier run masks the gap for the next repo that does not.
 
+**Apply the PDR-011 gate and lowering rules exactly as the policy states them.**
+
+- **`decision_shape` decides `gate:decision`.** `decision-record` / `new-layer` → add it.
+  `open-question` → no gate; flip `status:ready` to `status:needs-decision`.
+  `implements-existing` / `none` → nothing. A body that merely leaves a question open is not
+  a decision gate.
+- **`human_step` decides `gate:human-approval`.** Add it only when the *remaining* work has a
+  step outside the merge path: prod configuration set by hand, a live test against prod, a
+  per-environment switch flipped outside the merge, deleting prod data or relaxing a safety
+  invariant, a grant the owner issues. An automatic deploy on merge takes no gate.
+- **Never remove a person-set `gate:` label.** Rules 1 and 2 govern additions; if one says a
+  gate does not apply but a person set it, leave the label and take the issue to the human.
+- **Lower only via 3a, 3b or Rule 4, and never on a disputed call.** A row marked `Disputed`
+  keeps its existing tier and goes to the human. 3a drops to `impl:standard` and removes
+  `status:ready` until the rewrite lands; 3b re-tiers on the remaining evidence; Rule 4
+  removes `risk:silent-failure` when something else *would* show the wrong result (the
+  notification's content is listed where it is acted on, or the CI check joins two
+  fail-closed sources and ships a red-first test). If nothing else would show it, the label
+  stays.
+
 Then, per issue: apply the `risk:` labels and the `gate:` labels, append the `## Risk`
 section, and append the tier line to the body. The labels route; the lines explain. An issue
 with a label and no line is malformed — the next agent sees a constraint with no reason and
 cannot tell whether it still applies.
+
+**Never write a tier line into a `rolling-report` issue.** It is not work — the workflow
+that owns it rewrites the body on its next run, removing the line while leaving the labels
+behind, which is a worse state than either half alone. If a rolling report appears in the
+batch, drop it before executing.
 
 ```markdown
 ## Risk
@@ -371,6 +414,20 @@ issue carries either `Not splittable: <mechanism>` or `Split into #NNN, #NNN` / 
 #NNN`. An escalation without one is malformed the same way a missing kind is — R7 in
 `check-issue-routing.mjs` flags it, and the audit's decomposition-debt signal cannot be
 computed without it.
+
+**A rule-3b issue carries its narrowed scope in the body.** When all code has merged and only
+post-deploy evidence remains, append:
+
+```markdown
+## Remaining scope (YYYY-MM-DD)
+<the one evidence task still outstanding — what to observe, where, and what result closes the
+issue>
+```
+
+Re-tier the issue on that task and say so in the tier line; the dated heading is the record
+that the original work merged. Do not delete it on a later pass — add a newer dated line if
+the remaining task changes. An issue narrowed this way is not "downgraded without a body
+edit": the section is the edit.
 
 **Create the split children before applying tiers to their parents.** Order matters: the
 parent's tier line references the children by number, so the children must exist first.
@@ -558,6 +615,8 @@ Report to the human:
 
 Triage only what is new or changed:
 
+- Nothing carrying `rolling-report`: those are a workflow's output surface, not work, and
+  anything written into them is removed on the next run.
 - Open issues with no `impl:` label.
 - Issues whose body changed materially since their tier was set — the spec may have improved.
 - Every `spec` escalation older than one audit cycle: it has been sitting there being

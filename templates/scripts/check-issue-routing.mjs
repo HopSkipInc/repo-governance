@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.6.0 · updated 2026-11-07
+// template: scripts/check-issue-routing.mjs v1.7.0 · updated 2026-11-09
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -31,6 +31,7 @@
  *   R10 risk-no-reason       a risk: label with no reason line under ## Risk
  *   R11 unknown-risk         a risk:* label outside the five-label vocabulary
  *   R12 uncovered-risk-no-record  risk:uncovered with no coverage record
+ *   R13 epic-single-tier     an epic carries a single impl: label (warn)
  *
  * R4: an issue that is frontier only because it is under-specified is ready to
  * be *rewritten*, not worked. R5: your own validator says the issue is
@@ -94,6 +95,20 @@
  * The open-questions census prints whenever any issue carries the section, so a
  * zero-finding run is distinguishable from a sweep that found nothing to read.
  *
+ * R13 is the epic anomaly. Policy §Mechanism 3 gives an epic a child tier table,
+ * not one tier, so an `impl:` label on an epic is itself the defect — and until
+ * `check-routing-equivalence.mjs` exempted the shape unconditionally, every
+ * tiered epic there read as a class difference. Warn, because the repair is a
+ * label removal plus a child table, and the named tier may still be correct for
+ * some child.
+ *
+ * ROLLING REPORTS ARE SKIPPED, NOT CHECKED. An issue carrying the declared
+ * `rolling-report` label is a workflow's output surface, rewritten on every run.
+ * A tier line or label applied to one is removed by the next run — observed on
+ * ai-fleet #2567 within 40 minutes — so a finding here could only flap, never
+ * clear. Detection is the label alone; the body text is the thing the workflow
+ * rewrites, so it can never be the marker.
+ *
  * R4–R9 default to WARN. Promote them to ERROR (the WARN→FAIL convention) once
  * your backlog is clean — a first run over an untriaged backlog will be noisy,
  * and a lint that cries wolf on day one gets disabled on day two.
@@ -101,6 +116,20 @@
  * R6 requires the GraphQL userContentEdits field. If that query fails, R6 is
  * reported as SKIPPED, never as passing. A check that fails open is worse than
  * no check, because it reads as evidence.
+ *
+ * 1.7.0 adds R13 and the rolling-report skip (issue #155). Before it, the two
+ * bot-owned categories that the ai-fleet PDR-011 backfill could not clear were
+ * counted as ordinary work: an epic with an `impl:` label was compared against
+ * the class rule, and 11 workflow-output issues plus one probe sat in UNTIERED
+ * or flapped between "label with no tier line" and "tier line with no label".
+ *
+ * EVERY ISSUE, NOT A FIXED WINDOW (1.6.1). The sweep previously fetched
+ * `--limit 500`, so on a repo with more open issues the oldest ones were never
+ * read and nothing said so — the same fails-open shape as R6. It now enumerates
+ * the whole result set with `gh api --paginate --slurp`; the closed pass bounds
+ * the walk with a `since` filter and still windows on `closedAt` client-side.
+ * If the fetch fails, the run reports SKIPPED and exits 2 — never a silent
+ * partial pass.
  *
  * CLOSED PASS (1.4.0+) — `--closed [--days N] [--closed-gate]`
  *
@@ -150,6 +179,7 @@ const SEVERITY = {
   R10: 'warn',
   R11: 'warn',
   R12: 'warn',
+  R13: 'warn',
 };
 
 /**
@@ -161,9 +191,6 @@ const STRUCTURE_LABELS = ['needs-structure', 'needs-spec'];
 
 /** Issue states to sweep. `--closed` overrides this — see the header. */
 const STATE = 'open';
-
-/** Max issues to fetch. */
-const LIMIT = 500;
 
 /** Default recency window for the closed pass. */
 const DEFAULT_CLOSED_DAYS = 30;
@@ -193,6 +220,13 @@ const RISK_LABELS = new Set([
   'risk:new-abstraction',
   'risk:uncovered',
 ]);
+
+/**
+ * The declared marker on a workflow's rolling output issue. Such an issue is
+ * rewritten every run, so it is skipped before any rule reads it — a tier line
+ * or label there would be removed by the next run and the finding would flap.
+ */
+const ROLLING_REPORT_LABEL = 'rolling-report';
 
 /**
  * `## Risk`, optionally qualified with a parenthetical. Line-scanned and
@@ -298,6 +332,13 @@ function isEpicShape(names, block) {
 
 function gh(args) {
   return execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+}
+
+/** A check that cannot run has not run. Exit 2 so CI can tell it from a pass. */
+function skipped(message) {
+  console.log(`SKIPPED: ${message}`);
+  console.error('Reporting an error, not a pass: a check that cannot run has not run.');
+  process.exit(2);
 }
 
 function repoSlug() {
@@ -462,15 +503,32 @@ if (daysIdx !== -1) {
 const REPO = repoSlug();
 
 const state = CLOSED ? 'closed' : STATE;
-const fields = CLOSED ? 'number,title,body,labels,closedAt' : 'number,title,body,labels';
-const fetched = JSON.parse(
-  gh(['issue', 'list', '--repo', REPO, '--state', state, '--limit', String(LIMIT),
-      '--json', fields])
-);
-
-/** The window filters client-side: one fetch path, no `--search` date dialect. */
 const cutoff = Date.now() - DAYS * 24 * 60 * 60 * 1000;
-const issues = CLOSED ? fetched.filter((i) => Date.parse(i.closedAt) >= cutoff) : fetched;
+
+/**
+ * Every issue, not a fixed window. `--paginate` follows the Link header and
+ * `--slurp` wraps the pages, so a backlog past any single-page ceiling is fully
+ * enumerated — the old `--limit 500` silently truncated the oldest issues.
+ * The closed pass bounds the walk with `since` (updated_at); the window still
+ * filters on `closedAt` client-side, and every issue closed inside the window
+ * was necessarily updated inside it too. Pull requests share the issues
+ * endpoint; drop them.
+ */
+let issues;
+try {
+  const query = new URLSearchParams({ state, per_page: '100' });
+  if (CLOSED) query.set('since', new Date(cutoff).toISOString());
+  const pages = JSON.parse(
+    gh(['api', `repos/${REPO}/issues?${query}`, '--paginate', '--slurp'])
+  );
+  issues = pages
+    .flat()
+    .filter((i) => !i.pull_request)
+    .map((i) => ({ number: i.number, title: i.title, body: i.body, labels: i.labels ?? [], closedAt: i.closed_at }));
+  if (CLOSED) issues = issues.filter((i) => Date.parse(i.closedAt) >= cutoff);
+} catch (err) {
+  skipped(`could not list ${state} issues (${String(err.message).split('\n')[0]})`);
+}
 
 const tiered = [];
 
@@ -489,8 +547,20 @@ const riskCensus = { issues: 0, labelled: 0, byLabel: Object.fromEntries([...RIS
 /** Kind coverage census (closed pass only) — the estimability number. */
 const kindCoverage = { escalations: 0, spec: 0, inherent: 0, both: 0, undeclared: 0 };
 
+/** Rolling reports skipped — workflow output surfaces, never work items. */
+let rollingSkipped = 0;
+
 for (const issue of issues) {
   const names = issue.labels.map((l) => l.name);
+
+  // Exempt before any rule reads the issue. A rolling report is rewritten by
+  // its workflow on the next run, which drops labels and body sections written
+  // here; checking it would produce findings that cannot be made to stay fixed.
+  if (names.some((n) => n.toLowerCase() === ROLLING_REPORT_LABEL)) {
+    rollingSkipped += 1;
+    continue;
+  }
+
   const impls = implLabels(issue.labels);
   const risks = riskLabels(issue.labels);
   const block = tierBlock(issue.body);
@@ -548,8 +618,8 @@ for (const issue of issues) {
   const inTieredPopulation = impls.length > 0 || Boolean(block);
   if (!inTieredPopulation && risks.length === 0) continue;
 
+  const epic = isEpicShape(names, block);
   if (inTieredPopulation) {
-    const epic = isEpicShape(names, block);
     if (impls.length !== 1 && !(epic && impls.length === 0)) {
       report('R1', issue.number, `expected exactly one impl: label, found ${impls.length}${impls.length ? ` (${impls.join(', ')})` : ''}`);
     }
@@ -558,6 +628,9 @@ for (const issue of issues) {
     }
     if (impls.length === 0 && block && !epic) {
       report('R1', issue.number, 'has an "## Impl tier" section but no impl: label — nothing will route on it. If this is an epic, the block should be the child tier table (policy §Mechanism 3), which R1 exempts');
+    }
+    if (epic && impls.length === 1) {
+      report('R13', issue.number, `epic carries a single ${impls[0]} label — policy §Mechanism 3 gives an epic a child tier table, not one tier. Remove the label and put the tier on each child`);
     }
   }
 
@@ -672,10 +745,11 @@ if (!CLOSED && SEVERITY.R6 !== 'off' && tiered.length) {
 const errors = findings.filter((f) => f.sev === 'error');
 const warns = findings.filter((f) => f.sev === 'warn');
 
+const rollingNote = rollingSkipped ? `, ${rollingSkipped} rolling report(s) skipped` : '';
 console.log(
   CLOSED
-    ? `check-issue-routing (closed pass, R1–R3, last ${DAYS}d): ${REPO} — swept ${issues.length} closed issues, ${tiered.length} tiered.`
-    : `check-issue-routing: ${REPO} — swept ${issues.length} ${STATE} issues, ${tiered.length} tiered.`
+    ? `check-issue-routing (closed pass, R1–R3, last ${DAYS}d): ${REPO} — swept ${issues.length} closed issues, ${tiered.length} tiered${rollingNote}.`
+    : `check-issue-routing: ${REPO} — swept ${issues.length} ${STATE} issues, ${tiered.length} tiered${rollingNote}.`
 );
 
 if (CLOSED) {

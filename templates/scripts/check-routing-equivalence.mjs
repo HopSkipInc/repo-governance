@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-routing-equivalence.mjs v1.1.0 · updated 2026-11-07
+// template: scripts/check-routing-equivalence.mjs v1.3.1 · updated 2026-11-09
 /**
  * check-routing-equivalence  [governance template — copy to <project>/scripts/]
  *
@@ -8,6 +8,31 @@
  * script applies the rule to every open issue (paginated, not a fixed window)
  * and lists every difference. It
  * exits non-zero while any difference is unresolved.
+ *
+ * EPICS ARE EXEMPT, TIERED OR NOT. Policy §Mechanism 3 gives an epic a child
+ * tier table instead of a single tier. The epic shape is detected exactly as
+ * `check-issue-routing.mjs`'s `isEpicShape()` does — the `epic` label, or a
+ * child/tier row in the `## Impl tier` block. Exempt epics are listed under
+ * their own heading and do not count as unresolved. Before 1.2.0 every epic
+ * without a label counted as untiered; 1.2.0 exempted those but still compared
+ * an epic that carried an `impl:` label, which is itself the anomaly — so every
+ * tiered epic on ai-fleet reported `frontier -> standard (zero risk labels)`.
+ * 1.3.0 exempts the shape whether or not it is labelled; the lint reports the
+ * stray label under its own rule (R13).
+ *
+ * ROLLING REPORTS ARE EXEMPT. Some open issues are a workflow's output surface,
+ * rewritten on every run — the `rolling-report` label is the declared marker.
+ * A tier line or label applied to one is removed by the next run, so it is not
+ * a work item and is never compared. The exemption keys on the label, never on
+ * body text the workflow rewrites.
+ *
+ * HUMAN IS A GATE, NOT A CLASS. PDR-011 decision 2 moves human completion to
+ * the `gate:` family, so the rule never outputs `human`. An `impl:human` issue
+ * is therefore equivalent when it carries any `gate:` label (the family is
+ * `gate:decision`, `gate:human-review`, `gate:human-approval`, `gate:credentials`)
+ * and the class comparison does not apply to it. An `impl:human` issue with no
+ * `gate:` label is reported under its own heading as needing one, never as a
+ * class difference.
  *
  * THE RULE
  *
@@ -26,8 +51,9 @@
  *
  * EXIT CODES
  *
- *   0  every open issue's derived class matches its `impl:` tier
- *   1  one or more differences, untiered issues, or unresolved inputs
+ *   0  every open issue's derived class matches its `impl:` tier (epics exempt)
+ *   1  one or more differences, untiered issues, `impl:human` issues with no
+ *      gate: label, or unresolved inputs
  *   2  SKIPPED — the check could not run (no rule table, malformed rule,
  *      unknown class, no gh auth, unreadable issue)
  *
@@ -45,13 +71,44 @@ import { join } from 'path';
 
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 const RECORDS = process.env.ROUTING_RECORDS || join(ROOT, 'docs/agent-routing-records.md');
-const LIMIT = 500;
 
 /** The policy's capability classes, ranked. `human` is a completion gate, not a class. */
 const CLASS_RANK = { standard: 1, frontier: 2 };
 
 const RULE_HEADING = /^##[ \t]*\d*\.?[ \t]*Risk.*class rule[ \t]*$/i;
 const NONE_ROW = '(none)';
+
+/** The declared marker on a workflow's rolling output issue — exempt from the check. */
+const ROLLING_REPORT_LABEL = 'rolling-report';
+
+/**
+ * The epic shape, copied verbatim from `check-issue-routing.mjs` (v1.7.0),
+ * where R1 has exempted it since 1.3.0. An epic carries a tier table over its
+ * children rather than a single tier (policy §Mechanism 3), so it has no
+ * `impl:` label by design. Detected two ways, either sufficient: the repo's
+ * `epic` label, or a row in the `## Impl tier` block pairing a child issue with
+ * a tier.
+ */
+const EPIC_TIER_ROW = /^\s*\|[^\n]*#\d+[^\n]*\|\s*(standard|frontier|human)\s*\|/im;
+
+function isEpicShape(names, block) {
+  return names.some((n) => n.toLowerCase() === 'epic') || (block ? EPIC_TIER_ROW.test(block) : false);
+}
+
+/**
+ * The `## Impl tier` block, copied verbatim from `check-issue-routing.mjs`.
+ * Line-scanned rather than regex-matched because JavaScript has no `\Z` anchor:
+ * `(?=^##\s|\Z)` degrades to "followed by a literal Z" and the block never ends.
+ */
+function tierBlock(body) {
+  if (!body) return null;
+  const lines = body.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^##[ \t]*Impl tier[ \t]*$/i.test(l));
+  if (start === -1) return null;
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((l) => /^##[ \t]/.test(l));
+  return (end === -1 ? rest : rest.slice(0, end)).join('\n').trim();
+}
 
 function skipped(message) {
   console.log(`SKIPPED: ${message}`);
@@ -131,20 +188,45 @@ try {
   issues = pages
     .flat()
     .filter((i) => !i.pull_request)
-    .map((i) => ({ number: i.number, title: i.title, labels: i.labels ?? [] }));
+    .map((i) => ({ number: i.number, title: i.title, labels: i.labels ?? [], body: i.body ?? '' }));
 } catch (err) {
   skipped(`could not list issues (${String(err.message).split('\n')[0]})`);
 }
 
 const differences = [];
 const untiered = [];
+const epics = [];
+const rollingReports = [];
+const needsGate = [];
 const unresolved = [];
 let labelled = 0;
 
 for (const issue of issues) {
   const names = issue.labels.map((l) => l.name);
+
+  // A rolling report is a workflow's output surface, not a work item. Exempt it
+  // before the rule is applied — the next run rewrites the body and drops any
+  // label or tier line written here, so there is nothing to compare.
+  if (names.some((n) => n.toLowerCase() === ROLLING_REPORT_LABEL)) {
+    rollingReports.push({ number: issue.number });
+    continue;
+  }
+
   const risks = names.filter((n) => n.startsWith('risk:'));
   if (risks.length) labelled += 1;
+
+  const impls = names.filter((n) => n.startsWith('impl:'));
+  const gates = names.filter((n) => n.startsWith('gate:'));
+  // Policy §Mechanism 3: an epic has no single tier, so it is exempt rather
+  // than untiered or a difference — including when it carries an `impl:` label,
+  // which is the anomaly check-issue-routing.mjs's R13 reports. This runs before
+  // derive(): an epic is exempt from the rule entirely, so an unmapped risk
+  // label on one is not an unresolved item either.
+  if (isEpicShape(names, tierBlock(issue.body))) {
+    const derived = derive(risks, rule);
+    epics.push({ number: issue.number, derived: typeof derived === 'object' ? '(rule not applicable)' : derived, risks, impls });
+    continue;
+  }
 
   const derived = derive(risks, rule);
   if (typeof derived === 'object' && derived.error) {
@@ -152,8 +234,6 @@ for (const issue of issues) {
     continue;
   }
 
-  const impls = names.filter((n) => n.startsWith('impl:'));
-  const gates = names.filter((n) => n.startsWith('gate:'));
   if (impls.length === 0) {
     untiered.push({ number: issue.number, derived, risks });
     continue;
@@ -164,7 +244,18 @@ for (const issue of issues) {
   }
 
   const tier = impls[0];
-  const current = tier === 'impl:standard' ? 'standard' : tier === 'impl:frontier' ? 'frontier' : tier === 'impl:human' ? 'human' : null;
+  // PDR-011 decision 2: human completion lives in the gate: family, so an
+  // impl:human issue is equivalent when it carries a gate: label. The rule
+  // outputs classes only and the class comparison does not apply to it.
+  if (tier === 'impl:human') {
+    if (gates.length) {
+      continue; // equivalent — the gate: label is the completion record
+    }
+    needsGate.push({ number: issue.number, risks });
+    continue;
+  }
+
+  const current = tier === 'impl:standard' ? 'standard' : tier === 'impl:frontier' ? 'frontier' : null;
   if (!current) {
     unresolved.push({ number: issue.number, why: `unknown impl: label ${tier}` });
     continue;
@@ -174,16 +265,33 @@ for (const issue of issues) {
   }
 }
 
-console.log(`check-routing-equivalence: ${REPO} — swept ${issues.length} open issues, ${labelled} with risk labels.`);
+console.log(`check-routing-equivalence: ${REPO} — swept ${issues.length} open issues, ${labelled} with risk labels; ${epics.length} epic(s) and ${rollingReports.length} rolling report(s) exempt.`);
 console.log(`Rule: ${RECORDS.replace(ROOT + '/', '')} §8 — ${rule.size} row(s), highest signal wins.`);
-
-if (!differences.length && !untiered.length && !unresolved.length) {
-  console.log(`OK: every open issue's derived class matches its impl: tier (${issues.length} open, ${labelled} labelled).`);
-  process.exit(0);
-}
 
 const riskList = (risks) => (risks.length ? risks.join(', ') : '(zero risk labels)');
 const gateList = (gates) => (gates.length ? ` + ${gates.join(', ')}` : '');
+
+if (epics.length) {
+  console.log(`\nEXEMPT EPICS (${epics.length}) — epic-shaped, no single tier by policy §Mechanism 3:`);
+  for (const e of epics.sort((a, b) => a.number - b.number)) {
+    // The impl: label is shown, not compared: on an epic it is the anomaly the
+    // routing lint reports (R13), not a tier this check should hold it to.
+    const impl = e.impls.length ? `, ${e.impls.join(', ')}` : '';
+    console.log(`  #${e.number}  (epic${impl}) -> ${e.derived}  [${riskList(e.risks)}]`);
+  }
+}
+
+if (rollingReports.length) {
+  console.log(`\nEXEMPT ROLLING REPORTS (${rollingReports.length}) — declared \`${ROLLING_REPORT_LABEL}\`, rewritten by a workflow every run:`);
+  for (const r of rollingReports.sort((a, b) => a.number - b.number)) {
+    console.log(`  #${r.number}  (rolling report)`);
+  }
+}
+
+if (!differences.length && !untiered.length && !needsGate.length && !unresolved.length) {
+  console.log(`OK: every open issue's derived class matches its impl: tier (${issues.length} open, ${labelled} labelled, ${epics.length} epic(s) and ${rollingReports.length} rolling report(s) exempt).`);
+  process.exit(0);
+}
 
 if (differences.length) {
   console.log(`\nDIFFERENCES (${differences.length}):`);
@@ -197,6 +305,12 @@ if (untiered.length) {
     console.log(`  #${u.number}  (none) -> ${u.derived}  [${riskList(u.risks)}]`);
   }
 }
+if (needsGate.length) {
+  console.log(`\nIMPL:HUMAN WITHOUT A GATE LABEL (${needsGate.length}) — human completion is a gate: label, so the class comparison does not apply:`);
+  for (const u of needsGate.sort((a, b) => a.number - b.number)) {
+    console.log(`  #${u.number}  add a gate: label (${riskList(u.risks)})`);
+  }
+}
 if (unresolved.length) {
   console.log(`\nUNRESOLVED (${unresolved.length}) — the rule could not be applied:`);
   for (const u of unresolved.sort((a, b) => a.number - b.number)) {
@@ -205,7 +319,7 @@ if (unresolved.length) {
 }
 
 console.log(
-  `\n${differences.length + untiered.length + unresolved.length} item(s) unresolved. ` +
+  `\n${differences.length + untiered.length + needsGate.length + unresolved.length} item(s) unresolved. ` +
   'Resolve each on the record — re-tier the issue, or change the rule — before `impl:` is retired.'
 );
 process.exit(1);

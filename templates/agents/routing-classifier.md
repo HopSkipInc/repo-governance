@@ -15,8 +15,8 @@ description: >
 # §1/§2 and fails closed on drift. See docs/classifier-class-binding.md.
 model: opus
 tools: Read, Grep, Glob, Bash
-version: 1.4.0
-updated: 2026-11-07
+version: 1.6.0
+updated: 2026-11-10
 ---
 
 # Routing Classifier
@@ -58,6 +58,12 @@ wrong, the worst outcome is a bad table a human rejects — not two dozen mislab
 issues. The skill applies; you propose.
 
 ## What to produce
+
+**Do not classify a `rolling-report` issue.** Such an issue is a workflow's output surface,
+rewritten on every run. A tier or risk line you propose for it is removed by the next run
+while any label applied to it survives, so it flaps between "label with no tier line" and
+"tier line with no label" — a worse state than either half alone. Exclude these from your
+proposal tables and report how many you skipped.
 
 ### 1. The risk-surface map
 
@@ -106,6 +112,28 @@ Rules for the row:
 - **The tier is still proposed.** `impl:` is derived from the risk labels plus the rule in
   `docs/agent-routing-records.md`; until that derivation ships in the repo, propose the tier
   and kind as today.
+
+**Every row also carries the lowering fields.** These are what make a lowering auditable
+instead of a quiet relabel, and the skill applies them in Step 3:
+
+- **`decision_shape`** — one of `decision-record` (writes or changes an ADR/PDR, or a row in
+  an ADR's decision table), `new-layer` (adds a cross-cutting layer an ADR must sanction),
+  `open-question` (leaves a question open — no gate; the issue is `status:needs-decision`),
+  `implements-existing` (applies a rule an ADR already states — no gate), `none`.
+- **`human_step`** — one of the five steps outside the merge path
+  (`prod-config-by-hand`, `live-prod-test`, `per-env-switch`,
+  `delete-prod-data-or-relax-invariant`, `owner-issued-grant`), or `none`. Propose
+  `gate:human-approval` only when it is not `none`; an automatic deploy on merge is `none`.
+- **`spec_only_frontier`** — `yes` when the issue is frontier *only* because it is
+  under-specified and carries no `risk:` fact. That is lowerable under 3a: propose
+  `impl:standard` and drop `status:ready` until the issue is rewritten.
+- **`evidence_only` / `remaining_scope`** — `yes` when all code has merged and only
+  post-deploy evidence remains (3b); `remaining_scope` is the one-line evidence task, and
+  the tier is re-proposed on that task. The skill records it in a dated
+  `## Remaining scope (YYYY-MM-DD)` section.
+- **`Disputed`** — mark a row `Disputed` when a reasonable reader could contest its 3a, 3b
+  or Rule-4 lowering. The existing tier stands, and the skill brings the row to the human
+  before applying anything.
 
 **Four columns are load-bearing.** If you cannot state what a botched implementation looks
 like and whether anyone would notice, you have not classified it — you have guessed at

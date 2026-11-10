@@ -327,19 +327,31 @@ test('analyze-repo-coverage: a template missing from the matrix fails', () => {
 // ------------------------------------------------------------- issue-routing
 
 /**
- * `gh` is stubbed on PATH. It answers `issue list` with the case's issues and
- * every `api` call with `[]`, which short-circuits R6 without needing GraphQL.
+ * `gh` is stubbed on PATH. It answers the paginated issue-list endpoint with
+ * the case's pages and every other `api` call with `[]`, which short-circuits
+ * R6 without needing GraphQL.
+ *
+ * The list stub *requires* `--paginate --slurp` and exits non-zero without
+ * them. That is deliberate: returning every page regardless of flags would let
+ * a regression that drops pagination pass this fixture, which is the exact
+ * silent-partial-sweep defect the fixture exists to catch. Any other `api`
+ * call (timeline, GraphQL) still gets `[]`.
  */
-function ghStub(dir, issues) {
+function ghPagesStub(dir, pages) {
   const bin = join(dir, 'bin');
   mkdirSync(bin, { recursive: true });
-  const payload = JSON.stringify(issues).replace(/'/g, `'\\''`);
+  const payload = JSON.stringify(pages).replace(/'/g, `'\\''`);
   writeFileSync(
     join(bin, 'gh'),
-    `#!/bin/sh\ncase "$1" in\n  issue) printf '%s' '${payload}' ;;\n  *) printf '[]' ;;\nesac\n`
+    `#!/bin/sh\ncase "$1" in\n  api)\n    case "$2" in\n      *"/issues?state="*)\n        case " $* " in\n          *" --paginate "*) ;;\n          *) echo "stub: issue-list fetch is missing --paginate" >&2; exit 1 ;;\n        esac\n        case " $* " in\n          *" --slurp "*) printf '%s' '${payload}' ;;\n          *) echo "stub: issue-list fetch is missing --slurp" >&2; exit 1 ;;\n        esac ;;\n      *) printf '[]' ;;\n    esac ;;\n  *) printf '[]' ;;\nesac\n`
   );
   chmodSync(join(bin, 'gh'), 0o755);
   return { PATH: `${bin}:${process.env.PATH}`, ROUTING_REPO: 'fixture/repo' };
+}
+
+/** The common case: one page holding every issue. */
+function ghStub(dir, issues) {
+  return ghPagesStub(dir, [issues]);
 }
 
 const tierBody = (line) => `Some description.\n\n## Impl tier\n${line}\n`;
@@ -542,6 +554,49 @@ test('issue-routing: R1 still fires on a bare tier block that is not an epic (gu
   assert.equal(code, 1, out);
   assert.match(out, /R1/);
   assert.match(out, /child tier table/);
+});
+
+test('issue-routing: R13 warns on a tiered epic and clears on an untiered one (issue #155)', () => {
+  // Policy §Mechanism 3: an epic carries a child tier table, not one tier. A
+  // single impl: label on it is the anomaly the equivalence check now exempts.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 40,
+      title: 'Epic: tiered',
+      labels: [{ name: 'epic' }, { name: 'impl:frontier' }],
+      body: 'Body of work.\n\n## Impl tier\nfrontier (inherent) — a single tier is the anomaly; the child table is the real routing.\n',
+    },
+    {
+      number: 42,
+      title: 'Epic: untiered',
+      labels: [{ name: 'epic' }],
+      body: 'Body of work.\n\n## Impl tier\n\n| Child | Tier | Kind | Why |\n|---|---|---|---|\n| #43 | standard | — | loud failure |\n',
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out); // WARN, never a build failure
+  assert.match(out, /#40 \[R13\] epic carries a single impl:frontier label/, out);
+  assert.doesNotMatch(out, /#42 \[R13\]/, out);
+});
+
+test('issue-routing: a rolling report is skipped before any rule reads it (issue #155)', () => {
+  // This shape would fire R2 (impl: label with no ## Impl tier) and R10 (risk
+  // label with no reason) if the label did not exempt it. The body is rewritten
+  // every run, so a finding here could never be made to stay fixed.
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    {
+      number: 44,
+      title: 'mcp auth probe — rolling output',
+      labels: [{ name: 'rolling-report' }, { name: 'impl:frontier' }, { name: 'risk:silent-failure' }],
+      body: 'Rewritten each run.\n',
+    },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /1 rolling report\(s\) skipped/, out);
+  assert.doesNotMatch(out, /\[R(2|10|13)\]/, out);
 });
 
 test('issue-routing: kind is not read from prose — "both decision points" declares nothing (U3)', () => {
@@ -876,6 +931,37 @@ test('issue-routing R5: needs-spec + a non-spec tier fires, and a spec kind clea
   assert.doesNotMatch(outB, /\[R5\]/, outB);
 });
 
+test('issue-routing: the whole backlog is enumerated across pages, not capped at one', () => {
+  // PDR-011 #152 defect 3: the sweep fetched `--limit 500` and never read the
+  // oldest issues. The finding here lives on the second page.
+  const page1 = [
+    { number: 1, title: 'x', labels: [{ name: 'impl:standard' }], body: tierBody('standard — loud.') },
+    { number: 2, title: 'x', labels: [{ name: 'impl:standard' }], body: tierBody('standard — loud.') },
+  ];
+  const page2 = [
+    { number: 3, title: 'x', labels: [{ name: 'impl:frontier' }], body: tierBody('frontier — it is complicated.') },
+  ];
+  const dir = fixture({});
+  const { code, out } = run('check-issue-routing.mjs', dir, { env: ghPagesStub(dir, [page1, page2]) });
+  assert.equal(code, 1, out);
+  assert.match(out, /swept 3 open issues/);
+  assert.match(out, /#3 \[R3\]/);
+});
+
+test('issue-routing: an unreadable issue fetch is SKIPPED (exit 2), never a silent pass', () => {
+  const dir = fixture({});
+  const bin = join(dir, 'bin');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'gh'), '#!/bin/sh\nexit 1\n');
+  chmodSync(join(bin, 'gh'), 0o755);
+  const { code, out } = run('check-issue-routing.mjs', dir, {
+    env: { PATH: `${bin}:${process.env.PATH}`, ROUTING_REPO: 'fixture/repo' },
+  });
+  assert.equal(code, 2, out);
+  assert.match(out, /SKIPPED/);
+  assert.doesNotMatch(out, /OK:/);
+});
+
 test('issue-routing: the self-installed copy and the template are byte-identical', () => {
   const installed = readFileSync(resolve(REPO, 'scripts/check-issue-routing.mjs'), 'utf8');
   const template = readFileSync(resolve(REPO, 'templates/scripts/check-issue-routing.mjs'), 'utf8');
@@ -886,7 +972,7 @@ test('issue-routing: the self-installed copy and the template are byte-identical
 // The closed pass answers "is this repo's history estimable?" — R1–R3 only over
 // recently closed issues, probe posture by default, kind-coverage census. The gh
 // stub answers the single fetch with the case's issues; closed fixtures carry
-// closedAt, and the window filters client-side off it.
+// closed_at, and the window filters client-side off it.
 
 const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
 
@@ -898,7 +984,7 @@ test('issue-routing closed pass: a kind-less closed escalation is flagged R3, pr
       title: 'x',
       labels: [{ name: 'impl:frontier' }],
       body: tierBody('frontier — the entitlement predicate is one union; every branch reads it.'),
-      closedAt: daysAgo(2),
+      closed_at: daysAgo(2),
     },
   ]);
   const { code, out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed'] });
@@ -917,7 +1003,7 @@ test('issue-routing closed pass: a fully declared closed escalation is clean and
       title: 'x',
       labels: [{ name: 'impl:frontier' }],
       body: tierBody('frontier (inherent) — a wrong scope leaks cross-workspace data silently.\nNot splittable: one predicate.'),
-      closedAt: daysAgo(1),
+      closed_at: daysAgo(1),
     },
   ]);
   const { code, out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed'] });
@@ -937,7 +1023,7 @@ test('issue-routing closed pass: R4–R9 cannot fire on finished work', () => {
     title: 'x',
     labels: [{ name: 'impl:frontier' }, { name: 'status:ready' }],
     body: `## Open questions\n- Which retry policy?\n\n` + tierBody('frontier (both) — mostly mechanical, and no test coverage of the retry path.'),
-    closedAt: daysAgo(3),
+    closed_at: daysAgo(3),
   };
   const openRun = run('check-issue-routing.mjs', fixture({}), { env: ghStub(fixture({}), [issue]) });
   assert.match(openRun.out, /\[R4\]/);
@@ -961,7 +1047,7 @@ test('issue-routing closed pass: --closed-gate promotes findings to blocking', (
       title: 'x',
       labels: [{ name: 'impl:frontier' }],
       body: tierBody('frontier — one predicate; every branch reads it.'),
-      closedAt: daysAgo(2),
+      closed_at: daysAgo(2),
     },
   ]);
   const { code, out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed', '--closed-gate'] });
@@ -977,7 +1063,7 @@ test('issue-routing closed pass: the window excludes issues closed before it', (
       title: 'x',
       labels: [{ name: 'impl:frontier' }],
       body: tierBody('frontier — one predicate; every branch reads it.'),
-      closedAt: daysAgo(60),
+      closed_at: daysAgo(60),
     },
   ]);
   const { code, out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed', '--days', '30'] });
@@ -1165,14 +1251,103 @@ test('routing-equivalence: an untiered issue is listed, not silently skipped', (
   assert.match(out, /#6\s+\(none\) -> frontier/);
 });
 
-test('routing-equivalence: a human tier is compared and its gates are shown', () => {
+test('routing-equivalence: an impl:human issue with a gate: label is equivalent, class comparison does not apply', () => {
   const dir = equivFixture();
   const env = ghApiStub(dir, [
     { number: 7, title: 'x', labels: [{ name: 'impl:human' }, { name: 'risk:boundary' }, { name: 'gate:human-approval' }], body: '' },
+    { number: 9, title: 'x', labels: [{ name: 'impl:human' }, { name: 'gate:credentials' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /DIFFERENCES/, out);
+  assert.doesNotMatch(out, /IMPL:HUMAN WITHOUT A GATE LABEL/, out);
+});
+
+test('routing-equivalence: an impl:human issue with no gate: label is reported under its own heading', () => {
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 8, title: 'x', labels: [{ name: 'impl:human' }, { name: 'risk:boundary' }], body: '' },
   ]);
   const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
   assert.equal(code, 1, out);
-  assert.match(out, /#7\s+impl:human \(human\) -> frontier \+ gate:human-approval/);
+  assert.match(out, /IMPL:HUMAN WITHOUT A GATE LABEL \(1\)/);
+  assert.match(out, /#8\s+add a gate: label/);
+  assert.doesNotMatch(out, /DIFFERENCES/, out);
+});
+
+test('routing-equivalence: an untiered epic is exempt by its label, not counted as UNTIERED', () => {
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 10, title: 'Epic', labels: [{ name: 'epic' }], body: 'Body of work.\n' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /EXEMPT EPICS \(1\)/);
+  assert.match(out, /#10\s+\(epic\)/);
+  assert.doesNotMatch(out, /UNTIERED/, out);
+});
+
+test('routing-equivalence: an untiered epic is exempt by its child tier table', () => {
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    {
+      number: 11,
+      title: 'Epic',
+      labels: [],
+      body: 'Body of work.\n\n## Impl tier\n\n| Child | Tier | Kind | Why |\n|---|---|---|---|\n| #21 | standard | — | loud failure |\n',
+    },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /EXEMPT EPICS \(1\)/);
+  assert.match(out, /#11\s+\(epic\)/);
+  assert.doesNotMatch(out, /UNTIERED/, out);
+});
+
+test('routing-equivalence: a TIERED epic is exempt, not a difference (issue #155)', () => {
+  // 1.2.0 only routed an epic into EXEMPT when it had no impl: label, so every
+  // tiered epic on ai-fleet reported `frontier -> standard (zero risk labels)`.
+  // Policy §Mechanism 3 says an epic has a child table, not a single tier; the
+  // label is the anomaly (check-issue-routing R13), never a class difference.
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 12, title: 'Epic', labels: [{ name: 'epic' }, { name: 'impl:frontier' }], body: 'Body of work.\n' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /EXEMPT EPICS \(1\)/);
+  assert.match(out, /#12\s+\(epic, impl:frontier\)/);
+  assert.doesNotMatch(out, /DIFFERENCES/, out);
+});
+
+test('routing-equivalence: an epic with an unmapped risk label is exempt, not unresolved (issue #155)', () => {
+  // "Exempt every epic-shaped issue" has to mean before the rule is applied:
+  // an epic carrying a risk label the rule does not map is still an epic, and
+  // the check has nothing to compare on it. Only ordinary issues are unresolved.
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 14, title: 'Epic', labels: [{ name: 'epic' }, { name: 'impl:frontier' }, { name: 'risk:irreversible' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /EXEMPT EPICS \(1\)/);
+  assert.match(out, /#14\s+\(epic, impl:frontier\) -> \(rule not applicable\)/);
+  assert.doesNotMatch(out, /UNRESOLVED/, out);
+});
+
+test('routing-equivalence: a rolling report is exempt by its label, not counted as a difference (issue #155)', () => {
+  // A rolling report is a workflow's output surface, rewritten every run. This
+  // shape would be a standard -> frontier difference if it were treated as work.
+  const dir = equivFixture();
+  const env = ghApiStub(dir, [
+    { number: 13, title: 'probe — rolling output', labels: [{ name: 'rolling-report' }, { name: 'impl:standard' }, { name: 'risk:silent-failure' }], body: '' },
+  ]);
+  const { code, out } = run('check-routing-equivalence.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /EXEMPT ROLLING REPORTS \(1\)/);
+  assert.match(out, /#13\s+\(rolling report\)/);
+  assert.doesNotMatch(out, /DIFFERENCES/, out);
+  assert.doesNotMatch(out, /UNTIERED/, out);
 });
 
 test('routing-equivalence: a risk label with no rule row is unresolved', () => {
