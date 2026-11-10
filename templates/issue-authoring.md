@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.10.0 · updated 2026-11-10 -->
+<!-- template: issue-authoring.md v1.11.0 · updated 2026-11-10 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -8,6 +8,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.11.0 | 2026-11-10 | **Design-reference backstops.** R14 warns on ready private design links without same-line repo paths; R15 warns on design references or visual outcomes without a concrete standalone `Render:` command. Both lint copies ship together with firing/clearing fixtures (issue #160, lane C1) |
 | 1.10.0 | 2026-11-10 | **Rendered UI work names an accessible design reference and render path.** A private canvas held composition while lane issues named only components; component swaps passed without matching the design. The canonical schema now requires repo sources and images (or a named deciding rule), composition, and a credential-free `Render:` command (issue #160, lane A) |
 
 ## Purpose
@@ -224,7 +225,9 @@ GitHub cannot restrict who creates an issue through the UI or the API, so enforc
     | `impl:` label changed with no body edit in the same window | ungrounded downgrade — see Agent Routing → *Downgrades* |
     | A `risk:` label with no reason line under `## Risk` | malformed fact — a label with no explanation cannot be re-evaluated |
     | An unknown `risk:*` label | malformed — the vocabulary is the five labels in Agent Routing |
-    | `risk:uncovered` with no coverage record | missing record — the surface has no expiry condition |
+     | `risk:uncovered` with no coverage record | missing record — the surface has no expiry condition |
+     | Says ready and cites a private design link with no repo path on the same line | reference-unreachable (R14, WARN); mirror and repoint before pickup |
+     | Has `## Design reference` or screenshot/visual-comparison outcomes, but no concrete standalone `Render:` command | render-unrunnable (R15, WARN); name the credential-free render command |
 
    The last two are the ones worth wiring first: they catch the two ways the taxonomy quietly
    stops meaning anything.
