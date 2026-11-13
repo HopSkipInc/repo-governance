@@ -357,9 +357,8 @@ const VISUAL_OUTCOME = /\bscreenshots?\b|\bvisual\s+comparisons?\b/i;
  * re-evaluated — both are findings.
  */
 const HUMAN_STEP_HEADING = /^##[ \t]*Human step(?:[ \t]*\([^)]*\))?[ \t]*$/i;
-const GATE_LABEL = /^gate:[a-z-]+$/i;
-const AUTOMATION_FORM = /(?:^|\n)[ \t]*Automation:[ \t]*#\d+\b/;
-const NOT_AUTOMATABLE_FORM = /(?:^|\n)[ \t]*Not automatable[ \t]*[—–-][ \t]*(.*)$/im;
+const KNOWN_GATES = new Set(['gate:human-approval', 'gate:human-review', 'gate:credentials', 'gate:decision']);
+const HUMAN_FORM_LINE = /^(?:Automation:|Not automatable\b)/i;
 
 /**
  * R9: a top-level list item — bullet or numbered — is one question. Indented
@@ -564,24 +563,66 @@ function riskCoverageRecord(lines) {
 }
 
 function gateLabels(labels) {
-  return labels.map((l) => l.name).filter((n) => GATE_LABEL.test(n));
+  return [...new Set(labels.map((l) => l.name.toLowerCase()).filter((n) => n.startsWith('gate:')))];
 }
 
-/** R17: one entry per `- gate:<label> — <role>` line, with its continuation lines. */
+/**
+ * R17: one entry per `- gate:<label> — <role>` line. The role may wrap onto the
+ * following lines; a declaration line (Automation / Not automatable) starts the
+ * form and is not part of the role. Duplicate entries for one gate are kept so
+ * the rule can report them rather than silently taking the last.
+ */
 function humanStepEntries(lines) {
   const entries = [];
   let current = null;
   for (const raw of lines ?? []) {
     const cleaned = raw.replace(/[`*_]/g, '').trim();
-    const m = cleaned.match(/^[-*+][ \t]+(gate:[a-z-]+)\b(.*)$/i);
+    const m = cleaned.match(/^[-*+][ \t]+(gate:[a-z_-]+)\b(.*)$/i);
     if (m) {
-      current = { label: m[1].toLowerCase(), text: `${m[2]}\n` };
+      current = { label: m[1].toLowerCase(), role: [m[2].trim()], lines: [] };
       entries.push(current);
       continue;
     }
-    if (current) current.text += `${cleaned}\n`;
+    if (current) current.lines.push(cleaned);
+  }
+  for (const entry of entries) {
+    const roleTail = [];
+    for (const line of entry.lines) {
+      if (HUMAN_FORM_LINE.test(line)) break;
+      if (line) roleTail.push(line);
+    }
+    entry.roleText = [...entry.role, ...roleTail].join(' ').replace(/^[—–:-]\s*/, '').trim();
+    entry.declarations = entry.lines.filter((l) => HUMAN_FORM_LINE.test(l));
   }
   return entries;
+}
+
+const PLACEHOLDER = /^<[^>]*>$|^(?:none|n\/a|tbd|todo|pending)\b/i;
+
+/** R17: one verdict per gate, so the census counts a gate once. */
+function humanStepVerdict(entry) {
+  if (!entry.roleText || PLACEHOLDER.test(entry.roleText)) {
+    return { why: 'names no human role — add "— decides / signs / approves / holds the identity" after the gate label' };
+  }
+  if (entry.declarations.length === 0) {
+    return { why: 'carries no "Automation: #N" or "Not automatable — <mechanism>" form — a gate with no record cannot be re-evaluated' };
+  }
+  if (entry.declarations.length > 1) {
+    return { why: `carries ${entry.declarations.length} forms — exactly one of "Automation: #N" or "Not automatable — <mechanism>" per gate` };
+  }
+  const line = entry.declarations[0];
+  if (/^Automation:/i.test(line)) {
+    if (!/^Automation:[ \t]*#\d+\b/i.test(line)) {
+      return { why: 'names no "Automation: #N" — an existing or placeholder reference is not a record' };
+    }
+    return { census: 'automation' };
+  }
+  const m = line.match(/^Not automatable[ \t]*[—–-][ \t]*(.*)$/i);
+  const mechanism = m ? m[1].trim() : '';
+  if (!mechanism || PLACEHOLDER.test(mechanism)) {
+    return { why: 'says "Not automatable" with no mechanism — a legal signature, a natural-person identity, a judgment no test settles, or a named policy' };
+  }
+  return { census: 'notAutomatable' };
 }
 
 // -------------------------------------------------------------------- rules
@@ -748,41 +789,36 @@ for (const issue of issues) {
     }
     if (gates.length) {
       const lines = sectionLines(issue.body, HUMAN_STEP_HEADING);
-      if (lines === null) {
-        humanStep.gates += gates.length;
-        humanStep.missing += gates.length;
-        report('R17', issue.number, `carries ${gates.join(', ')} but has no "## Human step" section — every gate names the human role and exactly one of "Automation: #N" or "Not automatable — <mechanism>"`);
-      } else {
-        const byLabel = new Map(humanStepEntries(lines).map((e) => [e.label, e]));
-        for (const gate of gates) {
-          humanStep.gates += 1;
-          const entry = byLabel.get(gate);
-          if (!entry) {
-            humanStep.missing += 1;
-            report('R17', issue.number, `carries ${gate} with no line under "## Human step" — name the human role in a "- ${gate} — <role>" line`);
-            continue;
-          }
-          const hasAutomation = AUTOMATION_FORM.test(entry.text);
-          const notAuto = entry.text.match(NOT_AUTOMATABLE_FORM);
-          const mechanism = notAuto ? notAuto[1].trim() : '';
-          const mechanismOk = Boolean(mechanism) && !/^<[^>]*>$/.test(mechanism) && !/^(?:none|n\/a|tbd|todo|pending)\b/i.test(mechanism);
-          if (hasAutomation && notAuto) {
-            humanStep.automation += 1;
-            humanStep.notAutomatable += 1;
-            report('R17', issue.number, `${gate} carries both "Automation:" and "Not automatable" — exactly one form per gate`);
-          } else if (hasAutomation) {
-            humanStep.automation += 1;
-          } else if (notAuto) {
-            if (mechanismOk) {
-              humanStep.notAutomatable += 1;
-            } else {
-              humanStep.missing += 1;
-              report('R17', issue.number, `${gate}'s "Not automatable" names no mechanism — a legal signature, a natural-person identity, a judgment no test settles, or a named policy. The flattering call carries the burden`);
-            }
-          } else {
-            humanStep.missing += 1;
-            report('R17', issue.number, `${gate}'s "## Human step" line carries no "Automation: #N" or "Not automatable — <mechanism>" form — a gate with no record cannot be re-evaluated`);
-          }
+      const entries = lines === null ? [] : humanStepEntries(lines);
+      for (const gate of gates) {
+        humanStep.gates += 1;
+        if (!KNOWN_GATES.has(gate)) {
+          humanStep.missing += 1;
+          report('R17', issue.number, `carries unknown gate label ${gate} — the family is ${[...KNOWN_GATES].join(', ')}; a fifth gate needs a policy change`);
+          continue;
+        }
+        if (lines === null) {
+          humanStep.missing += 1;
+          report('R17', issue.number, `carries ${gate} but has no "## Human step" section — every gate names the human role and exactly one of "Automation: #N" or "Not automatable — <mechanism>"`);
+          continue;
+        }
+        const matching = entries.filter((e) => e.label === gate);
+        if (matching.length === 0) {
+          humanStep.missing += 1;
+          report('R17', issue.number, `carries ${gate} with no line under "## Human step" — name the human role in a "- ${gate} — <role>" line`);
+          continue;
+        }
+        if (matching.length > 1) {
+          humanStep.missing += 1;
+          report('R17', issue.number, `carries ${matching.length} lines for ${gate} under "## Human step" — one record per gate, or the census cannot tell which one applies`);
+          continue;
+        }
+        const verdict = humanStepVerdict(matching[0]);
+        if (verdict.census === 'automation') humanStep.automation += 1;
+        else if (verdict.census === 'notAutomatable') humanStep.notAutomatable += 1;
+        else {
+          humanStep.missing += 1;
+          report('R17', issue.number, `${gate}'s "## Human step" record ${verdict.why}`);
         }
       }
     }

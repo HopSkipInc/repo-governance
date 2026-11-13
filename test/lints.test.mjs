@@ -632,7 +632,7 @@ test('issue-routing R17: a gate line with no form, an empty Not automatable, and
   assert.match(out, /#102 \[R17\]/);
   assert.match(out, /carries no "Automation: #N" or "Not automatable — <mechanism>" form/);
   assert.match(out, /#103 \[R17\]/);
-  assert.match(out, /"Not automatable" names no mechanism/);
+  assert.match(out, /says "Not automatable" with no mechanism/);
   assert.match(out, /#104 \[R17\]/);
 });
 
@@ -656,7 +656,54 @@ test('issue-routing R17: both forms on one gate fire', () => {
   const { code, out } = run('check-issue-routing.mjs', dir, { env });
   assert.equal(code, 0, out);
   assert.match(out, /#107 \[R17\]/);
-  assert.match(out, /carries both "Automation:" and "Not automatable"/);
+  assert.match(out, /carries 2 forms — exactly one/);
+  assert.match(out, /Human-step census: 1 gate\(s\) — 0 Automation, 0 Not automatable, 1 without a valid record/);
+});
+
+test('issue-routing R17: a record with no human role fires', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 110, labels: [{ name: 'gate:decision' }], body: '## Human step\n- gate:decision\n  Automation: #12 — x\n' },
+    { number: 111, labels: [{ name: 'gate:human-review' }], body: '## Human step\n- gate:human-review — <role>\n  Not automatable — a judgment.\n' },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /#110 \[R17\]/);
+  assert.match(out, /#111 \[R17\]/);
+  assert.match(out, /names no human role/);
+});
+
+test('issue-routing R17: a malformed gate label is reported, not skipped', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 112, labels: [{ name: 'gate:human_approval' }], body: '## Human step\n- gate:human_approval — the owner.\n  Automation: #12 — x\n' },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /#112 \[R17\]/);
+  assert.match(out, /unknown gate label gate:human_approval/);
+});
+
+test('issue-routing R17: duplicate gate lines fire', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 113, labels: [{ name: 'gate:decision' }], body: '## Human step\n- gate:decision — the owner.\n  Automation: #12 — x\n- gate:decision — the owner again.\n  Not automatable — a judgment.\n' },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /#113 \[R17\]/);
+  assert.match(out, /2 lines for gate:decision/);
+});
+
+test('issue-routing R17: mixed-case labels and a wrapped role clear', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 114, labels: [{ name: 'gate:Human-Approval' }], body: '## Human step\n- gate:human-approval — the owner authorizes the\n  rollout after the dry run.\n  Automation: #1250 — the script sets it.\n' },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /\[R17\]/);
+  assert.match(out, /Human-step census: 1 gate\(s\) — 1 Automation, 0 Not automatable, 0 without/);
 });
 
 test('issue-routing R17: a fenced schema example is not a record', () => {
