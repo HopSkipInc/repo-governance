@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.27.0 · updated 2026-11-13 -->
+<!-- template: agent-routing.md v1.27.1 · updated 2026-11-13 -->
 # Agent Routing
 
-**Version:** 1.27.0 · **Last updated:** 2026-11-13
+**Version:** 1.27.1 · **Last updated:** 2026-11-13
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -16,6 +16,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.27.1 | 2026-11-13 | **R17 lands.** `check-issue-routing.mjs` 1.10.0 reports a `gate:` label with no `## Human step` record, `impl:human` with no gate, a record with no `Automation: #N` / `Not automatable — <mechanism>` form, and a form that names no mechanism. WARN on the open pass; the census prints the Automation / Not automatable / missing split |
 | 1.27.0 | 2026-11-13 | **Approval posture is a recorded state (PDR-012).** A repo records `solo` or `reviewed` under `## Approval posture` in `docs/agent-routing-records.md`. In `solo`, environment required reviewers are off, automated deploys and repeatable prod operations take no `gate:human-approval`, and standing grants replace per-action approval. The hard core stays gated: irreversible prod data deletion/drop/rename, money and legal commitments (`gate:decision`), and non-delegable credentials. An absent approval in `solo` is expected, not a defect |
 | 1.26.0 | 2026-11-13 | **A human gate names who decides, never who types.** `impl:human` is transitional and malformed alone: it decomposes into `impl:<class>` plus `gate:` labels plus a `## Human step` record naming either `Automation: #N` or `Not automatable — <mechanism>`. `gate:human-approval` keeps the approval and gives execution to the agent; `gate:credentials` narrows to natural-person identities. A repeatable manual step discovered during implementation is scripted or filed in the same change. PDR-011 Amendment 2026-11-13 |
 | 1.25.0 | 2026-11-10 | **An unreachable resource stops implementation, for every work type.** UI lanes named a private design canvas and visual outcomes no implementing session could reach; the outcomes were waived and component swaps passed while composition diverged. The observable stop list and shipped AGENTS.md block now require a comment and a stopped turn, with no edit landing or outcome carried forward or waived (issue #160, lane B1) |
@@ -1000,8 +1001,8 @@ Seven numbers, reported as findings, not as a compliance score:
    #N` and those declaring `Not automatable — <mechanism>`. *The first count should trend
    down; the second should stay small and stable.* A gate count that never falls is
    uncodified work, and a backlog where every gate says "not automatable" is
-   indistinguishable from one that never tried. The mechanical half (R16) is not wired yet —
-   tracked in #168.
+   indistinguishable from one that never tried. Rule **R17** in `check-issue-routing.mjs`
+   reports the split mechanically (issue #168).
 
 ## Who assigns the tier
 
