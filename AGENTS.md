@@ -114,7 +114,9 @@ Every issue carries an `impl:` label — `standard`, `frontier`, or `human` — 
 minimum tier required, and an `## Impl tier` line giving the kind and the reason. Every
 `gate:` label carries a `## Human step` record naming either `Automation: #N` or
 `Not automatable — <mechanism>`. **A gate names who decides, never who types**: a human
-authorizes and reviews, and an agent executes every step it is authorized to execute.
+authorizes and reviews, and an agent executes every step it is authorized to execute. Read
+`docs/agent-routing-records.md` §9 before gating a deploy: in `solo` posture an absent
+environment approval is expected — do not restore it (PDR-012).
 
 Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
 failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
