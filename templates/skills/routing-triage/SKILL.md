@@ -11,7 +11,7 @@ description: >
   applies the labels and `## Risk` / `## Human step` lines, and writes the repo's calibration
   set to docs/agent-routing-records.md. Every escalation is decomposed before it is tiered —
   a split proposal or a non-splittability statement is required, not suggested.
-version: 1.11.0
+version: 1.11.1
 updated: 2026-11-13
 triggers:
   - /routing-triage
@@ -475,22 +475,21 @@ anything looks wrong. This is the observed failure mode from the first two runs,
 it was the scripting, not the policy.
 
 ```bash
-# batch.tsv — one line per issue, reviewed before anything executes
-# <issue>\t<risk-labels|->\t<gate-labels|->\t<risk block>\t<human-step block|->\t<impl-label>\t<tier line>
-# The human-step block carries the same number of `- gate:<label> — <role>` lines as the
-# gate-labels column, each followed by `Automation: #N` or `Not automatable — <mechanism>`.
-# A gate with no block is malformed; `-` means "this issue has no gate labels".
-while IFS=$'\t' read -r n risks gates risk_block human_block impl line; do
-  gh issue view "$n" --json body -q .body > /tmp/body-$n.md
-  printf '\n## Risk\n%s\n' "$risk_block" >> /tmp/body-$n.md
-  if [ "$human_block" != "-" ]; then
-    printf '\n## Human step\n%s\n' "$human_block" >> /tmp/body-$n.md
-  fi
-  printf '\n## Impl tier\n%s\n' "$line" >> /tmp/body-$n.md
-  gh issue edit "$n" --add-label "$impl" --body-file /tmp/body-$n.md
-  [ "$risks" != "-" ] && gh issue edit "$n" --add-label "$risks"
-  [ "$gates" != "-" ] && gh issue edit "$n" --add-label "$gates"
-done < batch.tsv
+# batch.jsonl — one JSON object per issue on one physical line, reviewed before anything executes:
+# {"number":1234,
+#  "labels":["risk:boundary","gate:human-approval","impl:frontier"],
+#  "additions":"\n## Risk\n- risk:boundary — ...\n\n## Human step\n- gate:human-approval — the owner authorizes ...\n  Automation: #1250 — ...\n\n## Impl tier\nfrontier (inherent) — ..."}
+# `additions` carries the exact sections in body order. Omit `## Human step` only when the
+# issue has no gate labels. `jq -r` decodes the \n escapes — do not paste raw newlines into
+# the line, and do not use a TSV column for a multi-line section.
+while IFS= read -r row; do
+  n=$(jq -r '.number' <<<"$row")
+  gh issue view "$n" --json body -q .body > "/tmp/body-$n.md"
+  jq -r '.additions' <<<"$row" >> "/tmp/body-$n.md"
+  gh issue edit "$n" --body-file "/tmp/body-$n.md"
+  labels=$(jq -r '.labels | join(",")' <<<"$row")
+  [ -n "$labels" ] && gh issue edit "$n" --add-label "$labels"
+done < batch.jsonl
 ```
 
 Read the current body first and append, never overwrite. If the repo has an issue-body schema,
