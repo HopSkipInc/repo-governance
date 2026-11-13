@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.25.0 · updated 2026-11-10 -->
+<!-- template: agent-routing.md v1.26.0 · updated 2026-11-13 -->
 # Agent Routing
 
-**Version:** 1.25.0 · **Last updated:** 2026-11-10
+**Version:** 1.26.0 · **Last updated:** 2026-11-13
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -16,6 +16,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.26.0 | 2026-11-13 | **A human gate names who decides, never who types.** `impl:human` is transitional and malformed alone: it decomposes into `impl:<class>` plus `gate:` labels plus a `## Human step` record naming either `Automation: #N` or `Not automatable — <mechanism>`. `gate:human-approval` keeps the approval and gives execution to the agent; `gate:credentials` narrows to natural-person identities. A repeatable manual step discovered during implementation is scripted or filed in the same change. PDR-011 Amendment 2026-11-13 |
 | 1.25.0 | 2026-11-10 | **An unreachable resource stops implementation, for every work type.** UI lanes named a private design canvas and visual outcomes no implementing session could reach; the outcomes were waived and component swaps passed while composition diverged. The observable stop list and shipped AGENTS.md block now require a comment and a stopped turn, with no edit landing or outcome carried forward or waived (issue #160, lane B1) |
 | 1.24.0 | 2026-11-10 | **The three-attempt stop counts causes, not tests.** Three attempts that fail with the same cause stop the work; a failure that shows something new (a different assertion, error or location) is a new cause and restarts the count, and the cause is named before each new attempt. Owner decision 2026-11-10, after three same-test stops in one day each turned out to be a different, diagnosed setup cause |
 | 1.23.1 | 2026-11-10 | **Rule-text corrections to 1.23.0 before release.** Rule 4's removal direction stated plainly (remove when something else *would* expose the error); 3a named as the explicit exception to the same-edit rule; a Rule-4 removal named as the third lowering path. No rule changes from 1.23.0 |
@@ -275,14 +276,17 @@ An `impl:` label on every issue, declaring the **minimum** tier required. Exactl
   several system invariants at once.
   *e.g. isolation enforcement, a new data-scoping rule, race and concurrency fixes.*
 
-- **`impl:human`** — needs a human regardless of model capability. Not "hard code" — work an agent
-  should not **unilaterally complete**: product and UX decisions, external coordination,
-  credential handling, removal of a safety invariant.
+- **`impl:human`** — **transitional, and never sufficient on its own.** A human must own a
+  decision the work makes: a product or UX call, an external commitment, removal of a safety
+  invariant, an authority an agent cannot hold. It does **not** mean "a human must type a
+  repeatable step", and "needs human hands" is not a reason. Treat the label as a claim that
+  something is missing — a decision, an automation, or a record — not as a resting state. A
+  human-tier issue decomposes
+  into `impl:<class>` plus one or more `gate:` labels plus a `## Human step` record naming
+  the automation that deletes the step, or the mechanism that makes it irreducible. The gate
+  is on **completion, not preparation**: any model capability may draft the change and may
+  execute every step it is authorized to execute; a human owns the decision and the merge.
   *e.g. removing a fail-open guard, confirming an external producer's contract.*
-  The gate is on **completion, not preparation**: an agent of any model capability may draft
-  the change and hand it to a human (the `gate:human-approval` pattern, applied to the tier
-  itself), and stops only where the work needs human hands — holding a credential, exercising
-  an external authority. A human owns the merge.
 
 ## Risk labels — the facts behind the tier (PDR-011)
 
@@ -339,7 +343,15 @@ equivalence check passes (PDR-011 decision 8). Adding the `risk:` labels never r
 A product or policy decision, external coordination, credential handling, or removal of a
 safety invariant is recorded by the `gate:` family below — `gate:decision`,
 `gate:human-review`, `gate:human-approval`, or `gate:credentials`. `impl:human` remains during
-the transition as the derived completion gate; it is not a capability class.
+the transition as the derived completion gate; it is not a capability class and it never
+stands alone.
+
+**The distinction the gate records is authority, not execution.** A human decides and owns
+the consequence; an agent runs every step it is authorized to run. "Someone has to click this
+in the console" is not a human gate — it is an unscripted repeatable step, and the `## Human
+step` record below is where its automation is owed. The same is true of "someone has to type
+this command": if a deterministic procedure produces the same result every time, the step is
+automatable whatever today's tooling.
 
 ### The spec state is the under-structure marker
 
@@ -356,14 +368,40 @@ more per issue:
 
 | Label | Meaning |
 |---|---|
-| `gate:human-approval` | An agent may prepare the change; the **remaining** work includes a step outside the merge path: prod configuration set by hand; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues. A deploy that runs automatically on merge is **inside** the merge path and takes no gate. |
-| `gate:human-review` | A judgment call no test settles — UX, prose, threat modelling. |
-| `gate:credentials` | The agent structurally cannot hold the keys. |
+| `gate:human-approval` | A human **authorizes** a step outside the merge path; the agent executes it. The step kinds are: prod configuration; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues. A deploy that runs automatically on merge is **inside** the merge path and takes no gate. The approval is recorded and bound to the exact plan, diff, or command. A human re-typing the step does not satisfy the gate — it is an automation gap wearing a gate. |
+| `gate:human-review` | A judgment call no test settles — UX, prose, threat modelling. The agent produces the artifact; the human judges it. |
+| `gate:credentials` | The action is bound to an identity a natural person must hold: a legal signature, an MFA/passkey approval, a personal login deliberately not delegated. A credential the agent can be granted — a service principal, a vault entry it may read — is **not** this gate. That is an automation: the human grants it once and review moves to the evidence. |
 | `gate:decision` | The deliverable writes or changes an ADR/PDR (or a row in an ADR's decision table), or adds a new cross-cutting layer an ADR must sanction — an agent drafts the record through the repo's mediated write path; a person owns it at merge. An issue that only leaves a question open takes **no gate**: it gets `status:needs-decision`. Implementing a rule an ADR already states gets nothing. |
 
+### The `## Human step` record
+
+Every `gate:` label carries one line under `## Human step`, naming the role the human holds —
+decides, signs, approves, holds the identity — and exactly one of:
+
+- `Automation: #N` — a linked issue that scripts or codifies the repeatable step; or
+- `Not automatable — <mechanism>` — the human is the legal signatory; the identity is bound
+  to a natural person (MFA/passkey/personal login); the decision is a value judgment no test
+  settles; or an explicit, named org policy not to delegate.
+
+A gate with no record is malformed, the same way a `risk:uncovered` label with no coverage
+record is — the next agent sees a human requirement with no explanation and cannot tell
+whether it still applies. **`Not automatable` is the flattering call** and carries the same
+burden as `Coverage: not testable`: it names the mechanism, and the mechanism is expected to
+be challenged. The test is *can a deterministic procedure be written that produces the same
+result every time?* If yes, the step is automatable, whatever the current tooling.
+
+When a step is scripted, the agent executes it; the human authorizes it and reviews the
+evidence. Automation removes the typing, not the approval: an irreversible step keeps a
+per-action approval bound to the exact command and a bounded blast radius or a working
+rollback, and a reversible step may be approved once and its evidence reviewed after.
+
+**Mitigation is owed during implementation.** A change that encounters a repeatable manual
+step either scripts it (when small and in scope) or files its `Automation: #N` issue in the
+same change. A manual step discovered and left unrecorded is a Definition-of-Done failure,
+not a note.
+
 **Rules 1 and 2 govern additions.** They narrow when each gate applies; they never remove
-one. A `gate:` label a person set is kept even when a rule above would not add it — send that
-issue to the owner instead of clearing the gate.
+a `gate:` label a person set. Send that issue to the owner instead of clearing the gate.
 
 Without this family, "one-line config change on the tenant wall" has to be filed
 `impl:human`, which over-escalates the *implementation* in order to protect the *merge* —
@@ -391,10 +429,11 @@ Assign by the **highest** signal present, not the average.
 | Writes or changes an ADR/PDR, or adds a cross-cutting layer an ADR must sanction | `gate:decision` | → human completion |
 | Leaves a question open — an answer is needed, not a record | no gate; `status:ready` → `status:needs-decision` | → human decision |
 | Implements a rule an ADR already states | — | — |
-| The remaining work includes a step outside the merge path (prod configuration set by hand; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues) | `gate:human-approval` | → human completion |
+| The remaining work includes a step outside the merge path (prod configuration; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues) | `gate:human-approval` | → human authorization, agent execution |
 | Requires coordinating with an external team or system — an agreement no test settles | `gate:human-review` | → human review |
-| Requires a judgment call no test settles | `gate:human-review` | → human completion |
-| Handles secrets or credentials, or the agent cannot hold the keys | `gate:credentials` | → human completion |
+| Requires a judgment call no test settles | `gate:human-review` | → human judgment |
+| The action is bound to a natural person's identity (legal signature, MFA/passkey, a personal login deliberately not delegated) | `gate:credentials` | → human completion |
+| A repeatable step currently needs a human (a console click, a hand-run command, a per-environment switch) | `Automation: #N` under `## Human step` | → no tier pressure; the work is codification |
 
 Note what the table implies and state it out loud to your team: **the first and sixth rows
 are the same lever.** Coverage on a surface is what keeps work on that surface cheap to
@@ -410,7 +449,8 @@ falls without anyone re-arguing a single tier.
 ## Mechanism
 
 **1. Label.** One `impl:` label per issue, required during the transition. Zero or more
-`risk:` labels, each with a reason line under `## Risk`. Optional `gate:` labels.
+`risk:` labels, each with a reason line under `## Risk`. Optional `gate:` labels, each with
+its `## Human step` line (step 3 below).
 
 **2. Tier line in the body.** The label routes; the line explains. It carries the kind and
 the reason, so the agent sees the *why* before it starts:
@@ -455,16 +495,35 @@ issue" into "this is a frontier issue *until* #NNN closes." A tier with an expir
 attached is a different object from one without — it is the difference between a permanent
 cost and a scheduled one.
 
-**3. Epic tier table.** Epics list children with tiers, so a dispatcher can route the
+**3. Human step in the body.** Every `gate:` label gets a line under `## Human step`, naming
+the human role and either the automation that deletes the step or the mechanism that makes it
+irreducible:
+
+```
+## Human step
+- gate:human-approval — the owner authorizes the prod rollout after the dry run.
+  Automation: #NNN — the per-environment switch is set by `scripts/release/promote.sh`;
+  this gate drops to an approval on that command once it lands.
+```
+
+```
+## Human step
+- gate:credentials — the production grant is issued under the operator's own Entra identity.
+  Not automatable — the identity is bound to a natural person; the org has not delegated it.
+```
+
+A gate with no line is malformed. `Not automatable` with no mechanism fails the same way.
+
+**4. Epic tier table.** Epics list children with tiers, so a dispatcher can route the
 mechanical work cheaply and hold the boundary work back.
 
 | Child | Tier | Kind | Why |
 |---|---|---|---|
 | #NNN | standard | — | loud failure, covered by [test] |
 | #NNN | frontier | inherent | silent failure on [boundary] |
-| #NNN | human | inherent | removes a safety invariant |
+| #NNN | frontier | inherent | removes a safety invariant; `gate:human-approval` |
 
-**4. Calibration set.** Keep 5–8 real issues from this repo labeled as worked examples, in
+**5. Calibration set.** Keep 5–8 real issues from this repo labeled as worked examples, in
 `docs/agent-routing-records.md`. Triage disputes get settled by nearest neighbour against the set,
 not by re-arguing the heuristics table. A taxonomy without calibration examples drifts
 within two months, because every triager reads "contained blast radius" differently.
@@ -492,8 +551,9 @@ Add to agent instructions (CLAUDE.md / AGENTS.md — see the section template be
 > Before implementing an issue, read its `impl:` tier and the Impl-tier line. If the tier
 > exceeds your model capability (`standard` / `frontier`), do not attempt implementation.
 > Tell the human which class this issue needs and how to select it here — or run
-> `/pickup <issue>` — then stop. `impl:human` is not a capability gate: any class may
-> **prepare** the change, but a human owns the irreversible step and the merge.
+> `/pickup <issue>` — then stop. `impl:human` is not a capability gate and never stands
+> alone: any class may **prepare** the change and execute every authorized step, while a
+> human owns the decision and the merge.
 
 Be honest about what this buys. **It is advisory and it always will be**, because the model
 that cannot do the work is the same model judging whether it can. The contract catches the
@@ -516,6 +576,8 @@ observable:
 - No existing test covers the surface being modified.
 - The diff exceeds [N] files.
 - The issue's Impl-tier line is missing, or its kind is missing.
+- A `gate:` label has no `## Human step` record, or a `Not automatable` line names no
+  mechanism.
 - The issue lists anything open under `## Open questions` — it is undecided, whatever its
   status says.
 - A verifiable outcome or a "Read first" resource the session cannot reach is a stop,
@@ -868,7 +930,7 @@ the required class without a comparison.
 
 ## Audit signals
 
-Six numbers, reported as findings, not as a compliance score:
+Seven numbers, reported as findings, not as a compliance score:
 
 1. **Spec-escalation ratio** — escalations with a `spec` component (`spec` or `both`) as a
    share of the triaged set. *Should trend down.* This is the number that says whether your
@@ -908,6 +970,12 @@ Six numbers, reported as findings, not as a compliance score:
    uncovered surface is one test's worth of work holding three issues above `standard`,
    and it is the highest-return item the coverage layer will find all quarter. Rule R8 in
    `check-issue-routing.mjs` is the mechanical half.
+7. **Human-step debt** — the open `gate:` population, split into those carrying `Automation:
+   #N` and those declaring `Not automatable — <mechanism>`. *The first count should trend
+   down; the second should stay small and stable.* A gate count that never falls is
+   uncodified work, and a backlog where every gate says "not automatable" is
+   indistinguishable from one that never tried. The mechanical half (R16) is not wired yet —
+   tracked in #168.
 
 ## Who assigns the tier
 
@@ -953,10 +1021,11 @@ them from, and the calibration set is the part with no upstream copy.
   `status:ready` + `impl:frontier (spec)` issue is a contradiction: it's ready to be rewritten,
   not ready to be worked.
 - **Issue authoring** — `impl:` and the `risk:` family join the required label families; the
-  `## Impl tier` and `## Risk` blocks join the canonical schema.
+  `## Impl tier`, `## Risk`, and `## Human step` blocks join the canonical schema.
 - **`Serves: PDR-NNN`** — a `gate:decision` label usually means the PDR doesn't exist yet.
-- **Definition of Done** — issue-authoring rows require a tier and kind; escalation requires
-  a comment and a relabel; downgrade requires an accompanying body edit.
+- **Definition of Done** — issue-authoring rows require a tier and kind; a discovered
+  repeatable manual step is scripted or filed as `Automation: #N` in the same change;
+  escalation requires a comment and a relabel; downgrade requires an accompanying body edit.
 
 ## CLAUDE.md / AGENTS.md section
 
@@ -968,7 +1037,10 @@ minimum tier required, and an `## Impl tier` line giving the kind and the reason
 carries zero or more `risk:` labels — `risk:silent-failure`, `risk:boundary`,
 `risk:irreversible`, `risk:new-abstraction`, `risk:uncovered` — recorded under `## Risk`,
 each with a one-sentence reason. Human completion is carried by the `gate:` labels, not by
-the `impl:` tier.
+the `impl:` tier. Every `gate:` label carries a `## Human step` record naming either
+`Automation: #N` or `Not automatable — <mechanism>`. **A gate names who decides, never who
+types**: a human authorizes and reviews, and an agent executes every step it is authorized
+to execute.
 
 Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
 failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
@@ -982,8 +1054,9 @@ Before implementing an issue:
 2. If the tier exceeds your model capability (`standard` / `frontier`), do not implement.
    Tell the human which class this issue needs and how to select it here (or run
    `/pickup <issue>`), then stop. In an interactive session that ends in a model switch,
-   not an abandoned task. `impl:human` is not a capability gate: any class may prepare the
-   change, but no agent completes it unilaterally — a human owns the irreversible step and
+   not an abandoned task. `impl:human` is not a capability gate and never stands alone:
+   it decomposes into a class, `gate:` labels, and a `## Human step` record. Any class may
+   prepare the change and execute every authorized step; a human owns the decision and
    the merge.
 3. If the label or the kind is missing, do not implement. Comment and stop.
 4. Stop and comment if any of these fire, whatever the tier says: three attempts that
@@ -1003,6 +1076,11 @@ Before implementing an issue:
    rule, and it is the observed way this condition fails. A degradation that is genuinely
    the right call gets declared and countersigned by a human; it is never merged on your
    own reading of your own question.
+5. A repeatable step you find yourself doing by hand — a console click, a hand-run command,
+   a per-environment switch — is an automation gap, not a permanent human step. Script it
+   in the change when it is small, or file its `Automation: #N` issue in the same change.
+   Do not record it under `## Human step` as `Not automatable` unless a mechanism in that
+   rule actually holds.
 
 Delegating is dispatching. When you hand implementation work on a tiered issue to a
 subagent, you become the dispatcher for that unit of work: check the subagent's
@@ -1035,9 +1113,10 @@ calibration examples are in `docs/agent-routing-records.md`.
 3. **Escalation with no kind.** Without `spec` / `inherent`, every escalation is permanent
    and the taxonomy stops being self-correcting. This is the failure that turns the whole
    policy into decoration.
-4. **`impl:human` used as "hard."** The tier means *an agent should not unilaterally complete
-   this*, not *this is difficult*. Conflating them makes agents timid on merely-hard work and
-   heroic on credential work.
+4. **`impl:human` used as "hard" — or as "someone has to do this".** The tier means *a human
+   owns a decision the work makes*, not *this is difficult* and not *a human must type the
+   step*. Conflating them makes agents timid on merely-hard work, heroic on credential work,
+   and leaves every repeatable manual step uncodified behind a gate that looks considered.
 5. **Relying on the agent contract as enforcement.** The contract is advisory. If nothing
    filters at dispatch, nothing is enforced.
 6. **A tier lint that can downgrade.** Detecting "touches the tenant wall" is mechanical;

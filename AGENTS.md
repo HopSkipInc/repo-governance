@@ -111,7 +111,10 @@ The write path is the organizational activity ledger (fleet-host MCP), not files
 ## Agent routing
 
 Every issue carries an `impl:` label — `standard`, `frontier`, or `human` — declaring the
-minimum tier required, and an `## Impl tier` line giving the kind and the reason.
+minimum tier required, and an `## Impl tier` line giving the kind and the reason. Every
+`gate:` label carries a `## Human step` record naming either `Automation: #N` or
+`Not automatable — <mechanism>`. **A gate names who decides, never who types**: a human
+authorizes and reviews, and an agent executes every step it is authorized to execute.
 
 Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
 failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
@@ -128,9 +131,10 @@ Before implementing an issue:
 
 1. Read the `impl:` label and the `## Impl tier` line.
 2. If the tier exceeds your model capability (`standard` / `frontier`), do not implement.
-   Comment with what you would need, and stop. `impl:human` is not a capability gate: any
-   class may prepare the change, but no agent completes it unilaterally — a human owns the
-   irreversible step and the merge.
+   Comment with what you would need, and stop. `impl:human` is not a capability gate and
+   never stands alone: it decomposes into a class, `gate:` labels, and a `## Human step`
+   record. Any class may prepare the change and execute every authorized step; a human owns
+   the decision and the merge.
 3. If the label or the kind is missing, do not implement. Comment and stop.
 4. Stop and comment if any of these fire, whatever the tier says: three attempts that
    fail with the same cause; **coding around a blocker instead of removing it** — a fallback,
@@ -150,6 +154,11 @@ Before implementing an issue:
    rule, and it is the observed way this condition fails. A degradation that is genuinely
    the right call gets declared and countersigned by a human; it is never merged on your
    own reading of your own question.
+5. A repeatable step you find yourself doing by hand — a console click, a hand-run command,
+   a per-environment switch — is an automation gap, not a permanent human step. Script it
+   in the change when it is small, or file its `Automation: #N` issue in the same change.
+   Do not record it under `## Human step` as `Not automatable` unless a mechanism in that
+   rule actually holds.
 
 Delegating is dispatching. When you hand implementation work on a tiered issue to a
 subagent, you become the dispatcher for that unit of work: check the subagent's

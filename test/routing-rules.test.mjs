@@ -26,7 +26,7 @@ const PDR = read('docs/pdr/011-route-on-risk-labels-guide-interactive-model-choi
 
 test('PDR-011 amendment: dated, Last confirmed bumped, rules 1-4 recorded', () => {
   assert.match(PDR, /## Amendment \(2026-11-08\)/);
-  assert.match(PDR, /\*\*Last confirmed:\*\* 2026-11-08/);
+  assert.match(PDR, /\*\*Last confirmed:\*\* 2026-11-13/);
   for (const rule of ['Rule 1 — `gate:decision`', 'Rule 2 — `gate:human-approval`', 'Rule 3 — the two spec and evidence lowerings', 'Rule 4 — `risk:silent-failure`']) {
     assert.ok(PDR.includes(rule), `PDR-011 amendment is missing "${rule}"`);
   }
@@ -34,6 +34,25 @@ test('PDR-011 amendment: dated, Last confirmed bumped, rules 1-4 recorded', () =
   assert.match(PDR, /\*\*A person-set gate is never removed\.\*\*/);
   assert.match(PDR, /Rule 4 below is the third path/);
   assert.match(PDR, /third lowering path and carries the same\s+dispute default/);
+});
+
+test('PDR-011 amendment 2026-11-13: a human step names its automation', () => {
+  assert.match(PDR, /## Amendment \(2026-11-13\)/);
+  for (const rule of [
+    'Rule 5 — `impl:human` decomposes; it is never sufficient alone.',
+    'Rule 6 — the `## Human step` record.',
+    'Rule 7 — a gate names who decides, never who types.',
+    'Rule 8 — automated is not unsupervised.',
+    'Rule 9 — mitigation is owed during implementation.',
+  ]) {
+    assert.ok(PDR.includes(rule), `PDR-011 2026-11-13 amendment is missing "${rule}"`);
+  }
+  assert.match(PDR, /can a deterministic procedure be written that produces the same\s+result every time\?/);
+  assert.match(PDR, /`Automation: #N`/);
+  assert.match(PDR, /`Not automatable — <mechanism>`/);
+  assert.match(PDR, /A\s+credential the agent can be granted — a service principal, a vault entry it may read — is an\s+automation, not a credential gate/);
+  assert.match(PDR, /Audit signal 7 — human-step debt/);
+  assert.match(PDR, /Revisit by 2027-05-13/);
 });
 
 test('policy: gate:decision excludes an open question and names status:needs-decision', () => {
@@ -50,7 +69,7 @@ test('policy: gate:human-approval names all five outside-merge-path step kinds',
   const row = POLICY.split('\n').find((l) => l.startsWith('| `gate:human-approval` |'));
   assert.ok(row, 'policy has no gate:human-approval row');
   for (const kind of [
-    /prod configuration set by hand/,
+    /prod configuration/,
     /live test against prod/,
     /per-environment switch/,
     /deleting prod data or relaxing a safety invariant/,
@@ -59,6 +78,28 @@ test('policy: gate:human-approval names all five outside-merge-path step kinds',
     assert.match(row, kind, `gate:human-approval row is missing ${kind}`);
   }
   assert.match(row, /automatically on merge is \*\*inside\*\* the merge path/);
+  // 1.26.0: the approval stays human; execution goes to the agent.
+  assert.match(row, /A human \*\*authorizes\*\* a step outside the merge path; the agent executes it/);
+  assert.match(row, /A human re-typing the step does not satisfy the gate/);
+});
+
+test('policy: a gate carries a ## Human step record that names its automation', () => {
+  const section = POLICY.split('### The `## Human step` record\n')[1]?.split('**Rules 1 and 2 govern additions.**')[0];
+  assert.ok(section, 'policy has no ## Human step section');
+  assert.match(section, /Every `gate:` label carries one line under `## Human step`/);
+  assert.match(section, /`Automation: #N` — a linked issue that scripts or codifies the repeatable step/);
+  assert.match(section, /`Not automatable — <mechanism>`/);
+  assert.match(section, /legal signatory/);
+  assert.match(section, /bound\s+to a natural person/);
+  assert.match(section, /value judgment no test\s+settles/);
+  assert.match(section, /named org policy not to delegate/);
+  assert.match(section, /\*\*`Not automatable` is the flattering call\*\*/);
+  assert.match(section, /A manual step discovered and left unrecorded is a Definition-of-Done failure/);
+  // impl:human is transitional, and never stands alone.
+  const tier = POLICY.split('- **`impl:human`** —')[1]?.split('\n## ')[0] ?? '';
+  assert.match(tier, /transitional, and never sufficient on its own/);
+  assert.match(tier, /decomposes[\s\S]*gate:[\s\S]*`## Human step`/);
+  assert.match(tier, /"needs human hands" is not a reason/);
 });
 
 test('policy: risk:silent-failure carries rule 4 and its two exclusions', () => {
@@ -80,7 +121,7 @@ test('policy: the sanctioned lowerings and dispute default sit beside Downgrades
   assert.match(section, /Rule 4 — the silent-failure label comes off/);
   assert.match(section, /The dispute default/);
   assert.match(section, /marks a 3a, 3b or Rule-4[\s\S]*lowering as `Disputed`, the existing tier stands/);
-  assert.match(POLICY, /A `gate:` label a person set is kept/);
+  assert.match(POLICY, /never remove\s+a `gate:` label a person set/);
   // The CLAUDE.md excerpt must not turn the sanctioned triage lowerings into a
   // licence for the implementing agent to lower its own issue.
   assert.match(POLICY, /You may never downgrade one, least of all on\s+an issue you are about to implement/);
@@ -88,8 +129,8 @@ test('policy: the sanctioned lowerings and dispute default sit beside Downgrades
 });
 
 test('policy: version stamps agree and the mothership copy is byte-identical', () => {
-  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.25\.0 · updated 2026-11-10 -->/);
-  assert.match(POLICY, /\*\*Version:\*\* 1\.25\.0/);
+  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.26\.0 · updated 2026-11-13 -->/);
+  assert.match(POLICY, /\*\*Version:\*\* 1\.26\.0/);
   assert.equal(
     read('docs/agent-routing.md'),
     POLICY,
@@ -147,8 +188,8 @@ test('UI authoring: canonical design reference names repo sources, images, compo
 
 test('classifier pins: five lowering fields plus the Disputed marker', () => {
   for (const [label, src, version] of [
-    ['Claude Code', CLASSIFIER, '1.6.0'],
-    ['opencode', CLASSIFIER_OPENCODE, '1.7.0'],
+    ['Claude Code', CLASSIFIER, '1.7.0'],
+    ['opencode', CLASSIFIER_OPENCODE, '1.8.0'],
   ]) {
     assert.ok(
       src.split('\n').includes(`version: ${version}`),

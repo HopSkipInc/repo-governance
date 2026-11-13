@@ -1,15 +1,15 @@
 ---
-version: 1.7.0
-updated: 2026-11-10
+version: 1.8.0
+updated: 2026-11-13
 description: >
   Classifies backlog issues into PDR-011 risk facts and, during the transition, an
   impl: tier. Maps the repo's risk surfaces — isolation boundaries, credential handling,
   uncovered code, dropping migrations — then proposes the risk: labels each issue carries,
   with a one-sentence reason, a coverage record for risk:uncovered, the under-structure
-  marker where the issue is under-specified, and a gate: label where completion needs a
-  human. It still proposes an impl: tier and a kind for the transition, decomposing every
-  candidate escalation before tiering it. Every escalation carries a split proposal or a
-  non-splittability statement.
+  marker where the issue is under-specified, and a gate: label plus its `## Human step`
+  record where a human owns the decision. It still proposes an impl: tier and a kind for the
+  transition, decomposing every candidate escalation before tiering it. Every escalation
+  carries a split proposal or a non-splittability statement.
   Read-only: it proposes, it never labels. Invoked by the routing-triage skill.
 # routing-class: frontier — the pin's triage class. The `model:` slug is a resolved
 # binding; check-classifier-pin-drift.mjs resolves it and fails closed on drift.
@@ -125,9 +125,12 @@ Rules for the row:
 - **The spec marker, not a `spec` kind, records under-specification.** Propose
   `needs-structure` (or the repo's adopted `needs-spec`) and name the missing sentence.
   Keep proposing the `spec` component of the tier during the transition so R3/R5 still work.
-- **Human completion is a `gate:` label.** Propose `gate:decision`, `gate:human-review`,
-  `gate:human-approval`, or `gate:credentials` where the work needs a human; do not express
-  it only as `impl:human`. The tier is still proposed for the transition.
+- **Human completion is a `gate:` label, never a tier.** Propose `gate:decision`,
+  `gate:human-review`, `gate:human-approval`, or `gate:credentials` where a human owns the
+  decision, and pair each with a `## Human step` line: the human role plus `Automation: #N`
+  for a repeatable step that should be scripted, or `Not automatable — <mechanism>` for a
+  legal signature, a natural-person identity, a judgment no test settles, or a named policy.
+  Never propose `impl:human` alone; it decomposes into a class plus gates plus this record.
 - **The tier is still proposed.** `impl:` is derived from the risk labels plus the rule in
   `docs/agent-routing-records.md`; until that derivation ships in the repo, propose the tier
   and kind as today.
@@ -143,6 +146,10 @@ instead of a quiet relabel, and the skill applies them in Step 3:
   (`prod-config-by-hand`, `live-prod-test`, `per-env-switch`,
   `delete-prod-data-or-relax-invariant`, `owner-issued-grant`), or `none`. Propose
   `gate:human-approval` only when it is not `none`; an automatic deploy on merge is `none`.
+  The kinds describe **where the checkpoint sits**, not who types the step. Every non-`none`
+  value also carries `automation: #N` or `not_automatable: <mechanism>` for the
+  `## Human step` record — the key names are the backfill vocabulary and are not renamed by
+  this rule.
 - **`spec_only_frontier`** — `yes` when the issue is frontier *only* because it is
   under-specified and carries no `risk:` fact. That is lowerable under 3a: propose
   `impl:standard` and drop `status:ready` until the issue is rewritten.
