@@ -1,8 +1,8 @@
-<!-- template: agent-routing-records.md v1.2.0 · updated 2026-11-07 -->
+<!-- template: agent-routing-records.md v1.3.0 · updated 2026-11-13 -->
 # Agent Routing — Records for repo-governance
 
-**Policy version these records were written against:** 1.20.0
-**Last reviewed:** 2026-11-07 — the PDR-011 risk→class rule added in §8; policy 1.20.0.
+**Policy version these records were written against:** 1.27.0
+**Last reviewed:** 2026-11-13 — PDR-012 approval posture recorded in §9; policy 1.27.0.
 Previous: 2026-09-24 — pin/class review, then the DeepSeek V4.1 Flash frontier
 placement. The classifier binding moved from a pinned model name to a class binding gated by
 `check-classifier-pin-drift.mjs` (design: `docs/classifier-class-binding.md`, ai-fleet #3097).
@@ -262,6 +262,27 @@ models; gate labels are orthogonal and do not change the class.
 difference from an issue's `impl:` tier is resolved on the record — the issue is re-tiered,
 or the rule is changed — before `impl:` is retired for any consumer.
 
+## 9. Approval posture
+
+**Posture:** `solo`
+**Set by:** Greg Leizerowicz
+**Set on:** 2026-11-13
+**Decision:** repo-governance PDR-012
+**Re-enable when:** a second engineer has merge rights on this repo; the first paying client
+is live; or a production incident occurs whose cause a second reviewer would have caught.
+**Hard core (still gated):** this repo has no production data surface. Money movement and
+external contracts or legal commitments stay `gate:decision`; a credential the org does not
+delegate to a service identity stays `gate:credentials`.
+**Standing grants:** agents may run the test suite and the lints, open branches and PRs, and
+push to those branches without per-PR approval. Merges and record publication remain owner
+actions — a merge here publishes a policy or a record. There is no environment deploy.
+**Substitute controls:** the 533-case test suite and the seven lints in CI; `write-record.mjs`
+as the guarded path for `docs/pdr/`; the PR evidence rule.
+
+`reviewed` would restore required reviewers and per-action approval; `solo` removes them for
+repeatable work and keeps the hard core. An absent approval in `solo` is expected, not a
+finding. Changing the posture is one owner edit to this section.
+
 ## Review log
 
 | Date | Policy version | What changed |
@@ -270,3 +291,4 @@ or the rule is changed — before `impl:` is retired for any consumer.
 | 2026-07-26 | 1.9.0 | Split into this file. Mapping split into class←model + model→route; Sonnet 5 → standard; `claude-opus-4-8` retired; opencode pin recorded; all four calibration rows resolved against outcomes (`#2` corrected `spec` → `both`); ratio baseline and surfaces added |
 | 2026-09-24 | 1.16.0 | DeepSeek V4.1 Flash added to `frontier` (owner-directed calibration run, no outcome evidence) and its opencode route recorded; `impl:human` completion-gate clarification carried from policy 1.16.0 |
 | 2026-11-07 | 1.20.0 | PDR-011 §8 risk→class rule added; the default highest-signal rule is recorded verbatim |
+| 2026-11-13 | 1.27.0 | PDR-012 approval posture: `solo` recorded in §9; policy 1.27.0 and the records form 1.3.0 |

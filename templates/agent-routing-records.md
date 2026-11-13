@@ -1,4 +1,4 @@
-<!-- template: agent-routing-records.md v1.2.0 · updated 2026-11-07 -->
+<!-- template: agent-routing-records.md v1.3.0 · updated 2026-11-13 -->
 # Agent Routing — Records for [repo]
 
 **Policy version these records were written against:** [X.Y.Z]
@@ -139,6 +139,28 @@ changing the rule never touches an issue.
 `check-routing-equivalence.mjs` reads this table by its section heading and applies it to
 the open backlog. Every difference from an issue's `impl:` tier is resolved on the record —
 the issue is re-tiered, or the rule is changed — before `impl:` is retired for any consumer.
+
+## 9. Approval posture
+
+**Posture:** `solo` | `reviewed`
+**Set by:** [name, not a role]
+**Set on:** [YYYY-MM-DD]
+**Decision:** [the PDR/ADR that authorizes the posture]
+**Re-enable when:** [a named trigger — a second engineer with merge rights, the first paying
+client live, or a production incident whose cause a second reviewer would have caught]
+**Hard core (still gated):** irreversible production data deletion/drop/rename; money movement
+and external contracts or legal commitments; a credential the org does not delegate to a
+service identity.
+**Standing grants:** [what an agent may execute without per-action approval — environment,
+scope, and the controls it must pass first]
+**Substitute controls:** CI on every change; a post-deploy smoke check that observes the
+effect; a tested backup and rollback path; the evidence attached to the PR.
+
+`reviewed` keeps the required-reviewer gates and per-action approval. `solo` turns them off for
+automated deploys and repeatable operations and replaces them with the standing grants above;
+the hard core stays gated. **An absent approval in `solo` is expected, not a finding** — read
+this section before restoring a gate. Changing the posture is one owner edit to this section,
+not a code change. Decision model: repo-governance PDR-012.
 
 ## Review log
 

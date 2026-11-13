@@ -1,7 +1,7 @@
-<!-- template: agent-routing.md v1.26.0 · updated 2026-11-13 -->
+<!-- template: agent-routing.md v1.27.0 · updated 2026-11-13 -->
 # Agent Routing
 
-**Version:** 1.26.0 · **Last updated:** 2026-11-13
+**Version:** 1.27.0 · **Last updated:** 2026-11-13
 **Status:** Policy — enforced by [your dispatcher, CI validator, and/or periodic audit]
 **Related:** [Issue Authoring](issue-authoring.md) · [Definition of Done](definition-of-done.md)
 
@@ -16,6 +16,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.27.0 | 2026-11-13 | **Approval posture is a recorded state (PDR-012).** A repo records `solo` or `reviewed` under `## Approval posture` in `docs/agent-routing-records.md`. In `solo`, environment required reviewers are off, automated deploys and repeatable prod operations take no `gate:human-approval`, and standing grants replace per-action approval. The hard core stays gated: irreversible prod data deletion/drop/rename, money and legal commitments (`gate:decision`), and non-delegable credentials. An absent approval in `solo` is expected, not a defect |
 | 1.26.0 | 2026-11-13 | **A human gate names who decides, never who types.** `impl:human` is transitional and malformed alone: it decomposes into `impl:<class>` plus `gate:` labels plus a `## Human step` record naming either `Automation: #N` or `Not automatable — <mechanism>`. `gate:human-approval` keeps the approval and gives execution to the agent; `gate:credentials` narrows to natural-person identities. A repeatable manual step discovered during implementation is scripted or filed in the same change. PDR-011 Amendment 2026-11-13 |
 | 1.25.0 | 2026-11-10 | **An unreachable resource stops implementation, for every work type.** UI lanes named a private design canvas and visual outcomes no implementing session could reach; the outcomes were waived and component swaps passed while composition diverged. The observable stop list and shipped AGENTS.md block now require a comment and a stopped turn, with no edit landing or outcome carried forward or waived (issue #160, lane B1) |
 | 1.24.0 | 2026-11-10 | **The three-attempt stop counts causes, not tests.** Three attempts that fail with the same cause stop the work; a failure that shows something new (a different assertion, error or location) is a new cause and restarts the count, and the cause is named before each new attempt. Owner decision 2026-11-10, after three same-test stops in one day each turned out to be a different, diagnosed setup cause |
@@ -368,7 +369,7 @@ more per issue:
 
 | Label | Meaning |
 |---|---|
-| `gate:human-approval` | A human **authorizes** a step outside the merge path; the agent executes it. The step kinds are: prod configuration; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues. A deploy that runs automatically on merge is **inside** the merge path and takes no gate. The approval is recorded and bound to the exact plan, diff, or command. A human re-typing the step does not satisfy the gate — it is an automation gap wearing a gate. |
+| `gate:human-approval` | A human **authorizes** a step outside the merge path; the agent executes it. The step kinds are: prod configuration; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues. A deploy that runs automatically on merge is **inside** the merge path and takes no gate. The approval is recorded and bound to the exact plan, diff, or command. **Read the repo's §Approval posture first:** in `solo`, the environment-approval kinds are off and standing grants replace per-action approval; the hard core still applies. A human re-typing the step does not satisfy the gate — it is an automation gap wearing a gate. |
 | `gate:human-review` | A judgment call no test settles — UX, prose, threat modelling. The agent produces the artifact; the human judges it. |
 | `gate:credentials` | The action is bound to an identity a natural person must hold: a legal signature, an MFA/passkey approval, a personal login deliberately not delegated. A credential the agent can be granted — a service principal, a vault entry it may read — is **not** this gate. That is an automation: the human grants it once and review moves to the evidence. |
 | `gate:decision` | The deliverable writes or changes an ADR/PDR (or a row in an ADR's decision table), or adds a new cross-cutting layer an ADR must sanction — an agent drafts the record through the repo's mediated write path; a person owns it at merge. An issue that only leaves a question open takes **no gate**: it gets `status:needs-decision`. Implementing a rule an ADR already states gets nothing. |
@@ -400,6 +401,29 @@ step either scripts it (when small and in scope) or files its `Automation: #N` i
 same change. A manual step discovered and left unrecorded is a Definition-of-Done failure,
 not a note.
 
+### Approval posture
+
+A repo records one of `solo` or `reviewed` under `## Approval posture` in
+`docs/agent-routing-records.md` — the local records file, which never syncs. The record carries
+the posture, who set it, the date, the deciding PDR/ADR, the re-enable trigger, the hard core,
+the standing grants, and the substitute controls. The record is the value; the deciding record
+is the argument. Changing the value is one owner edit to that section, not a code change.
+
+**In `solo`:** environment required reviewers are off; an automated deploy or promotion takes
+no `gate:human-approval`; repeatable production operations are covered by a standing grant and
+the agent executes them without per-action approval. **The hard core stays gated:** irreversible
+production data deletion, drop or rename; money movement, external contracts and legal
+commitments — and `gate:decision` generally, because a decision record is owned by a person; a
+credential the org does not delegate to a service identity. These may be approved
+asynchronously.
+
+**An absent approval in `solo` is expected, not a defect.** Read the posture before filing a
+missing required-reviewer gate as a finding or restoring it — restoring it in a `solo` repo is
+a posture change, not a fix. A `solo` record is valid only while CI, a post-deploy smoke check,
+a tested backup/rollback, and the evidence attached to the PR hold. Re-enable on a named
+trigger — a second engineer with merge rights, the first paying client live, or an incident a
+second reviewer would have caught — not on a calendar date.
+
 **Rules 1 and 2 govern additions.** They narrow when each gate applies; they never remove
 a `gate:` label a person set. Send that issue to the owner instead of clearing the gate.
 
@@ -429,7 +453,7 @@ Assign by the **highest** signal present, not the average.
 | Writes or changes an ADR/PDR, or adds a cross-cutting layer an ADR must sanction | `gate:decision` | → human completion |
 | Leaves a question open — an answer is needed, not a record | no gate; `status:ready` → `status:needs-decision` | → human decision |
 | Implements a rule an ADR already states | — | — |
-| The remaining work includes a step outside the merge path (prod configuration; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues) | `gate:human-approval` | → human authorization, agent execution |
+| The remaining work includes a step outside the merge path, subject to the repo's §Approval posture (prod configuration; a live test against prod; a per-environment switch flipped outside the merge; deleting prod data or relaxing a safety invariant; a grant the owner issues) | `gate:human-approval` | → human authorization, agent execution |
 | Requires coordinating with an external team or system — an agreement no test settles | `gate:human-review` | → human review |
 | Requires a judgment call no test settles | `gate:human-review` | → human judgment |
 | The action is bound to a natural person's identity (legal signature, MFA/passkey, a personal login deliberately not delegated) | `gate:credentials` | → human completion |
@@ -1026,6 +1050,9 @@ them from, and the calibration set is the part with no upstream copy.
 - **Definition of Done** — issue-authoring rows require a tier and kind; a discovered
   repeatable manual step is scripted or filed as `Automation: #N` in the same change;
   escalation requires a comment and a relabel; downgrade requires an accompanying body edit.
+- **Approval posture** — `docs/agent-routing-records.md` §Approval posture. `solo` turns off
+  environment approvals and per-action approval for repeatable operations; the hard core stays
+  gated. An absent approval in `solo` is not an audit finding.
 
 ## CLAUDE.md / AGENTS.md section
 
@@ -1040,7 +1067,8 @@ each with a one-sentence reason. Human completion is carried by the `gate:` labe
 the `impl:` tier. Every `gate:` label carries a `## Human step` record naming either
 `Automation: #N` or `Not automatable — <mechanism>`. **A gate names who decides, never who
 types**: a human authorizes and reviews, and an agent executes every step it is authorized
-to execute.
+to execute. Read `docs/agent-routing-records.md` §Approval posture before gating a deploy:
+in `solo`, an absent environment approval is expected — do not restore it.
 
 Kinds: **`spec`** (under-specified — rewrite it and the tier drops), **`inherent`** (silent
 failure or load-bearing boundary — no spec fixes it), **`both`** (under-specified *and*
