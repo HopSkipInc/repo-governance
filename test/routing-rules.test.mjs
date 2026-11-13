@@ -217,6 +217,9 @@ test('triage skill Step 3 applies the rules and writes the remaining-scope secti
   assert.match(SKILL, /`Not automatable — <mechanism>`/);
   assert.match(SKILL, /A gate\s+names who decides, never who types/);
   assert.match(SKILL, /A gate with no record is malformed; a record with no mechanism is malformed too/);
+  // The executable batch procedure must carry the record too, not just the prose rule.
+  assert.match(SKILL, /human-step block/);
+  assert.match(SKILL, /## Human step\\n%s/);
   assert.match(SKILL, /Never remove a person-set `gate:` label/);
   assert.match(SKILL, /Lower only via 3a, 3b or Rule 4, and never on a disputed call/);
   assert.match(SKILL, /## Remaining scope \(YYYY-MM-DD\)/);

@@ -98,11 +98,14 @@ syncs.
 
 ## Preflight — stop if the target is not live
 
+Run every command below **from the analytics-infrastructure checkout**. Assert it first:
+
 ```bash
-cd ~/repos/HopSkipInc/repo-governance
-git fetch origin
+git rev-parse --show-toplevel   # must be ~/repos/HopSkipInc/analytics-infrastructure
+GOV=~/repos/HopSkipInc/repo-governance
+git -C "$GOV" fetch origin
 for f in templates/agent-routing.md templates/skills/routing-triage/SKILL.md; do
-  git show origin/master:$f | grep -m1 -E "template:|^version:"
+  git -C "$GOV" show origin/master:$f | grep -m1 -E "template:|^version:"
 done
 ```
 
@@ -110,19 +113,24 @@ Expect `agent-routing.md v1.26.0` and `version: 1.11.0`. If either is behind, st
 prompt is being applied against a stale template. The triage skill 1.11.0 lands in the same
 repo-governance change as this prompt; merge that first if it is still open.
 
+The install step reads `origin/master` directly, not the repo-governance working tree, so a
+dirty or stale checkout cannot ship a different revision than the one the preflight checked.
+
 ## What to do
 
 ### 1. Re-sync the policy and the producers
 
 ```bash
-cp ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md \
-   docs/agent-routing.md
-cp ~/repos/HopSkipInc/repo-governance/templates/skills/routing-triage/SKILL.md \
-   .claude/skills/routing-triage/SKILL.md
-cp ~/repos/HopSkipInc/repo-governance/templates/agents/routing-classifier.md \
-   .claude/agents/routing-classifier.md
-diff -q docs/agent-routing.md \
-   ~/repos/HopSkipInc/repo-governance/templates/agent-routing.md
+# still in the analytics-infrastructure checkout; GOV points at repo-governance
+GOV=~/repos/HopSkipInc/repo-governance
+git -C "$GOV" show origin/master:templates/agent-routing.md \
+  > docs/agent-routing.md
+git -C "$GOV" show origin/master:templates/skills/routing-triage/SKILL.md \
+  > .claude/skills/routing-triage/SKILL.md
+git -C "$GOV" show origin/master:templates/agents/routing-classifier.md \
+  > .claude/agents/routing-classifier.md
+git -C "$GOV" show origin/master:templates/agent-routing.md \
+  | diff -q - docs/agent-routing.md
 ```
 
 Bump the Synced-templates rows to 1.26.0 / 1.11.0 / 1.7.0 in the same commit. If you use the
@@ -240,8 +248,15 @@ Worked examples for this repo's merge path:
 ## Human step
 - gate:human-approval — the qasbx approval is a human sign-off; the pipeline deploys after it.
   Not automatable — the approval is the authority; execution is already automated by
-  `.github/workflows/<release>.yml` (ADR-050).
+  `.github/workflows/cd.yml` (ADR-050).
 ```
+
+**Verify the approval gate exists before citing it.** ADR-050 puts the human sign-off in the
+GitHub Environment required reviewers for `qasbx` and `demo`, not in `cd.yml`. Issue #1301
+records that the live required-reviewer gate is currently absent. If it is still absent when
+you apply this, the `## Human step` record is accurate (the approval is the authority) but the
+gate it describes is not enforced — say so in the report as a finding, and do not describe the
+approval as live.
 
 ```markdown
 ## Human step
@@ -266,15 +281,28 @@ R16 is not installed, so the lint cannot see the record. Read the bodies:
 ```bash
 gh issue list --repo HopSkipInc/analytics-infrastructure --state open --limit 1000 \
   --json number,title,body,labels > /tmp/gates.json
-jq -r '[.[] | select((.labels|map(.name)|any(startswith("gate:"))))
-        | {number, gates: [.labels[].name|select(startswith("gate:"))],
-           record: (.body|test("(?m)^## Human step\\s*$")),
-           automation: (.body|test("Automation:")) }]
-       | group_by(.record)[] | "\(.[0].record)\t\(length)"' /tmp/gates.json
+jq -r '
+  def gate_names: [.labels[].name | select(startswith("gate:"))];
+  def record_lines: [.body | scan("(?m)^\\s*- gate:")];
+  def form_lines: [.body | scan("(?m)^\\s+(Automation:|Not automatable — )")];
+  .[] | select((gate_names | length) > 0)
+  | {number,
+     gates: (gate_names | length),
+     records: (record_lines | length),
+     forms: (form_lines | length),
+     complete: ((record_lines | length) >= (gate_names | length)
+                and (form_lines | length) >= (gate_names | length))}
+  | "\(if .complete then "OK  " else "MISS" end) #\(.number) gates=\(.gates) records=\(.records) forms=\(.forms)"
+' /tmp/gates.json | tee /tmp/gates-check.txt
+grep '^MISS' /tmp/gates-check.txt || echo "all gate issues carry a record line and a form per gate"
+grep -c '^OK' /tmp/gates-check.txt
 ```
 
-Expected: every gate issue is in the `true` bucket, and every `Automation:` line links an
-open issue. Any gate left in `false` is the backfill, not a lint failure.
+A gate issue needs **one `- gate:` line per gate label** and **one form line per gate**
+(`Automation:` or `Not automatable — `). This is a census, not a semantic check: a line can
+still be wrong. Have a human read the batch file and spot-check three bodies. R16 is what
+will make the semantic check mechanical; it is not installed, so do not describe this command
+as a lint pass.
 
 Then run what the repo already has:
 

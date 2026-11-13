@@ -476,10 +476,17 @@ it was the scripting, not the policy.
 
 ```bash
 # batch.tsv — one line per issue, reviewed before anything executes
-# <issue>\t<risk-labels|->\t<gate-labels|->\t<risk block>\t<impl-label>\t<tier line>
-while IFS=$'\t' read -r n risks gates risk_block impl line; do
+# <issue>\t<risk-labels|->\t<gate-labels|->\t<risk block>\t<human-step block|->\t<impl-label>\t<tier line>
+# The human-step block carries the same number of `- gate:<label> — <role>` lines as the
+# gate-labels column, each followed by `Automation: #N` or `Not automatable — <mechanism>`.
+# A gate with no block is malformed; `-` means "this issue has no gate labels".
+while IFS=$'\t' read -r n risks gates risk_block human_block impl line; do
   gh issue view "$n" --json body -q .body > /tmp/body-$n.md
-  printf '\n## Risk\n%s\n\n## Impl tier\n%s\n' "$risk_block" "$line" >> /tmp/body-$n.md
+  printf '\n## Risk\n%s\n' "$risk_block" >> /tmp/body-$n.md
+  if [ "$human_block" != "-" ]; then
+    printf '\n## Human step\n%s\n' "$human_block" >> /tmp/body-$n.md
+  fi
+  printf '\n## Impl tier\n%s\n' "$line" >> /tmp/body-$n.md
   gh issue edit "$n" --add-label "$impl" --body-file /tmp/body-$n.md
   [ "$risks" != "-" ] && gh issue edit "$n" --add-label "$risks"
   [ "$gates" != "-" ] && gh issue edit "$n" --add-label "$gates"
