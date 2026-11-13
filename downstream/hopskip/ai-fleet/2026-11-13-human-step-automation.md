@@ -1,8 +1,8 @@
 # Human-step records: a gate names who decides, never who types — ai-fleet (2026-11-13)
 
 **Client:** Hopskip (internal)
-**Source:** repo-governance — issue #169, merged as PR #170. PDR-011 **Amendment
-(2026-11-13)**. Templates: `agent-routing.md` **1.26.0** · `issue-authoring.md` **1.12.0** ·
+**Source:** repo-governance — issue #169, merged as PR #170; issue #173, PDR-012. PDR-011
+**Amendment (2026-11-13)**. Templates: `agent-routing.md` **1.27.0** · `issue-authoring.md` **1.12.0** ·
 `definition-of-done.md` **1.9.0** · `skills/routing-triage/SKILL.md` **1.11.1** ·
 `agents/routing-classifier.md` **1.7.0** · `agents/routing-classifier.opencode.md` **1.8.0**.
 **Scope:** install the `## Human step` record and the decide-vs-type gate semantics; backfill
@@ -44,7 +44,7 @@ before it reaches the smaller repos.
 
 | Artifact | Installed | Target |
 |---|---|---|
-| `docs/agent-routing.md` | 1.25.0 | **1.26.0** |
+| `docs/agent-routing.md` | 1.25.0 | **1.27.0** |
 | `.claude/skills/routing-triage/SKILL.md` | 1.10.1 | **1.11.1** |
 | `.claude/agents/routing-classifier.md` | 1.6.0 | **1.7.0** |
 | `docs/issue-authoring.md` | adapted (no stamp) | hand-port the rule |
@@ -71,7 +71,7 @@ verification in step 5 reads the bodies.
 
 | Artifact | Version | Change |
 |---|---|---|
-| `docs/agent-routing.md` | 1.26.0 | `impl:human` narrowed; `gate:human-approval` and `gate:credentials` rewritten; new §*The `## Human step` record*; audit signal 7; AGENTS.md block updated |
+| `docs/agent-routing.md` | 1.27.0 | `impl:human` narrowed; `gate:human-approval` and `gate:credentials` rewritten; §*The `## Human step` record*; §*Approval posture*; audit signal 7; AGENTS.md block updated |
 | `skills/routing-triage/SKILL.md` | 1.11.1 | Step 3 appends `## Human step` for every applied gate; label descriptions updated |
 | `agents/routing-classifier.md` | 1.7.0 | proposes the record and the `automation` / `not_automatable` fields |
 | `agents/routing-classifier.opencode.md` | 1.8.0 | same, opencode pin |
@@ -94,7 +94,7 @@ for f in templates/agent-routing.md templates/skills/routing-triage/SKILL.md; do
 done
 ```
 
-Expect `agent-routing.md v1.26.0` and `version: 1.11.1`. If either is behind, stop: the
+Expect `agent-routing.md v1.27.0` and `version: 1.11.1`. If either is behind, stop: the
 prompt is being applied against a stale template. The triage skill 1.11.1 lands in the same
 repo-governance change as this prompt; merge that first if it is still open.
 
@@ -118,12 +118,41 @@ git -C "$GOV" show origin/master:templates/agent-routing.md \
   | diff -q - docs/agent-routing.md
 ```
 
-Bump the Synced-templates rows to 1.26.0 / 1.11.1 / 1.7.0 in the same commit. If you use the
+Bump the Synced-templates rows to 1.27.0 / 1.11.1 / 1.7.0 in the same commit. If you use the
 opencode harness, install `agents/routing-classifier.opencode.md` **1.8.0** into the global
 `~/.config/opencode/agents/routing-classifier.md` and restart the harness; it is not a
 per-repo file.
 
-### 2. Hand-port the adapted files
+### 2. Record the approval posture
+
+Read `templates/agent-routing-records.md` **1.3.0** §9 and append that section to
+`docs/agent-routing-records.md` — **hand-edit; never `cp` a records file.** This repo is
+`solo`:
+
+```markdown
+## 9. Approval posture
+
+**Posture:** `solo`
+**Set by:** Greg Leizerowicz
+**Set on:** <the date you apply this>
+**Decision:** repo-governance PDR-012
+**Re-enable when:** a second engineer has merge rights on this repo; the first paying client
+is live; or a production incident occurs whose cause a second reviewer would have caught.
+**Hard core (still gated):** irreversible production data deletion/drop/rename; `gate:decision`
+generally; money movement and external contracts or legal commitments; a credential the org
+does not delegate to a service identity.
+**Standing grants:** agents may run the release chain to every environment after CI and the
+pre-deploy test plus the per-stage smokes pass; may flip config/flags and rotate service-scoped
+keys the same way. No per-action approval.
+**Substitute controls:** CI on every change; the release chain's pre-deploy test and per-stage
+smokes (ADR-097); a tested rollback path; the evidence attached to the PR.
+```
+
+`solo` means the release chain's no-approval shape is the intended state, not a missing
+control. **Do not add required reviewers.** The hard core still needs a `## Human step` record
+when it appears on an issue.
+
+### 3. Hand-port the adapted files
 
 `docs/issue-authoring.md` and `docs/definition-of-done.md` are adapted, not byte-identical
 copies. Add the rule to each; do not replace either file.
@@ -198,7 +227,7 @@ authorizes and reviews, and an agent executes every step it is authorized to exe
    rule actually holds.
 ```
 
-### 3. Update the label descriptions
+### 4. Update the label descriptions
 
 The labels already exist, so `gh label create` in the skill will not change them. Run:
 
@@ -208,7 +237,7 @@ gh label edit "gate:human-approval"  --description "A human authorizes a step ou
 gh label edit "gate:credentials"     --description "Action is bound to a natural person's identity; a grantable service identity is an automation"
 ```
 
-### 4. Backfill a record on every open gate
+### 5. Backfill a record on every open gate
 
 Build a reviewed batch file first — one row per issue: number, label, human role, and the
 exact `## Human step` line. Have a human read it before applying. Do not run an ad-hoc loop
@@ -256,10 +285,15 @@ For an `impl:human` issue, add the decomposing `gate:` label(s) and the record; 
 relabel is a triage decision that follows the normal process. The consumers still read
 `impl:` until the equivalence check is zero.
 
-**Never remove a person-set gate**, and never write a `## Human step` line that says only "a
-human must do this". If that is the honest answer, the step is an automation gap.
+**In `solo`, an approval-only `gate:human-approval` no longer applies.** Where the only human
+step was an environment approval, the owner may authorize one batch to clear the label; record
+that authorization. An agent never clears a person-set gate without it, and the hard core keeps
+its gate and its `## Human step` record.
 
-### 5. Verify the effect, not the files you just wrote
+**Never write a `## Human step` line that says only "a human must do this".** If that is the
+honest answer, the step is an automation gap.
+
+### 6. Verify the effect, not the files you just wrote
 
 R16 is not installed, so the lint cannot see the record. Read the bodies:
 
@@ -299,7 +333,7 @@ node scripts/check-routing-equivalence.mjs
 Record the before/after **unresolved** count from the equivalence check. This prompt changes
 no tiers, so the number should be unchanged; if it moved, say why.
 
-### 6. Write the pressure-test report
+### 7. Write the pressure-test report
 
 Record it in this repo's own governance ledger and PR body — **never in repo-governance**.
 Answer these:
@@ -318,9 +352,11 @@ Answer these:
 
 ## Done when
 
-- `docs/agent-routing.md` is byte-identical to the 1.26.0 template.
+- `docs/agent-routing.md` is byte-identical to the 1.27.0 template.
 - The triage skill and classifier pins are at 1.11.1 / 1.7.0 (and 1.8.0 for opencode).
 - Every open `gate:` issue carries a `## Human step` line with a form and a role.
 - Every `Automation: #N` line links an open issue filed in this change or already open.
 - Every `impl:human` issue carries at least one decomposing gate and a record.
+- `docs/agent-routing-records.md` §9 records `solo` with the trigger, hard core, standing
+  grants, and substitute controls; no required-reviewer gate was restored.
 - The pressure-test report exists in this repo.

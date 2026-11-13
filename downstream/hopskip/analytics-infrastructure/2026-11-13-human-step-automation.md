@@ -1,8 +1,8 @@
 # Human-step records: a gate names who decides, never who types — analytics-infrastructure (2026-11-13)
 
 **Client:** Hopskip (internal)
-**Source:** repo-governance — issue #169, merged as PR #170. PDR-011 **Amendment
-(2026-11-13)**. Templates: `agent-routing.md` **1.26.0** · `issue-authoring.md` **1.12.0** ·
+**Source:** repo-governance — issue #169, merged as PR #170; issue #173, PDR-012. PDR-011
+**Amendment (2026-11-13)**. Templates: `agent-routing.md` **1.27.0** · `issue-authoring.md` **1.12.0** ·
 `definition-of-done.md` **1.9.0** · `skills/routing-triage/SKILL.md` **1.11.1** ·
 `agents/routing-classifier.md` **1.7.0** · `agents/routing-classifier.opencode.md` **1.8.0**.
 **Scope:** install the `## Human step` record and the decide-vs-type gate semantics; backfill
@@ -52,7 +52,7 @@ point is to find where the rule is wrong before it reaches the remaining governe
 
 | Artifact | Installed | Target |
 |---|---|---|
-| `docs/agent-routing.md` | 1.21.0 | **1.26.0** |
+| `docs/agent-routing.md` | 1.21.0 | **1.27.0** |
 | `docs/agent-routing-records.md` | 1.0.0 | record only — do not `cp`; check the rule still resolves |
 | `.claude/skills/routing-triage/SKILL.md` | 1.9.0 | **1.11.1** |
 | `.claude/agents/routing-classifier.md` | 1.5.0 | **1.7.0** |
@@ -75,7 +75,8 @@ Open issues carrying a gate at `7e632d4`, fetched 2026-11-13 (re-count before ap
 Because the installed policy is 1.21.0, this install also carries the 2026-11-08 Rules 1–4
 (`gate:decision` narrowing, `status:needs-decision` for an open question, the 3a/3b/Rule-4
 lowerings, the dispute default, never-remove-a-person-set-gate), the 2026-11-09 rolling-report
-semantics in the policy text, and 1.25.0's unreachable-resource stop. Read the 1.26.0 text;
+semantics in the policy text, 1.25.0's unreachable-resource stop, and 1.27.0's approval
+posture. Read the 1.27.0 text;
 do not assume the older local copy's meaning.
 
 **R16 is not wired.** The lint that checks this rule is repo-governance issue #168 and is not
@@ -86,7 +87,7 @@ verification in step 5 reads the bodies.
 
 | Artifact | Version | Change |
 |---|---|---|
-| `docs/agent-routing.md` | 1.26.0 | PDR-011 Rules 1–4 (never installed here) plus the 1.26.0 human-step semantics; `impl:human` narrowed; `gate:human-approval` and `gate:credentials` rewritten; new §*The `## Human step` record*; audit signal 7; AGENTS.md block updated |
+| `docs/agent-routing.md` | 1.27.0 | PDR-011 Rules 1–4 (never installed here) plus the 1.26.0 human-step semantics and the 1.27.0 approval posture; `impl:human` narrowed; `gate:human-approval` and `gate:credentials` rewritten; §*The `## Human step` record*; §*Approval posture*; audit signal 7; AGENTS.md block updated |
 | `skills/routing-triage/SKILL.md` | 1.11.1 | Step 3 appends `## Human step` for every applied gate; label descriptions updated |
 | `agents/routing-classifier.md` | 1.7.0 | proposes the record and the `automation` / `not_automatable` fields |
 | `agents/routing-classifier.opencode.md` | 1.8.0 | same, opencode pin |
@@ -109,7 +110,7 @@ for f in templates/agent-routing.md templates/skills/routing-triage/SKILL.md; do
 done
 ```
 
-Expect `agent-routing.md v1.26.0` and `version: 1.11.1`. If either is behind, stop: the
+Expect `agent-routing.md v1.27.0` and `version: 1.11.1`. If either is behind, stop: the
 prompt is being applied against a stale template. The triage skill 1.11.1 lands in the same
 repo-governance change as this prompt; merge that first if it is still open.
 
@@ -133,14 +134,44 @@ git -C "$GOV" show origin/master:templates/agent-routing.md \
   | diff -q - docs/agent-routing.md
 ```
 
-Bump the Synced-templates rows to 1.26.0 / 1.11.1 / 1.7.0 in the same commit. If you use the
+Bump the Synced-templates rows to 1.27.0 / 1.11.1 / 1.7.0 in the same commit. If you use the
 opencode harness, install `agents/routing-classifier.opencode.md` **1.8.0** into the global
 `~/.config/opencode/agents/routing-classifier.md` and restart the harness; it is not a
 per-repo file. **Do not `cp` over `docs/agent-routing-records.md`** — it is a records file.
 Read its §risk→class rule after the policy sync and confirm the rule still resolves (no class
 names changed in this amendment).
 
-### 2. Hand-port the adapted files
+### 2. Record the approval posture
+
+Read `templates/agent-routing-records.md` **1.3.0** §9 and append that section to
+`docs/agent-routing-records.md` — **hand-edit; never `cp` a records file.** This repo is
+`solo`:
+
+```markdown
+## 9. Approval posture
+
+**Posture:** `solo`
+**Set by:** Greg Leizerowicz
+**Set on:** <the date you apply this>
+**Decision:** repo-governance PDR-012
+**Re-enable when:** a second engineer has merge rights on this repo; the first paying client
+is live; or a production incident occurs whose cause a second reviewer would have caught.
+**Hard core (still gated):** irreversible production data deletion/drop/rename; `gate:decision`
+generally; money movement and external contracts or legal commitments; a credential the org
+does not delegate to a service identity.
+**Standing grants:** agents may deploy through `cd.yml` to dev, qasbx, demo and prod after CI
+and the stage smokes pass; may flip config/flags and rotate service-scoped keys the same way.
+No per-action approval.
+**Substitute controls:** CI on every change; the stage smokes; the SQL backup/restore path for
+data changes; the evidence attached to the PR.
+```
+
+`solo` means the missing qasbx/demo required reviewers are the intended state, not a control
+gap. **Do not restore them.** If #1301 is still open ("Restore required_reviewers on qasbx and
+demo"), it is **superseded by this posture** — the owner closes or relabels it with a comment
+citing PDR-012; an agent does not close it.
+
+### 3. Hand-port the adapted files
 
 `docs/issue-authoring.md` and `docs/definition-of-done.md` are adapted, not byte-identical
 copies. Add the rule to each; do not replace either file.
@@ -215,7 +246,7 @@ authorizes and reviews, and an agent executes every step it is authorized to exe
    rule actually holds.
 ```
 
-### 3. Update the label descriptions
+### 4. Update the label descriptions
 
 The labels already exist, so `gh label create` in the skill will not change them. Run:
 
@@ -225,7 +256,7 @@ gh label edit "gate:human-approval"  --description "A human authorizes a step ou
 gh label edit "gate:credentials"     --description "Action is bound to a natural person's identity; a grantable service identity is an automation"
 ```
 
-### 4. Backfill a record on every open gate
+### 5. Backfill a record on every open gate
 
 Build a reviewed batch file first — one row per issue: number, label, human role, and the
 exact `## Human step` line. Have a human read it before applying. Do not run an ad-hoc loop;
@@ -251,12 +282,11 @@ Worked examples for this repo's merge path:
   `.github/workflows/cd.yml` (ADR-050).
 ```
 
-**Verify the approval gate exists before citing it.** ADR-050 puts the human sign-off in the
-GitHub Environment required reviewers for `qasbx` and `demo`, not in `cd.yml`. Issue #1301
-records that the live required-reviewer gate is currently absent. If it is still absent when
-you apply this, the `## Human step` record is accurate (the approval is the authority) but the
-gate it describes is not enforced — say so in the report as a finding, and do not describe the
-approval as live.
+**In `solo`, that approval is off by design.** ADR-050 put the human sign-off in the GitHub
+Environment required reviewers for `qasbx` and `demo`, and issue #1301 records that the live
+required-reviewer gate is absent. Under PDR-012 that absence is expected: do not restore it,
+do not cite it as a `## Human step` approval, and let the owner close or relabel #1301 as
+superseded. A deploy that contains one of the hard-core actions still needs its gate.
 
 ```markdown
 ## Human step
@@ -271,10 +301,15 @@ For an `impl:human` issue, add the decomposing `gate:` label(s) and the record; 
 relabel is a triage decision that follows the normal process. The consumers still read
 `impl:` until the equivalence check is zero.
 
-**Never remove a person-set gate**, and never write a `## Human step` line that says only "a
-human must do this". If that is the honest answer, the step is an automation gap.
+**In `solo`, an approval-only `gate:human-approval` no longer applies.** Where the only human
+step was an environment approval, the owner may authorize one batch to clear the label; record
+that authorization. An agent never clears a person-set gate without it, and the hard core keeps
+its gate and its `## Human step` record.
 
-### 5. Verify the effect, not the files you just wrote
+**Never write a `## Human step` line that says only "a human must do this".** If that is the
+honest answer, the step is an automation gap.
+
+### 6. Verify the effect, not the files you just wrote
 
 R16 is not installed, so the lint cannot see the record. Read the bodies:
 
@@ -314,7 +349,7 @@ node scripts/check-routing-equivalence.mjs
 Record the before/after **unresolved** count from the equivalence check. This prompt changes
 no tiers, so the number should be unchanged; if it moved, say why.
 
-### 6. Write the pressure-test report
+### 7. Write the pressure-test report
 
 Record it in this repo's own governance ledger and PR body — **never in repo-governance**.
 Answer these:
@@ -334,11 +369,14 @@ Answer these:
 
 ## Done when
 
-- `docs/agent-routing.md` is byte-identical to the 1.26.0 template.
+- `docs/agent-routing.md` is byte-identical to the 1.27.0 template.
 - The triage skill and classifier pins are at 1.11.1 / 1.7.0 (and 1.8.0 for opencode).
 - Every open `gate:` issue carries a `## Human step` line with a form and a role.
 - Every `Automation: #N` line links an open issue filed in this change or already open.
 - Every `impl:human` issue carries at least one decomposing gate and a record.
+- `docs/agent-routing-records.md` §9 records `solo` with the trigger, hard core, standing
+  grants, and substitute controls; no required-reviewer gate was restored and #1301 is treated
+  as superseded.
 - The pressure-test report exists in this repo.
 - The still-pending 2026-11-09 mechanical rolling-report work is either landed or recorded as
   outstanding, not silently claimed.
