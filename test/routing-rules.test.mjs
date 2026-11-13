@@ -67,6 +67,8 @@ test('PDR-012: solo posture is recorded, and the hard core stays gated', () => {
   assert.match(PDR_012, /credential the org deliberately does not delegate/);
   assert.match(PDR_012, /Revisit by 2027-05-13/);
   assert.match(PDR_012, /absent approval in `solo` is expected, not a defect/);
+  assert.match(PDR_012, /approval must precede the gated action/);
+  assert.match(PDR_012, /`n\/a — <reason>`, not omitted/);
 });
 
 test('policy: approval posture is a local records value, not a synced flag', () => {
@@ -78,9 +80,13 @@ test('policy: approval posture is a local records value, not a synced flag', () 
   assert.match(section, /hard core stays gated/);
   assert.match(section, /not a defect/);
   assert.match(section, /posture change, not a fix/);
+  assert.match(section, /approval precedes the action/);
+  assert.match(section, /`n\/a — <reason>`, not omitted/);
   // The blank form and the local record carry the value.
   assert.match(RECORDS_FORM, /## 9\. Approval posture/);
   assert.match(RECORDS_FORM, /\*\*Posture:\*\* `solo` \| `reviewed`/);
+  assert.match(RECORDS_FORM, /`gate:decision`\s+generally/);
+  assert.match(RECORDS_FORM, /`n\/a — <reason>`, not omitted/);
   assert.match(RECORDS_LOCAL, /## 9\. Approval posture/);
   assert.match(RECORDS_LOCAL, /\*\*Posture:\*\* `solo`/);
   assert.match(RECORDS_LOCAL, /PDR-012/);
@@ -88,6 +94,7 @@ test('policy: approval posture is a local records value, not a synced flag', () 
   assert.match(RECORDS_LOCAL, /Hard core/);
   assert.match(RECORDS_LOCAL, /Standing grants/);
   assert.match(RECORDS_LOCAL, /Substitute controls/);
+  assert.match(RECORDS_LOCAL, /`n\/a — this repo has no environment/);
   // The agent instruction points at the record; it does not copy the value.
   const agents = read('AGENTS.md');
   assert.match(agents, /docs\/agent-routing-records\.md` §9/);

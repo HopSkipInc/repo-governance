@@ -53,10 +53,11 @@ the posture record, and the agent executes them without per-action approval.
   because a PDR/ADR is owned by a person;
 - a credential the org deliberately does not delegate to a service identity.
 
-These may be approved asynchronously and need not block a deploy. An agent never removes a
-person-set gate on its own; in solo mode the owner may authorize one batch to clear
-`gate:human-approval` labels whose only step was an environment approval, and that
-authorization is recorded with the batch.
+These may be approved asynchronously, but the approval must precede the gated action. A
+deploy that does not contain or execute the action may proceed independently; a deploy that
+does may not. An agent never removes a person-set gate on its own; in solo mode the owner may
+authorize one batch to clear `gate:human-approval` labels whose only step was an environment
+approval, and that authorization is recorded with the batch.
 
 **4. An absent approval in `solo` is expected, not a defect.** The audit, the routing
 classifier, and any agent reading the repo must read the posture before filing a missing
@@ -64,10 +65,11 @@ required-reviewer gate as a finding. Restoring the gate in a `solo` repo is a po
 not a fix.
 
 **5. Removing the approval moves the safety net; it does not remove it.** A `solo` record is
-valid only while these controls hold: CI on every change, a post-deploy smoke check that
-observes the effect, a tested backup and rollback path for anything reversible, and the
-evidence attached to the PR. A repo that turns approvals off without these is not in solo
-mode; it is uncontrolled, and that is a finding.
+valid only while these controls hold **on every surface the record covers**: CI on every
+change, a post-deploy smoke check that observes the effect, a tested backup and rollback path
+for anything reversible, and the evidence attached to the PR. A control that does not apply is
+recorded `n/a — <reason>`, not omitted. A repo that turns approvals off without the controls
+its surfaces need is not in solo mode; it is uncontrolled, and that is a finding.
 
 **6. Re-enablement has a trigger, not an expiry.** The record names the condition that ends
 solo mode: a second engineer with merge rights, the first paying client live, or a production

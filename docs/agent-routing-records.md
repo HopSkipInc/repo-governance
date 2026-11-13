@@ -277,7 +277,8 @@ delegate to a service identity stays `gate:credentials`.
 push to those branches without per-PR approval. Merges and record publication remain owner
 actions — a merge here publishes a policy or a record. There is no environment deploy.
 **Substitute controls:** the 533-case test suite and the seven lints in CI; `write-record.mjs`
-as the guarded path for `docs/pdr/`; the PR evidence rule.
+as the guarded path for `docs/pdr/`; the PR evidence rule. `n/a — this repo has no environment
+deploy`, so the post-deploy smoke check and backup/rollback controls do not apply.
 
 `reviewed` would restore required reviewers and per-action approval; `solo` removes them for
 repeatable work and keeps the hard core. An absent approval in `solo` is expected, not a

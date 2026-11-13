@@ -415,13 +415,15 @@ the agent executes them without per-action approval. **The hard core stays gated
 production data deletion, drop or rename; money movement, external contracts and legal
 commitments — and `gate:decision` generally, because a decision record is owned by a person; a
 credential the org does not delegate to a service identity. These may be approved
-asynchronously.
+asynchronously, but the approval precedes the action: a deploy that contains or executes the
+gated step waits, and one that does not may proceed.
 
 **An absent approval in `solo` is expected, not a defect.** Read the posture before filing a
 missing required-reviewer gate as a finding or restoring it — restoring it in a `solo` repo is
-a posture change, not a fix. A `solo` record is valid only while CI, a post-deploy smoke check,
-a tested backup/rollback, and the evidence attached to the PR hold. Re-enable on a named
-trigger — a second engineer with merge rights, the first paying client live, or an incident a
+a posture change, not a fix. A `solo` record is valid only while these controls hold on every
+surface it covers: CI on every change, a post-deploy smoke check that observes the effect, a
+tested backup/rollback for anything reversible, and the evidence attached to the PR. A control
+that does not apply is recorded `n/a — <reason>`, not omitted. Re-enable on a named trigger — a second engineer with merge rights, the first paying client live, or an incident a
 second reviewer would have caught — not on a calendar date.
 
 **Rules 1 and 2 govern additions.** They narrow when each gate applies; they never remove

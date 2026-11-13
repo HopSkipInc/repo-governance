@@ -148,13 +148,14 @@ the issue is re-tiered, or the rule is changed — before `impl:` is retired for
 **Decision:** [the PDR/ADR that authorizes the posture]
 **Re-enable when:** [a named trigger — a second engineer with merge rights, the first paying
 client live, or a production incident whose cause a second reviewer would have caught]
-**Hard core (still gated):** irreversible production data deletion/drop/rename; money movement
-and external contracts or legal commitments; a credential the org does not delegate to a
-service identity.
+**Hard core (still gated):** irreversible production data deletion/drop/rename; `gate:decision`
+generally (a PDR/ADR is owned by a person); money movement and external contracts or legal
+commitments; a credential the org does not delegate to a service identity.
 **Standing grants:** [what an agent may execute without per-action approval — environment,
 scope, and the controls it must pass first]
 **Substitute controls:** CI on every change; a post-deploy smoke check that observes the
-effect; a tested backup and rollback path; the evidence attached to the PR.
+effect; a tested backup and rollback path; the evidence attached to the PR. A control that does
+not apply to a surface this posture covers is recorded `n/a — <reason>`, not omitted.
 
 `reviewed` keeps the required-reviewer gates and per-action approval. `solo` turns them off for
 automated deploys and repeatable operations and replaces them with the standing grants above;
