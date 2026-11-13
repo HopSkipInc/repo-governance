@@ -2,9 +2,9 @@
 
 **Client:** Hopskip (internal)
 **Source:** repo-governance — issue #169, merged as PR #170; issue #173, PDR-012. PDR-011
-**Amendment (2026-11-13)**. Templates: `agent-routing.md` **1.27.0** · `issue-authoring.md` **1.12.0** ·
+**Amendment (2026-11-13)**. Templates: `agent-routing.md` **1.27.1** · `issue-authoring.md` **1.12.1** ·
 `definition-of-done.md` **1.9.0** · `skills/routing-triage/SKILL.md` **1.11.1** ·
-`agents/routing-classifier.md` **1.7.0** · `agents/routing-classifier.opencode.md` **1.8.0**.
+`agents/routing-classifier.md` **1.7.0** · `agents/routing-classifier.opencode.md` **1.8.0** · `scripts/check-issue-routing.mjs` **1.10.0**.
 **Scope:** install the `## Human step` record and the decide-vs-type gate semantics; backfill
 a record on every open `gate:` issue; decompose the `impl:human` labels; run the pressure test
 and report where the rule does not fit.
@@ -52,14 +52,14 @@ point is to find where the rule is wrong before it reaches the remaining governe
 
 | Artifact | Installed | Target |
 |---|---|---|
-| `docs/agent-routing.md` | 1.21.0 | **1.27.0** |
+| `docs/agent-routing.md` | 1.21.0 | **1.27.1** |
 | `docs/agent-routing-records.md` | 1.0.0 | record only — do not `cp`; check the rule still resolves |
 | `.claude/skills/routing-triage/SKILL.md` | 1.9.0 | **1.11.1** |
 | `.claude/agents/routing-classifier.md` | 1.5.0 | **1.7.0** |
 | `docs/issue-authoring.md` | adapted from 1.6.0 | hand-port the rule |
 | `docs/definition-of-done.md` | adapted (`Last updated: 2026-08-04`) | hand-port the section |
 | `AGENTS.md` routing block | hand-adapted | hand-port items 2 and 5 |
-| `scripts/check-issue-routing.mjs` | 1.7.0 | **no change in this prompt** |
+| `scripts/check-issue-routing.mjs` | 1.7.0 | **1.10.0** |
 | `scripts/check-routing-equivalence.mjs` | 1.3.1 | **no change in this prompt** |
 
 Open issues carrying a gate at `7e632d4`, fetched 2026-11-13 (re-count before applying):
@@ -76,23 +76,27 @@ Because the installed policy is 1.21.0, this install also carries the 2026-11-08
 (`gate:decision` narrowing, `status:needs-decision` for an open question, the 3a/3b/Rule-4
 lowerings, the dispute default, never-remove-a-person-set-gate), the 2026-11-09 rolling-report
 semantics in the policy text, 1.25.0's unreachable-resource stop, and 1.27.0's approval
-posture. Read the 1.27.0 text;
+posture. Read the 1.27.1 text;
 do not assume the older local copy's meaning.
 
-**R16 is not wired.** The lint that checks this rule is repo-governance issue #168 and is not
-in the installed script. Do not claim a green run proves the records are present; the
-verification in step 5 reads the bodies.
+**R17 is wired** in `check-issue-routing.mjs` 1.10.0. It reports a gate with no `## Human step`
+section or line, `impl:human` with no gate, a missing/duplicate form, a non-numeric
+`Automation`, an empty mechanism, a missing or placeholder role, and an unknown `gate:` label.
+It is **WARN**: a clean exit is not proof, but the census line (`Automation` / `Not
+automatable` / missing) is the mechanical half of audit signal 7. Use it in the verification
+step.
 
 ## What ships
 
 | Artifact | Version | Change |
 |---|---|---|
-| `docs/agent-routing.md` | 1.27.0 | PDR-011 Rules 1–4 (never installed here) plus the 1.26.0 human-step semantics and the 1.27.0 approval posture; `impl:human` narrowed; `gate:human-approval` and `gate:credentials` rewritten; §*The `## Human step` record*; §*Approval posture*; audit signal 7; AGENTS.md block updated |
+| `docs/agent-routing.md` | 1.27.1 | PDR-011 Rules 1–4 (never installed here) plus the 1.26.0 human-step semantics and the 1.27.0 approval posture; `impl:human` narrowed; `gate:human-approval` and `gate:credentials` rewritten; §*The `## Human step` record*; §*Approval posture*; audit signal 7; AGENTS.md block updated |
 | `skills/routing-triage/SKILL.md` | 1.11.1 | Step 3 appends `## Human step` for every applied gate; label descriptions updated |
 | `agents/routing-classifier.md` | 1.7.0 | proposes the record and the `automation` / `not_automatable` fields |
 | `agents/routing-classifier.opencode.md` | 1.8.0 | same, opencode pin |
-| `issue-authoring.md` | 1.12.0 | `## Human step` joins the canonical schema and the rules |
+| `issue-authoring.md` | 1.12.1 | `## Human step` joins the canonical schema and the rules |
 | `definition-of-done.md` | 1.9.0 | a discovered repeatable manual step is scripted or filed in the same change |
+| `scripts/check-issue-routing.mjs` | 1.10.0 | R17 (WARN) plus the human-step census; self copy must stay byte-identical |
 
 No script changes, no migrations. The PDR amendment itself lives in repo-governance and never
 syncs.
@@ -105,12 +109,12 @@ Run every command below **from the analytics-infrastructure checkout**. Assert i
 git rev-parse --show-toplevel   # must be ~/repos/HopSkipInc/analytics-infrastructure
 GOV=~/repos/HopSkipInc/repo-governance
 git -C "$GOV" fetch origin
-for f in templates/agent-routing.md templates/skills/routing-triage/SKILL.md; do
+for f in templates/agent-routing.md templates/skills/routing-triage/SKILL.md templates/scripts/check-issue-routing.mjs; do
   git -C "$GOV" show origin/master:$f | grep -m1 -E "template:|^version:"
 done
 ```
 
-Expect `agent-routing.md v1.27.0` and `version: 1.11.1`. If either is behind, stop: the
+Expect `agent-routing.md v1.27.1`, `version: 1.11.1`, and `check-issue-routing.mjs v1.10.0`. If any is behind, stop: the
 prompt is being applied against a stale template. The triage skill 1.11.1 lands in the same
 repo-governance change as this prompt; merge that first if it is still open.
 
@@ -130,11 +134,13 @@ git -C "$GOV" show origin/master:templates/skills/routing-triage/SKILL.md \
   > .claude/skills/routing-triage/SKILL.md
 git -C "$GOV" show origin/master:templates/agents/routing-classifier.md \
   > .claude/agents/routing-classifier.md
+git -C "$GOV" show origin/master:templates/scripts/check-issue-routing.mjs \
+  > scripts/check-issue-routing.mjs
 git -C "$GOV" show origin/master:templates/agent-routing.md \
   | diff -q - docs/agent-routing.md
 ```
 
-Bump the Synced-templates rows to 1.27.0 / 1.11.1 / 1.7.0 in the same commit. If you use the
+Bump the Synced-templates rows to 1.27.1 / 1.11.1 / 1.7.0 / 1.10.0 in the same commit. If you use the
 opencode harness, install `agents/routing-classifier.opencode.md` **1.8.0** into the global
 `~/.config/opencode/agents/routing-classifier.md` and restart the harness; it is not a
 per-repo file. **Do not `cp` over `docs/agent-routing-records.md`** — it is a records file.
@@ -311,7 +317,15 @@ honest answer, the step is an automation gap.
 
 ### 6. Verify the effect, not the files you just wrote
 
-R16 is not installed, so the lint cannot see the record. Read the bodies:
+R17 is installed. Run the lint first; the body census is now the backfill aid, not the verification:
+
+```bash
+node scripts/check-issue-routing.mjs
+```
+
+Expect no `[R17]` finding and a census ending `0 without a valid record`. A WARN exit is 0, so
+read the census line, not just the exit code. The body census below finds the issues that
+still need work:
 
 ```bash
 gh issue list --repo HopSkipInc/analytics-infrastructure --state open --limit 1000 \
@@ -335,14 +349,12 @@ grep -c '^OK' /tmp/gates-check.txt
 
 A gate issue needs **one `- gate:` line per gate label** and **one form line per gate**
 (`Automation:` or `Not automatable — `). This is a census, not a semantic check: a line can
-still be wrong. Have a human read the batch file and spot-check three bodies. R16 is what
-will make the semantic check mechanical; it is not installed, so do not describe this command
-as a lint pass.
+still be wrong. R17 now validates the role, the form, and the mechanism; this census only
+counts lines, so use it to find the backfill, not to prove the records are right.
 
-Then run what the repo already has:
+Then run the equivalence check:
 
 ```bash
-node scripts/check-issue-routing.mjs
 node scripts/check-routing-equivalence.mjs
 ```
 
@@ -369,7 +381,7 @@ Answer these:
 
 ## Done when
 
-- `docs/agent-routing.md` is byte-identical to the 1.27.0 template.
+- `docs/agent-routing.md` is byte-identical to the 1.27.1 template.
 - The triage skill and classifier pins are at 1.11.1 / 1.7.0 (and 1.8.0 for opencode).
 - Every open `gate:` issue carries a `## Human step` line with a form and a role.
 - Every `Automation: #N` line links an open issue filed in this change or already open.
