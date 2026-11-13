@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.11.0 · updated 2026-11-10 -->
+<!-- template: issue-authoring.md v1.12.0 · updated 2026-11-13 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -8,6 +8,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.12.0 | 2026-11-13 | **A human gate names who decides, never who types.** Every `gate:` label carries a `## Human step` record naming the human role and either `Automation: #N` or `Not automatable — <mechanism>`. `impl:human` is transitional and malformed alone. PDR-011 Amendment 2026-11-13 |
 | 1.11.0 | 2026-11-10 | **Design-reference backstops.** R14 warns on ready private design links without same-line repo paths; R15 warns on design references or visual outcomes without a concrete standalone `Render:` command. Both lint copies ship together with firing/clearing fixtures (issue #160, lane C1) |
 | 1.10.0 | 2026-11-10 | **Rendered UI work names an accessible design reference and render path.** A private canvas held composition while lane issues named only components; component swaps passed without matching the design. The canonical schema now requires repo sources and images (or a named deciding rule), composition, and a credential-free `Render:` command (issue #160, lane A) |
 
@@ -36,6 +37,14 @@ Every issue body uses this structure:
  zero or more `risk:` labels, one line each with a one-sentence reason:
  - risk:silent-failure — the wrong answer renders as a valid result.
  A `risk:uncovered` line carries a coverage record on its own line.>
+
+## Human step
+<required when any `gate:` label is present; omit otherwise. One line per gate, naming the
+ role the human holds — decides / signs / approves / holds the identity — and exactly one of:
+   Automation: #N — the repeatable step this scripts
+   Not automatable — <mechanism: legal signature / natural-person identity / no test settles it / named policy>
+ A gate with no line is malformed. Never write "a human must do this": a gate names who
+ decides, not who types.>
 
 ## Verifiable outcomes (binary, observable)
 - [ ] <outcome 1 — binary, observable>
@@ -84,6 +93,15 @@ Rules:
   one-sentence reason. An unknown `risk:*` label is malformed — the five-label vocabulary is
   closed. `risk:uncovered` carries a coverage record (`Coverage gap: #N` or `Coverage: not
   testable — <mechanism>`) on its own line, and the label comes off when the gap closes.
+- **Every `gate:` label has a `## Human step` line.** One line per gate, naming the human
+  role and either `Automation: #N` (the issue that scripts the repeatable step) or
+  `Not automatable — <mechanism>`. A gate with no record is malformed: the next agent sees a
+  human requirement with no explanation and cannot tell whether it still applies.
+  `Not automatable` is the flattering call and carries the same burden as `Coverage: not
+  testable` — name the mechanism. **A gate names who decides, never who types**; "a human
+  must do this" is not a gate, it is an unscripted repeatable step. `impl:human` is
+  transitional and malformed alone: it decomposes into `impl:<class>` plus `gate:` labels
+  plus this record.
 - **Every blocking claim resolves to a reference.** Under `## Dependencies`, a blocker is
   `blocked-by #N` (same repo), `blocked-by owner/repo#N` (cross-repo — pick this one form;
   both it and the bare `repo#N` are in live use, and a backlog running both makes the
@@ -147,7 +165,7 @@ Labels are not decoration — they route, prioritize, and let a periodic audit r
 | **priority** | exactly one | `P0`, `P1`, `P2` |
 | **status** | exactly one | `status:ready`, `status:needs-decision`, `status:blocked`, `status:deferred` |
 | **type** | one (or a Work-type line) | `enhancement`, `feature`, `bug`, `epic`, `chore`, `documentation` |
-| **impl:** | exactly one once triaged; none before triage | `impl:standard`, `impl:frontier`, `impl:human` |
+| **impl:** | exactly one once triaged; none before triage | `impl:standard`, `impl:frontier`, `impl:human` (transitional — never alone; see `## Human step`) |
 | **risk:** | optional, zero or more | `risk:silent-failure`, `risk:boundary`, `risk:irreversible`, `risk:new-abstraction`, `risk:uncovered` |
 | **gate:** | optional, one or more | `gate:human-approval`, `gate:human-review`, `gate:credentials`, `gate:decision` |
 | **area:** | optional, one or more | `[your subsystem names]` |

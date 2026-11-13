@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-11-07
 **Confirmed by:** Greg Leizerowicz
-**Last confirmed:** 2026-11-08
+**Last confirmed:** 2026-11-13
 
 ---
 
@@ -147,3 +147,65 @@ the owner instead. The same holds in every governed repo.
 `gate:decision` added 68, `status:ready` → `status:needs-decision` 19; lowerings: 3a 5,
 3b 8, Rule 4 1, stopped by the dispute default 6. Equivalence moved from 485 unresolved to
 31; none of the residue comes from these rules (see #155).
+
+## Amendment (2026-11-13)
+
+Adopted by the owner on 2026-11-13 (repo-governance#169). This amendment refines **decision
+2** (the `gate:` family), the `impl:human` tier, and the 2026-11-08 amendment's **Rule 2**.
+It changes nothing else: the `risk:` vocabulary, the records-held rule, the equivalence gate,
+the lowering rules, the dispute default, and the interactive guidance stand as written.
+
+**Rule 5 — `impl:human` decomposes; it is never sufficient alone.** On a triaged issue the
+tier means "a human owns a decision the work makes", never "a human must type a repeatable
+step" and never "this is difficult". Treat the label as a claim that something is missing — a
+decision, an automation, or a record — not as a resting state. A human-tier issue is written
+as `impl:<class>` plus one or more `gate:` labels plus a `## Human step` record (Rule 6). An
+`impl:human` label with no decomposing `gate:` and no `## Human step` record is malformed.
+
+**Rule 6 — the `## Human step` record.** Every `gate:` label carries one line under
+`## Human step`, naming the human role — decides, signs, approves, holds the identity — and
+exactly one of:
+
+- `Automation: #N` — a linked issue that scripts or codifies the repeatable step; or
+- `Not automatable — <mechanism>` — the human is the legal signatory; the identity is bound
+  to a natural person (MFA/passkey/personal login); the decision is a value judgment no test
+  settles; or an explicit, named org policy not to delegate.
+
+A gate with no record is malformed, the same way a `risk:uncovered` label with no coverage
+record is. The test is: **can a deterministic procedure be written that produces the same
+result every time?** If yes, the step is automatable, whatever the current tooling. `Not
+automatable` is the flattering call and carries the same burden as `Coverage: not testable`:
+it names the mechanism, and the mechanism is expected to be challenged.
+
+**Rule 7 — a gate names who decides, never who types.** A human authorizes and reviews; an
+agent executes every step it is authorized to execute. An approval is a recorded event bound
+to the exact plan, diff, or command — not a handoff that returns the typing to a person. The
+2026-11-08 amendment's step kinds ("prod configuration set by hand", "a switch flipped")
+describe **where the step sits** — outside the merge path — not who performs it.
+`gate:credentials` narrows to actions the *identity* makes human (the Rule 6 mechanism). A
+credential the agent can be granted — a service principal, a vault entry it may read — is an
+automation, not a credential gate; the human grants it once and review moves to the evidence.
+A human re-performing a step the agent already scripted does not satisfy the gate; it measures
+the wrong thing.
+
+**Rule 8 — automated is not unsupervised.** Scripting removes the typing, not the approval. An
+irreversible step keeps a per-action approval bound to the exact command and a bounded blast
+radius or a working rollback. A reversible step may be approved once and its evidence reviewed
+after.
+
+**Rule 9 — mitigation is owed during implementation.** An implementation that encounters a
+repeatable manual step either scripts it in the same change (when it is small and in scope) or
+files its `Automation: #N` issue in that change. A manual step discovered and left unrecorded
+is a Definition-of-Done failure, not a note.
+
+**Audit signal 7 — human-step debt.** Report the open `gate:` population split into
+`Automation: #N` and `Not automatable — <mechanism>`. The first count should trend down; the
+second should stay small and stable. A gate count that never falls is uncodified work, and a
+backlog where every gate says "not automatable" is indistinguishable from one that never tried.
+
+**Falsifier.**
+
+- [ ] Revisit by 2027-05-13, after two audit cycles. If the count of `Automation: #N` gates has
+  not fallen, or more than half of `Not automatable` statements name a mechanism a script could
+  cover, the Rule 6 test is not being applied and `Not automatable` has become the new
+  `inherent`.

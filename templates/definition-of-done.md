@@ -1,10 +1,16 @@
-<!-- template: definition-of-done.md v1.8.0 · updated 2026-10-08 -->
+<!-- template: definition-of-done.md v1.9.0 · updated 2026-11-13 -->
 # Definition of Done
 
 **Status:** Policy — enforced by PR template, lint scripts, and periodic audit
 **Last updated:** [DATE]
 
 Every piece of work has a type. A thing is done when the row for its type is fully satisfied — not before. "CI is green" is a necessary condition, not a sufficient one.
+
+## A manual step is a mitigation, not a permanent gate
+
+When implementation encounters a repeatable step that currently needs a human — a console click, a hand-run command, a per-environment switch — the change either scripts it in the same PR (when it is small and in scope) or files its `Automation: #N` issue and links it under `## Human step`. A merge that leaves a newly-discovered manual step unrecorded is not done.
+
+`Not automatable` is valid only when a mechanism the routing policy's `## Human step` rule names actually holds: a legal signature, an identity bound to a natural person, a judgment no test settles, or a named org policy not to delegate. "There was no time" is an `Automation: #N`, not a mechanism.
 
 ---
 
