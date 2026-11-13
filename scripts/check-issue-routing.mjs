@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// template: scripts/check-issue-routing.mjs v1.9.1 · updated 2026-11-10
+// template: scripts/check-issue-routing.mjs v1.10.0 · updated 2026-11-13
 /**
  * lint:issue-routing  [governance template — copy to <project>/scripts/]
  *
@@ -34,6 +34,15 @@
  *   R13 epic-single-tier     an epic carries a single impl: label (warn)
  *   R14 reference-unreachable  ready private design link, no same-line repo path
  *   R15 render-unrunnable      design reference or visual outcome, no Render command
+ *   R17 human-step-missing    a gate: label with no ## Human step record, an
+ *                            impl:human with no gate: label, or a record with
+ *                            no valid form/mechanism                  (warn)
+ *
+ * 1.10.0 (issue #168): PDR-011's 2026-11-13 amendment made every gate record who
+ * decides, not who types, and every gate carry a "## Human step" record. Without
+ * this rule the record is prose nobody checks, and a gate with no record reads as
+ * a considered limit. Numbered R17 because issue #160 reserves R16 for a planned
+ * closed-pass rule (closed-unchecked-outcome).
  *
  * 1.9.1: distinguish mirror filenames/directories from before/after prose;
  * accept shell redirection while rejecting angle-bracket command placeholders.
@@ -204,6 +213,7 @@ const SEVERITY = {
   R13: 'warn',
   R14: 'warn',
   R15: 'warn',
+  R17: 'warn',
 };
 
 /**
@@ -338,6 +348,18 @@ const DESIGN_HEADING = /^##[ \t]*Design reference(?:[ \t]*\([^)]*\))?[ \t]*$/i;
 const OUTCOMES_HEADING = /^##[ \t]*(?:Verifiable outcomes|Acceptance criteria)(?:[ \t]*\([^)]*\))?[ \t]*$/i;
 const DESIGN_LINK = /https?:\/\/(?:www\.)?(?:claude\.ai\/(?:code\/)?artifact(?:\/|\b)|figma\.com(?:\/|\b))[^\s<>`]*/i;
 const VISUAL_OUTCOME = /\bscreenshots?\b|\bvisual\s+comparisons?\b/i;
+
+/**
+ * R17: the `## Human step` record every `gate:` label carries. A gate line names
+ * the human role; the form is on its own (indented) line and is exactly one of
+ * `Automation: #N` or `Not automatable — <mechanism>`. `Not automatable` with no
+ * mechanism is the flattering call, and a gate with no record cannot be
+ * re-evaluated — both are findings.
+ */
+const HUMAN_STEP_HEADING = /^##[ \t]*Human step(?:[ \t]*\([^)]*\))?[ \t]*$/i;
+const GATE_LABEL = /^gate:[a-z-]+$/i;
+const AUTOMATION_FORM = /(?:^|\n)[ \t]*Automation:[ \t]*#\d+\b/;
+const NOT_AUTOMATABLE_FORM = /(?:^|\n)[ \t]*Not automatable[ \t]*[—–-][ \t]*(.*)$/im;
 
 /**
  * R9: a top-level list item — bullet or numbered — is one question. Indented
@@ -541,6 +563,27 @@ function riskCoverageRecord(lines) {
   return lines.some((l) => COVERAGE_GAP.test(l) || COVERAGE_NOT_TESTABLE.test(l));
 }
 
+function gateLabels(labels) {
+  return labels.map((l) => l.name).filter((n) => GATE_LABEL.test(n));
+}
+
+/** R17: one entry per `- gate:<label> — <role>` line, with its continuation lines. */
+function humanStepEntries(lines) {
+  const entries = [];
+  let current = null;
+  for (const raw of lines ?? []) {
+    const cleaned = raw.replace(/[`*_]/g, '').trim();
+    const m = cleaned.match(/^[-*+][ \t]+(gate:[a-z-]+)\b(.*)$/i);
+    if (m) {
+      current = { label: m[1].toLowerCase(), text: `${m[2]}\n` };
+      entries.push(current);
+      continue;
+    }
+    if (current) current.text += `${cleaned}\n`;
+  }
+  return entries;
+}
+
 // -------------------------------------------------------------------- rules
 
 const findings = [];
@@ -609,6 +652,9 @@ const coverage = { cited: 0, gap: 0, notTestable: 0, unrecorded: 0, issues: [] }
 
 /** Risk-label census (R10–R12) — the fact vocabulary the rule will read. */
 const riskCensus = { issues: 0, labelled: 0, byLabel: Object.fromEntries([...RISK_LABELS].map((l) => [l, 0])) };
+
+/** Human-step census (R17) — audit signal 7, the Automation / Not automatable split. */
+const humanStep = { gates: 0, automation: 0, notAutomatable: 0, missing: 0 };
 
 /** Kind coverage census (closed pass only) — the estimability number. */
 const kindCoverage = { escalations: 0, spec: 0, inherent: 0, both: 0, undeclared: 0 };
@@ -688,6 +734,57 @@ for (const issue of issues) {
     }
     if (risks.includes('risk:uncovered') && !riskCoverageRecord(riskLines)) {
       report('R12', issue.number, 'carries risk:uncovered but ## Risk has no coverage record — add "Coverage gap: #N" or "Coverage: not testable — <mechanism>" on its own line, or the label has no expiry condition');
+    }
+  }
+
+  // R17 runs before the untiered skip: a gate: label is a fact about the issue,
+  // like a risk label, and the record is the only place the human role and the
+  // automation/mechanism live. Open-pass only — a closed issue's gate is frozen
+  // history, not work in flight.
+  if (!CLOSED) {
+    const gates = gateLabels(issue.labels);
+    if (impls.includes('impl:human') && gates.length === 0) {
+      report('R17', issue.number, 'carries impl:human with no gate: label — the tier decomposes into a class plus one or more gate: labels plus a "## Human step" record');
+    }
+    if (gates.length) {
+      const lines = sectionLines(issue.body, HUMAN_STEP_HEADING);
+      if (lines === null) {
+        humanStep.gates += gates.length;
+        humanStep.missing += gates.length;
+        report('R17', issue.number, `carries ${gates.join(', ')} but has no "## Human step" section — every gate names the human role and exactly one of "Automation: #N" or "Not automatable — <mechanism>"`);
+      } else {
+        const byLabel = new Map(humanStepEntries(lines).map((e) => [e.label, e]));
+        for (const gate of gates) {
+          humanStep.gates += 1;
+          const entry = byLabel.get(gate);
+          if (!entry) {
+            humanStep.missing += 1;
+            report('R17', issue.number, `carries ${gate} with no line under "## Human step" — name the human role in a "- ${gate} — <role>" line`);
+            continue;
+          }
+          const hasAutomation = AUTOMATION_FORM.test(entry.text);
+          const notAuto = entry.text.match(NOT_AUTOMATABLE_FORM);
+          const mechanism = notAuto ? notAuto[1].trim() : '';
+          const mechanismOk = Boolean(mechanism) && !/^<[^>]*>$/.test(mechanism) && !/^(?:none|n\/a|tbd|todo|pending)\b/i.test(mechanism);
+          if (hasAutomation && notAuto) {
+            humanStep.automation += 1;
+            humanStep.notAutomatable += 1;
+            report('R17', issue.number, `${gate} carries both "Automation:" and "Not automatable" — exactly one form per gate`);
+          } else if (hasAutomation) {
+            humanStep.automation += 1;
+          } else if (notAuto) {
+            if (mechanismOk) {
+              humanStep.notAutomatable += 1;
+            } else {
+              humanStep.missing += 1;
+              report('R17', issue.number, `${gate}'s "Not automatable" names no mechanism — a legal signature, a natural-person identity, a judgment no test settles, or a named policy. The flattering call carries the burden`);
+            }
+          } else {
+            humanStep.missing += 1;
+            report('R17', issue.number, `${gate}'s "## Human step" line carries no "Automation: #N" or "Not automatable — <mechanism>" form — a gate with no record cannot be re-evaluated`);
+          }
+        }
+      }
     }
   }
 
@@ -905,6 +1002,17 @@ if (riskCensus.issues) {
   console.log(
     'These are the facts the routing rule reads. A label with no reason line is R10; an unknown label is R11; ' +
     'risk:uncovered without a coverage record is R12.'
+  );
+}
+
+if (humanStep.gates) {
+  console.log(
+    `\nHuman-step census: ${humanStep.gates} gate(s) — ${humanStep.automation} Automation, ` +
+    `${humanStep.notAutomatable} Not automatable, ${humanStep.missing} without a valid record.`
+  );
+  console.log(
+    'Audit signal 7: the Automation count should trend down; a gate population that never falls ' +
+    'is uncodified work, and all-Not-automatable is indistinguishable from never trying.'
   );
 }
 

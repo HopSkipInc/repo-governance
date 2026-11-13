@@ -597,6 +597,87 @@ test('issue-routing R15: runnable command clears, schema fences and nonvisual ou
   assert.doesNotMatch(out, /\[R15\]/);
 });
 
+test('issue-routing R17: a gate with no ## Human step section fires and counts the debt', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 100, labels: [{ name: 'gate:human-approval' }], body: 'Some description.\n' },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /#100 \[R17\]/);
+  assert.match(out, /no "## Human step" section/);
+  assert.match(out, /Human-step census: 1 gate\(s\) — 0 Automation, 0 Not automatable, 1 without a valid record/);
+});
+
+test('issue-routing R17: impl:human with no gate fires', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 101, labels: [{ name: 'impl:human' }], body: tierBody('human (inherent) — an external commitment.') },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /#101 \[R17\]/);
+  assert.match(out, /impl:human with no gate: label/);
+});
+
+test('issue-routing R17: a gate line with no form, an empty Not automatable, and a non-numeric Automation all fire', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 102, labels: [{ name: 'gate:decision' }], body: '## Human step\n- gate:decision — the owner decides.\n' },
+    { number: 103, labels: [{ name: 'gate:credentials' }], body: '## Human step\n- gate:credentials — the operator holds it.\n  Not automatable —\n' },
+    { number: 104, labels: [{ name: 'gate:human-approval' }], body: '## Human step\n- gate:human-approval — the owner approves.\n  Automation: existing — deploy.yml\n' },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /#102 \[R17\]/);
+  assert.match(out, /carries no "Automation: #N" or "Not automatable — <mechanism>" form/);
+  assert.match(out, /#103 \[R17\]/);
+  assert.match(out, /"Not automatable" names no mechanism/);
+  assert.match(out, /#104 \[R17\]/);
+});
+
+test('issue-routing R17: well-formed records clear and split the census', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 105, labels: [{ name: 'gate:human-approval' }], body: '## Human step\n- gate:human-approval — the owner authorizes it.\n  Automation: #1250 — the script sets it.\n' },
+    { number: 106, labels: [{ name: 'gate:credentials' }], body: '## Human step\n- gate:credentials — the operator holds the identity.\n  Not automatable — the identity is bound to a natural person.\n' },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.doesNotMatch(out, /\[R17\]/);
+  assert.match(out, /Human-step census: 2 gate\(s\) — 1 Automation, 1 Not automatable, 0 without a valid record/);
+});
+
+test('issue-routing R17: both forms on one gate fire', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 107, labels: [{ name: 'gate:decision' }], body: '## Human step\n- gate:decision — the owner decides.\n  Automation: #12 — x\n  Not automatable — a value judgment.\n' },
+  ]);
+  const { code, out } = run('check-issue-routing.mjs', dir, { env });
+  assert.equal(code, 0, out);
+  assert.match(out, /#107 \[R17\]/);
+  assert.match(out, /carries both "Automation:" and "Not automatable"/);
+});
+
+test('issue-routing R17: a fenced schema example is not a record', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 108, labels: [{ name: 'gate:decision' }], body: '```\n## Human step\n- gate:decision — example\n  Not automatable — example\n```\n' },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env });
+  assert.match(out, /#108 \[R17\]/);
+  assert.match(out, /no "## Human step" section/);
+});
+
+test('issue-routing R17: closed history is not rechecked', () => {
+  const dir = fixture({});
+  const env = ghStub(dir, [
+    { number: 109, labels: [{ name: 'gate:decision' }], body: '## Impl tier\nfrontier (inherent) — x\n', closed_at: new Date().toISOString() },
+  ]);
+  const { out } = run('check-issue-routing.mjs', dir, { env, args: ['--closed'] });
+  assert.doesNotMatch(out, /\[R17\]/);
+});
+
 test('issue-routing R14/R15: closed history is not rechecked for design readiness', () => {
   const dir = fixture({});
   const env = ghStub(dir, [{ number: 90, labels: [{ name: 'status:ready' }], closed_at: new Date().toISOString(), body: 'Read first: https://claude.ai/artifact/private\n\n## Design reference\nReference: none — table decides' }]);

@@ -176,8 +176,8 @@ test('policy: the sanctioned lowerings and dispute default sit beside Downgrades
 });
 
 test('policy: version stamps agree and the mothership copy is byte-identical', () => {
-  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.27\.0 · updated 2026-11-13 -->/);
-  assert.match(POLICY, /\*\*Version:\*\* 1\.27\.0/);
+  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.27\.1 · updated 2026-11-13 -->/);
+  assert.match(POLICY, /\*\*Version:\*\* 1\.27\.1/);
   assert.equal(
     read('docs/agent-routing.md'),
     POLICY,

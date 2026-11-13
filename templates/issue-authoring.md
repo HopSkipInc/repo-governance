@@ -1,4 +1,4 @@
-<!-- template: issue-authoring.md v1.12.0 · updated 2026-11-13 -->
+<!-- template: issue-authoring.md v1.12.1 · updated 2026-11-13 -->
 # Issue Authoring
 
 **Status:** Policy — enforced by [your creation tooling, CI validator, and/or periodic audit]
@@ -8,6 +8,7 @@
 
 | Version | Date | Change |
 |---|---|---|
+| 1.12.1 | 2026-11-13 | **R17 documented.** The enforcement table names `human-step-missing`: a `gate:` label with no `## Human step` record, `impl:human` with no gate, or a record with no form/mechanism (issue #168) |
 | 1.12.0 | 2026-11-13 | **A human gate names who decides, never who types.** Every `gate:` label carries a `## Human step` record naming the human role and either `Automation: #N` or `Not automatable — <mechanism>`. `impl:human` is transitional and malformed alone. PDR-011 Amendment 2026-11-13 |
 | 1.11.0 | 2026-11-10 | **Design-reference backstops.** R14 warns on ready private design links without same-line repo paths; R15 warns on design references or visual outcomes without a concrete standalone `Render:` command. Both lint copies ship together with firing/clearing fixtures (issue #160, lane C1) |
 | 1.10.0 | 2026-11-10 | **Rendered UI work names an accessible design reference and render path.** A private canvas held composition while lane issues named only components; component swaps passed without matching the design. The canonical schema now requires repo sources and images (or a named deciding rule), composition, and a credential-free `Render:` command (issue #160, lane A) |
@@ -246,6 +247,7 @@ GitHub cannot restrict who creates an issue through the UI or the API, so enforc
      | `risk:uncovered` with no coverage record | missing record — the surface has no expiry condition |
      | Says ready and cites a private design link with no repo path on the same line | reference-unreachable (R14, WARN); mirror and repoint before pickup |
      | Has `## Design reference` or screenshot/visual-comparison outcomes, but no concrete standalone `Render:` command | render-unrunnable (R15, WARN); name the credential-free render command |
+     | Carries a `gate:` label with no `## Human step` record, `impl:human` with no gate, or a record with no form/mechanism | human-step-missing (R17, WARN); name the human role and exactly one of `Automation: #N` or `Not automatable — <mechanism>` |
 
    The last two are the ones worth wiring first: they catch the two ways the taxonomy quietly
    stops meaning anything.
