@@ -6,13 +6,13 @@ description: >
   handling, uncovered code, dropping migrations — then classifies open issues into PDR-011
   `risk:` facts with one-sentence reasons, a coverage record wherever `risk:uncovered` is
   proposed, the under-structure marker where the issue is under-specified, and a `gate:`
-  label where completion needs a human. Still proposes an `impl:` tier and kind for the
-  transition. Surfaces the disputed risk calls for a human, applies the labels and `## Risk`
-  lines, and writes the repo's calibration set to docs/agent-routing-records.md. Every
-  escalation is decomposed before it is tiered — a split proposal or a non-splittability
-  statement is required, not suggested.
-version: 1.10.1
-updated: 2026-11-10
+  label plus its `## Human step` record where a human owns the decision. Still proposes an
+  `impl:` tier and kind for the transition. Surfaces the disputed risk calls for a human,
+  applies the labels and `## Risk` / `## Human step` lines, and writes the repo's calibration
+  set to docs/agent-routing-records.md. Every escalation is decomposed before it is tiered —
+  a split proposal or a non-splittability statement is required, not suggested.
+version: 1.11.1
+updated: 2026-11-13
 triggers:
   - /routing-triage
   - /routing-triage refresh
@@ -347,7 +347,7 @@ gh label create "risk:uncovered"      --color C2E0C6 --description "No existing 
 
 gh label create "impl:standard" --color 0E8A16 --description "Any capable coding model can implement from the issue as written"
 gh label create "impl:frontier" --color D93F0B --description "Frontier model may implement autonomously; non-frontier should not"
-gh label create "impl:human"    --color B60205 --description "Needs a human in the loop regardless of model capability"
+gh label create "impl:human"    --color B60205 --description "Transitional; decomposes into a class plus gate: labels plus a ## Human step record"
 ```
 
 **If Step 0 found an isolation, tenancy, or credential surface, create the `gate:` family too**
@@ -355,9 +355,9 @@ gh label create "impl:human"    --color B60205 --description "Needs a human in t
 arrives in the first pass, not eventually:
 
 ```bash
-gh label create "gate:human-approval" --color 5319E7 --description "Remaining work has a step outside the merge path"
+gh label create "gate:human-approval" --color 5319E7 --description "A human authorizes a step outside the merge path; the agent executes it"
 gh label create "gate:human-review"   --color 5319E7 --description "Judgment call no test settles"
-gh label create "gate:credentials"    --color 5319E7 --description "Agent structurally cannot hold the keys"
+gh label create "gate:credentials"    --color 5319E7 --description "Action is bound to a natural person's identity; a grantable service identity is an automation"
 gh label create "gate:decision"       --color 5319E7 --description "Deliverable writes or changes an ADR/PDR, or a new layer an ADR must sanction"
 ```
 
@@ -371,9 +371,11 @@ inherited them from an earlier run masks the gap for the next repo that does not
   `implements-existing` / `none` → nothing. A body that merely leaves a question open is not
   a decision gate.
 - **`human_step` decides `gate:human-approval`.** Add it only when the *remaining* work has a
-  step outside the merge path: prod configuration set by hand, a live test against prod, a
-  per-environment switch flipped outside the merge, deleting prod data or relaxing a safety
-  invariant, a grant the owner issues. An automatic deploy on merge takes no gate.
+  step outside the merge path: prod configuration, a live test against prod, a per-environment
+  switch flipped outside the merge, deleting prod data or relaxing a safety invariant, a grant
+  the owner issues. An automatic deploy on merge takes no gate. The kinds describe **where the
+  checkpoint sits**, not who types the step; a repeatable step the agent can script is an
+  automation, not a human gate.
 - **Never remove a person-set `gate:` label.** Rules 1 and 2 govern additions; if one says a
   gate does not apply but a person set it, leave the label and take the issue to the human.
 - **Lower only via 3a, 3b or Rule 4, and never on a disputed call.** A row marked `Disputed`
@@ -385,9 +387,24 @@ inherited them from an earlier run masks the gap for the next repo that does not
   stays.
 
 Then, per issue: apply the `risk:` labels and the `gate:` labels, append the `## Risk`
-section, and append the tier line to the body. The labels route; the lines explain. An issue
-with a label and no line is malformed — the next agent sees a constraint with no reason and
-cannot tell whether it still applies.
+section, append a `## Human step` line for every gate, and append the tier line to the body.
+The labels route; the lines explain. An issue with a label and no line is malformed — the next
+agent sees a constraint with no reason and cannot tell whether it still applies.
+
+**Every applied `gate:` gets a `## Human step` line.** Name the role the human holds —
+decides, signs, approves, holds the identity — and exactly one of:
+
+- `Automation: #N` — a linked issue that scripts or codifies the repeatable step; or
+- `Not automatable — <mechanism>` — a legal signature, an identity bound to a natural person
+  (MFA/passkey/personal login), a judgment no test settles, or a named org policy not to
+  delegate.
+
+The test is *can a deterministic procedure be written that produces the same result every
+time?* If yes, the step is automatable, whatever the current tooling. `Not automatable` is the
+flattering call and carries the same burden as `Coverage: not testable` — name the mechanism.
+A gate with no record is malformed; a record with no mechanism is malformed too. **A gate
+names who decides, never who types**: if the line would read "a human must do this", the work
+is an automation gap, and the `Automation: #N` issue is the record.
 
 **Never write a tier line into a `rolling-report` issue.** It is not work — the workflow
 that owns it rewrites the body on its next run, removing the line while leaving the labels
@@ -399,6 +416,11 @@ batch, drop it before executing.
 - risk:boundary — the scope predicate decides which tenant's rows come back.
 - risk:uncovered — no test exercises a cross-tenant read.
   Coverage gap: #NNN — cross-tenant read scoping is unverified at any level.
+
+## Human step
+- gate:human-approval — the owner authorizes the prod rollout after the dry run.
+  Automation: #NNN — the per-env switch is set by `scripts/release/promote.sh`; this
+  gate drops to an approval on that command once it lands.
 
 ## Impl tier
 frontier (inherent) — touches the [boundary]; a wrong scope returns plausible-looking
@@ -453,15 +475,21 @@ anything looks wrong. This is the observed failure mode from the first two runs,
 it was the scripting, not the policy.
 
 ```bash
-# batch.tsv — one line per issue, reviewed before anything executes
-# <issue>\t<risk-labels|->\t<gate-labels|->\t<risk block>\t<impl-label>\t<tier line>
-while IFS=$'\t' read -r n risks gates risk_block impl line; do
-  gh issue view "$n" --json body -q .body > /tmp/body-$n.md
-  printf '\n## Risk\n%s\n\n## Impl tier\n%s\n' "$risk_block" "$line" >> /tmp/body-$n.md
-  gh issue edit "$n" --add-label "$impl" --body-file /tmp/body-$n.md
-  [ "$risks" != "-" ] && gh issue edit "$n" --add-label "$risks"
-  [ "$gates" != "-" ] && gh issue edit "$n" --add-label "$gates"
-done < batch.tsv
+# batch.jsonl — one JSON object per issue on one physical line, reviewed before anything executes:
+# {"number":1234,
+#  "labels":["risk:boundary","gate:human-approval","impl:frontier"],
+#  "additions":"\n## Risk\n- risk:boundary — ...\n\n## Human step\n- gate:human-approval — the owner authorizes ...\n  Automation: #1250 — ...\n\n## Impl tier\nfrontier (inherent) — ..."}
+# `additions` carries the exact sections in body order. Omit `## Human step` only when the
+# issue has no gate labels. `jq -r` decodes the \n escapes — do not paste raw newlines into
+# the line, and do not use a TSV column for a multi-line section.
+while IFS= read -r row; do
+  n=$(jq -r '.number' <<<"$row")
+  gh issue view "$n" --json body -q .body > "/tmp/body-$n.md"
+  jq -r '.additions' <<<"$row" >> "/tmp/body-$n.md"
+  gh issue edit "$n" --body-file "/tmp/body-$n.md"
+  labels=$(jq -r '.labels | join(",")' <<<"$row")
+  [ -n "$labels" ] && gh issue edit "$n" --add-label "$labels"
+done < batch.jsonl
 ```
 
 Read the current body first and append, never overwrite. If the repo has an issue-body schema,

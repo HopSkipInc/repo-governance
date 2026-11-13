@@ -256,9 +256,18 @@ test('classifier pins: five lowering fields plus the Disputed marker', () => {
 });
 
 test('triage skill Step 3 applies the rules and writes the remaining-scope section', () => {
-  assert.match(SKILL, /^version: 1\.10\.1$/m);
+  assert.match(SKILL, /^version: 1\.11\.1$/m);
   assert.match(SKILL, /`decision_shape` decides `gate:decision`/);
   assert.match(SKILL, /`human_step` decides `gate:human-approval`/);
+  assert.match(SKILL, /Every applied `gate:` gets a `## Human step` line/);
+  assert.match(SKILL, /`Automation: #N`/);
+  assert.match(SKILL, /`Not automatable — <mechanism>`/);
+  assert.match(SKILL, /A gate\s+names who decides, never who types/);
+  assert.match(SKILL, /A gate with no record is malformed; a record with no mechanism is malformed too/);
+  // The executable batch procedure must carry the record too, not just the prose rule.
+  assert.match(SKILL, /batch\.jsonl/);
+  assert.match(SKILL, /jq -r '\.additions'/);
+  assert.match(SKILL, /raw newlines/);
   assert.match(SKILL, /Never remove a person-set `gate:` label/);
   assert.match(SKILL, /Lower only via 3a, 3b or Rule 4, and never on a disputed call/);
   assert.match(SKILL, /## Remaining scope \(YYYY-MM-DD\)/);
