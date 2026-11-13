@@ -23,6 +23,9 @@ const CLASSIFIER = read('templates/agents/routing-classifier.md');
 const CLASSIFIER_OPENCODE = read('templates/agents/routing-classifier.opencode.md');
 const SKILL = read('templates/skills/routing-triage/SKILL.md');
 const PDR = read('docs/pdr/011-route-on-risk-labels-guide-interactive-model-choice-never-gate-it.md');
+const PDR_012 = read('docs/pdr/012-solo-mode-runs-with-approvals-off-and-standing-grants-on.md');
+const RECORDS_FORM = read('templates/agent-routing-records.md');
+const RECORDS_LOCAL = read('docs/agent-routing-records.md');
 
 test('PDR-011 amendment: dated, Last confirmed bumped, rules 1-4 recorded', () => {
   assert.match(PDR, /## Amendment \(2026-11-08\)/);
@@ -55,6 +58,49 @@ test('PDR-011 amendment 2026-11-13: a human step names its automation', () => {
   assert.match(PDR, /Revisit by 2027-05-13/);
 });
 
+test('PDR-012: solo posture is recorded, and the hard core stays gated', () => {
+  assert.match(PDR_012, /## Decision/);
+  assert.match(PDR_012, /approval posture is a recorded state/i);
+  assert.match(PDR_012, /hard core stays gated/i);
+  assert.match(PDR_012, /irreversible production data deletion, drop, or rename/);
+  assert.match(PDR_012, /money movement, external contracts, and legal commitments/);
+  assert.match(PDR_012, /credential the org deliberately does not delegate/);
+  assert.match(PDR_012, /Revisit by 2027-05-13/);
+  assert.match(PDR_012, /absent approval in `solo` is expected, not a defect/);
+  assert.match(PDR_012, /approval must precede the gated action/);
+  assert.match(PDR_012, /`n\/a — <reason>`, not omitted/);
+});
+
+test('policy: approval posture is a local records value, not a synced flag', () => {
+  const section = POLICY.split('### Approval posture\n')[1]?.split('**Rules 1 and 2 govern additions.**')[0];
+  assert.ok(section, 'policy has no Approval posture section');
+  assert.match(section, /`docs\/agent-routing-records\.md`/);
+  assert.match(section, /never syncs/);
+  assert.match(section, /environment required reviewers are off/);
+  assert.match(section, /hard core stays gated/);
+  assert.match(section, /not a defect/);
+  assert.match(section, /posture change, not a fix/);
+  assert.match(section, /approval precedes the action/);
+  assert.match(section, /`n\/a — <reason>`, not omitted/);
+  // The blank form and the local record carry the value.
+  assert.match(RECORDS_FORM, /## 9\. Approval posture/);
+  assert.match(RECORDS_FORM, /\*\*Posture:\*\* `solo` \| `reviewed`/);
+  assert.match(RECORDS_FORM, /`gate:decision`\s+generally/);
+  assert.match(RECORDS_FORM, /`n\/a — <reason>`, not omitted/);
+  assert.match(RECORDS_LOCAL, /## 9\. Approval posture/);
+  assert.match(RECORDS_LOCAL, /\*\*Posture:\*\* `solo`/);
+  assert.match(RECORDS_LOCAL, /PDR-012/);
+  assert.match(RECORDS_LOCAL, /Re-enable when:/);
+  assert.match(RECORDS_LOCAL, /Hard core/);
+  assert.match(RECORDS_LOCAL, /Standing grants/);
+  assert.match(RECORDS_LOCAL, /Substitute controls/);
+  assert.match(RECORDS_LOCAL, /`n\/a — this repo has no environment/);
+  // The agent instruction points at the record; it does not copy the value.
+  const agents = read('AGENTS.md');
+  assert.match(agents, /docs\/agent-routing-records\.md` §9/);
+  assert.match(agents, /do not restore it \(PDR-012\)/);
+});
+
 test('policy: gate:decision excludes an open question and names status:needs-decision', () => {
   const row = POLICY.split('\n').find((l) => l.startsWith('| `gate:decision` |'));
   assert.ok(row, 'policy has no gate:decision row');
@@ -81,6 +127,7 @@ test('policy: gate:human-approval names all five outside-merge-path step kinds',
   // 1.26.0: the approval stays human; execution goes to the agent.
   assert.match(row, /A human \*\*authorizes\*\* a step outside the merge path; the agent executes it/);
   assert.match(row, /A human re-typing the step does not satisfy the gate/);
+  assert.match(row, /Read the repo's §Approval posture first/);
 });
 
 test('policy: a gate carries a ## Human step record that names its automation', () => {
@@ -129,8 +176,8 @@ test('policy: the sanctioned lowerings and dispute default sit beside Downgrades
 });
 
 test('policy: version stamps agree and the mothership copy is byte-identical', () => {
-  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.26\.0 · updated 2026-11-13 -->/);
-  assert.match(POLICY, /\*\*Version:\*\* 1\.26\.0/);
+  assert.match(POLICY, /<!-- template: agent-routing\.md v1\.27\.0 · updated 2026-11-13 -->/);
+  assert.match(POLICY, /\*\*Version:\*\* 1\.27\.0/);
   assert.equal(
     read('docs/agent-routing.md'),
     POLICY,

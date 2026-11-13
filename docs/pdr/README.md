@@ -19,6 +19,7 @@ Every file in this directory must appear in the table below. `lint:adr-readme-sy
 | [009](009-two-adoption-depths.md) | Two adoption depths — `full` and `core` | Accepted | 2026-08-03 |
 | [010](010-estimation-calibrates-on-observed-deliveries.md) | Estimation calibrates on observed deliveries, measured in tokens | Accepted | 2026-08-17 |
 | [011](011-route-on-risk-labels-guide-interactive-model-choice-never-gate-it.md) | Route on risk labels; guide interactive model choice, never gate it | Accepted | 2026-11-13 |
+| [012](012-solo-mode-runs-with-approvals-off-and-standing-grants-on.md) | Solo mode runs with approvals off and standing grants on | Accepted | 2026-11-13 |
 
 ## Notes on this corpus
 
