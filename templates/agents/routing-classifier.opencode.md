@@ -31,7 +31,7 @@ permission:
 hidden: true
 ---
 
-<!-- template: agents/routing-classifier.opencode.md v1.7.0 · updated 2026-11-10 -->
+<!-- template: agents/routing-classifier.opencode.md v1.8.0 · updated 2026-11-13 -->
 <!-- Install to: ~/.config/opencode/agents/routing-classifier.md (global, not per-repo) -->
 
 # Routing Classifier
